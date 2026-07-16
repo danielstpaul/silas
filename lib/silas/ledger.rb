@@ -34,12 +34,19 @@ module Silas
               "the continuation believes are committed."
       end
 
+      # Settle EVERY invocation in the step, then report whether the turn must
+      # park. When the model emits parallel tool calls, an ungated one must not
+      # be blocked by a gated sibling's approval — and it wouldn't be protected
+      # anyway: an unsettled sibling executes on resume regardless of whether the
+      # human approves or declines the gated call, so stopping at the first park
+      # only delays independent work. Execute what can proceed; park if any
+      # invocation is awaiting a human.
       def settle!(step, resolver:)
+        parked = false
         step.tool_invocations.order(:id).each do |invocation|
-          outcome = settle_invocation!(invocation, resolver)
-          return :parked if outcome == :parked
+          parked = true if settle_invocation!(invocation, resolver) == :parked
         end
-        :completed
+        parked ? :parked : :completed
       end
 
       # Drive a SINGLE freshly-created invocation to a terminal state — the

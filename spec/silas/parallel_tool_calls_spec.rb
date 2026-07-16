@@ -53,6 +53,47 @@ RSpec.describe "parallel tool calls" do
     expect(turn.status).to eq("completed")
   end
 
+  it "runs an ungated invocation and parks a gated sibling in the same step" do
+    # Gated call is ordered FIRST — the old settle! bailed on it and left the
+    # ungated sibling stranded. Both must be handled: ungated runs, gated parks.
+    engine = FakeEngine.new do |context|
+      if context[:index].zero?
+        EngineScripts.result(
+          blocks: [ { "type" => "text", "text" => "acting" } ],
+          tool_calls: [ EngineScripts.tool_call("g", "gated", x: 1),
+                        EngineScripts.tool_call("u", "ungated", y: 2) ]
+        )
+      else
+        EngineScripts.result(blocks: [ { "type" => "text", "text" => "done" } ])
+      end
+    end
+    gated = recording_tool(approval: :always)
+    ungated = recording_tool(approval: :never)
+    tools = { "gated" => gated, "ungated" => ungated }
+    Silas.configure do |c|
+      c.engine = engine
+      c.isolate_steps = false
+      c.tool_resolver = ->(name) { tools.fetch(name) }
+    end
+
+    Silas::AgentLoopJob.perform_now(turn.id)
+
+    turn.reload
+    expect(turn.status).to eq("waiting")
+    expect(ungated.executions.size).to eq(1)            # ran despite the gated sibling parking
+    gated_inv = turn.tool_invocations.find_by(tool_name: "gated")
+    expect(gated_inv.approval_state).to eq("required")
+    expect(gated.executions).to be_empty
+
+    gated_inv.update!(approval_state: "approved")
+    turn.update!(status: "queued")
+    Silas::AgentLoopJob.perform_now(turn.id)
+
+    expect(turn.reload.status).to eq("completed")
+    expect(gated.executions.size).to eq(1)              # executed once, after approval
+    expect(ungated.executions.size).to eq(1)            # not re-run on resume
+  end
+
   it "replays a transcript where every tool_result has a matching tool_use" do
     engine = FakeEngine.new(&two_parallel_then_done)
     tool = recording_tool

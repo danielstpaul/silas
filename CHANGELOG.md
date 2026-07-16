@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.3
+
+- **Ledger: parallel graded gates.** When the model emits several tool calls in
+  one step, `settle!` now settles every invocation instead of stopping at the
+  first one that needs approval. An ungated call (e.g. a low-risk write) runs
+  immediately even when a gated sibling (e.g. a money move) parks for a human —
+  it is no longer stranded behind the approval. This changes only *timing*, not
+  safety: an unsettled sibling already executed on resume regardless of the
+  human's approve/decline, so stopping early only delayed independent work.
+  Regression test in `spec/silas/parallel_tool_calls_spec.rb`.
+
 ## 0.1.2
 
 - **Security (email channel scaffold): approvals no longer go to the session
