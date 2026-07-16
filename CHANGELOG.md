@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.2
+
+- **Security (email channel scaffold): approvals no longer go to the session
+  initiator.** The generated `Agent::Channels::Email#deliver_approval` mailed the
+  approve link to `email["from"]` — the address that started the session, which
+  for a support agent is the customer, letting them approve their own gated
+  request. It now routes to a configured operator (`SILAS_APPROVER_EMAIL`) and
+  fails closed (sends nothing) if unset. The Slack scaffold was unaffected (its
+  card posts to the team channel/thread, not the initiator).
+
 ## 0.1.1
 
 - **Fix: parallel tool calls.** When the model emitted several tool_use blocks

@@ -10,9 +10,20 @@ class Agent::Channels::Email < Silas::Channel
   end
 
   def deliver_approval(session:, invocation:)
-    email = session.metadata["email"] || {}
+    # SECURITY: an approval must go to an OPERATOR, never to whoever started the
+    # session. For an email-driven agent, session.metadata["email"]["from"] is
+    # the person who emailed in — often the customer — so mailing THEM the
+    # approve link lets them approve their own request. Route approvals to your
+    # ops/approver inbox instead, and fail closed if it isn't configured.
+    approver = ENV["SILAS_APPROVER_EMAIL"] # e.g. "approvals@yourcompany.com"
+    if approver.blank?
+      Rails.logger.warn("[Silas] SILAS_APPROVER_EMAIL unset — approval for " \
+                        "invocation #{invocation.id} not emailed (won't send to the sender).")
+      return
+    end
+
     Silas::ChannelMailer.approval(
-      to: email["from"], subject: "Approval needed: #{invocation.tool_name}", invocation: invocation
+      to: approver, subject: "Approval needed: #{invocation.tool_name}", invocation: invocation
     ).deliver_later
   end
 end
