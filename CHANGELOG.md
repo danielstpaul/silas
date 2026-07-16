@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.1.4
+
+- **Fresh-app quickstart actually works.** A from-scratch install previously
+  failed at its own post-install steps: the generated default model
+  ("claude-sonnet-5") wasn't in ruby_llm 1.16's bundled registry, and no
+  provider-key initializer was generated, so the first turn raised. The
+  generator now emits `config/initializers/ruby_llm.rb` (maps
+  `ANTHROPIC_API_KEY`), defaults to the registry-known `claude-opus-4-8`, and a
+  missing model raises an actionable error suggesting
+  `RubyLLM.models.refresh!`.
+- **`silas:schedules` no longer crashes on the generator's own template.** The
+  example schedule's ERB comment rendered a leading blank line the frontmatter
+  parser rejected; template fixed and the parser now tolerates leading
+  whitespace.
+- **`bin/ci` is never clobbered.** Rails 8.1 ships a real bin/ci; the installer
+  now leaves an existing one untouched and tells you to add
+  `bin/rails silas:eval` to it.
+- **Correct Opus 4.8 pricing.** Default `model_prices` had Opus 4.8 at $15/$75
+  per MTok; it is $5/$25. Added Sonnet 4.6 and the `claude-haiku-4-5` alias.
+- **ruby_llm dependency bounded `< 2`** (2.0 removes APIs the engine relies on).
+- **`bin/rails silas:chat` — a terminal REPL for your agent.** The dev-loop a
+  hosted platform gives you from its CLI, except there is no platform: it runs
+  inside your app, tools hit your real dev database, and parked approvals prompt
+  inline (`approve? [y]es / [d]ecline / [s]kip`) calling the same
+  `approve!`/`decline!` as the inbox and Slack. `SESSION=id` resumes a session;
+  a new message while a turn is parked steers you to the pending approvals. The
+  task forces the synchronous `:inline` adapter for its own process (a REPL
+  wants each turn settled before the next prompt; production still runs Solid
+  Queue).
+
 ## 0.1.3
 
 - **Ledger: parallel graded gates.** When the model emits several tool calls in

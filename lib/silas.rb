@@ -41,6 +41,7 @@ require "silas/instructions"
 require "silas/step_runner"
 require "silas/subprocess_runner"
 require "silas/eval" # after engines (ScriptedEngine < Engines::Base)
+require "silas/chat"
 
 module Silas
   class << self

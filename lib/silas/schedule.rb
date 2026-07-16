@@ -38,7 +38,9 @@ module Silas
 
     def self.from_markdown(name, path)
       content = File.read(path)
-      if content =~ /\A---\s*\n(.*?)\n---\s*\n(.*)\z/m
+      # Tolerate leading whitespace/blank lines (e.g. an ERB comment in a
+      # generator template renders to an empty first line).
+      if content.sub(/\A\s+/, "") =~ /\A---\s*\n(.*?)\n---\s*\n(.*)\z/m
         frontmatter = YAML.safe_load(Regexp.last_match(1)) || {}
         body = Regexp.last_match(2)
       else

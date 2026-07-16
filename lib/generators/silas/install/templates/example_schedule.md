@@ -1,5 +1,5 @@
-<%# Task-mode schedule: this markdown body becomes the turn input on each tick. %>
 ---
+# Task-mode schedule: this markdown body becomes the turn input on each tick.
 cron: "0 9 * * *"
 # queue: default
 ---

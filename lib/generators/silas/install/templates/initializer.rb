@@ -3,7 +3,10 @@ Silas.configure do |config|
   # :agent_sdk (a `claude -p` subprocess; API-key auth only). See silas/README.
   config.engine = :ruby_llm
 
-  config.default_model = "claude-sonnet-5"
+  # Any model your installed ruby_llm's registry resolves (newer Claude models
+  # may need `RubyLLM.models.refresh!` first). Alternatives: "claude-sonnet-5"
+  # (balanced), "claude-haiku-4-5" (fastest/cheapest).
+  config.default_model = "claude-opus-4-8"
 
   # Parked approvals expire after this long (the turn fails as approval_expired).
   # config.approval_ttl = 7.days

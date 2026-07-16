@@ -64,7 +64,9 @@ module Silas
     def initialize
       @engine = :ruby_llm
       @auth = :api_key
-      @default_model = "claude-sonnet-5"
+      # Must be resolvable by the installed ruby_llm's model registry — newer
+      # Claude models may need `RubyLLM.models.refresh!` before they resolve.
+      @default_model = "claude-opus-4-8"
       @queue_name = :default
       @around_model_call = nil
       @approval_ttl = 7.days
@@ -102,10 +104,12 @@ module Silas
       @inbox_public_read = false
       @inbox_actor = ->(controller) { controller.try(:current_user)&.try(:email) || "inbox" }
       # Current Claude rates as cost-units per 1k tokens (1e6 units = $1):
-      # Sonnet $3/$15, Opus $15/$75, Haiku $1/$5 per million tokens.
+      # Opus 4.8 $5/$25, Sonnet $3/$15, Haiku $1/$5 per million tokens.
       @model_prices = {
+        "claude-opus-4-8" => { in: 5000, out: 25_000 },
         "claude-sonnet-5" => { in: 3000, out: 15_000 },
-        "claude-opus-4-8" => { in: 15_000, out: 75_000 },
+        "claude-sonnet-4-6" => { in: 3000, out: 15_000 },
+        "claude-haiku-4-5" => { in: 1000, out: 5000 },
         "claude-haiku-4-5-20251001" => { in: 1000, out: 5000 }
       }
     end

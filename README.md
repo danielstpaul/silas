@@ -53,6 +53,23 @@ session.pending_approvals.first.approve!(by: "daniel")
 session.continue(input: "Now email the customer.")
 ```
 
+Or talk to it from the terminal — the REPL runs *inside your app*, so tools hit
+your real dev database, and parked approvals prompt inline (the same
+`approve!`/`decline!` as the inbox and Slack):
+
+```
+$ bin/rails silas:chat
+you> Refund order 42, £12.50
+  ✓ lookup_order(order_id: 42)
+  ⏸ issue_refund(order_id: 42, amount: 1250) — awaiting approval
+
+approval needed — issue_refund(order_id: 42, amount: 1250)
+approve? [y]es / [d]ecline / [s]kip> y
+agent> Done — £12.50 refunded on order 42.
+```
+
+`SESSION=id` resumes an existing session.
+
 ## The durability contract (what's actually guaranteed)
 
 Verified by `chaos_host/bin/chaos` — the harness that kill -9s a live agent

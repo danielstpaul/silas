@@ -26,7 +26,14 @@ module Silas
       private
 
       def build_chat(context, &on_event)
-        chat = ::RubyLLM.chat(model: context[:model])
+        chat = begin
+          ::RubyLLM.chat(model: context[:model])
+        rescue ::RubyLLM::ModelNotFoundError
+          raise Silas::Error,
+                "Model #{context[:model].inspect} is not in ruby_llm's model registry. " \
+                "Newer models may need a registry refresh (`RubyLLM.models.refresh!`), " \
+                "or pick a registry-known model in config.default_model / agent.yml."
+        end
         chat.with_instructions(context[:system]) if context[:system].present?
         context[:tools].each { |definition| chat.with_tool(HaltProxy.new(definition)) }
 

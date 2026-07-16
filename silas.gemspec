@@ -26,7 +26,7 @@ Gem::Specification.new do |spec|
   spec.files = Dir["lib/**/*", "app/**/*", "config/**/*", "db/migrate/*", "LICENSE", "README.md", "CHANGELOG.md"]
 
   spec.add_dependency "rails", ">= 8.1"     # Active Job Continuations
-  spec.add_dependency "ruby_llm", ">= 1.0"  # the :ruby_llm engine + Tool param DSL
+  spec.add_dependency "ruby_llm", ">= 1.0", "< 2"  # the :ruby_llm engine + Tool param DSL (2.0 removes APIs we rely on)
 
   spec.add_development_dependency "rspec-rails", "~> 7.0"
   spec.add_development_dependency "sqlite3"
