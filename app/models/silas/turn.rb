@@ -24,6 +24,57 @@ module Silas
       update!(status: new_status.to_s, failure_reason: reason, finished_at: Time.current)
     end
 
+    def canceled? = status == "canceled"
+
+    # Cancel a turn. A PARKED or QUEUED turn (no live execution) settles to
+    # canceled immediately, expiring its pending approvals so a later approve!
+    # can't zombie-resume it. A RUNNING turn is flagged; the loop honors the
+    # flag at the next step boundary — the in-flight model call completes and
+    # its step commits (aborting mid-step would forfeit paid work and create
+    # an in-doubt tool window for nothing).
+    def cancel!(reason: "canceled")
+      raise Error, "turn #{id} is already terminal (#{status})" unless active?
+
+      if running?
+        update!(cancel_requested_at: Time.current)
+        :cancel_requested
+      else
+        expire_pending_approvals!(reason)
+        finish!(:canceled, reason: reason)
+        :canceled
+      end
+    end
+
+    def expire_pending_approvals!(reason)
+      tool_invocations.where(approval_state: "required").find_each do |inv|
+        inv.update!(approval_state: "expired", status: "failed",
+                    result: { "denied" => reason })
+      end
+    end
+
+    # Parked by a budget cap (failure_reason doubles as the park reason while
+    # the turn is waiting; it is cleared on resume).
+    def budget_parked?
+      waiting? && Budget::REASONS.include?(failure_reason)
+    end
+
+    # Human top-up for a budget-parked turn: record the raised limit(s) and
+    # resume with a fresh job — completed steps replay from rows, no model
+    # re-calls, no re-effects (the same resume path approvals use).
+    #   turn.raise_budget!(max_cost: 1.50)          # dollars
+    #   turn.raise_budget!(max_input_tokens: 200_000, timeout: 3600)
+    def raise_budget!(max_cost: nil, max_input_tokens: nil, timeout: nil)
+      raise Error, "turn #{id} is not budget-parked (#{status}/#{failure_reason})" unless budget_parked?
+
+      raises = { "max_cost" => max_cost, "max_input_tokens" => max_input_tokens,
+                 "timeout" => timeout }.compact
+      raise ArgumentError, "pass at least one limit to raise" if raises.empty?
+
+      update!(budget_overrides: (budget_overrides || {}).merge(raises),
+              failure_reason: nil, status: "queued")
+      AgentLoopJob.perform_later(id)
+    end
+
     # The agent's answer for this turn: the last completed step's text blocks.
     def answer_text
       step = steps.where(status: "completed").order(:index).last

@@ -69,6 +69,7 @@ module Silas
     end
 
     def resume_turn!
+      return if turn.reload.canceled? # a canceled turn never zombie-resumes
       return if turn.tool_invocations.where(approval_state: "required").exists?
 
       turn.update!(status: "queued")

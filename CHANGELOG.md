@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.1.5
+
+- **Turn cancellation.** `turn.cancel!` — a parked or queued turn settles to
+  `canceled` immediately (pending approvals expire, so a late `approve!` can
+  never zombie-resume it); a running turn is flagged and honored at the next
+  step boundary, keeping the in-flight step's paid work. Engine-owned
+  (`:agent_sdk`) turns cancel only before the subprocess starts (v1). New
+  migration adds `silas_turns.cancel_requested_at`.
+- **Resumable budget parks.** A turn that hits `max_cost` / `max_input_tokens` /
+  `timeout` now PARKS at zero compute (state intact) instead of failing
+  terminally. A human resumes it with `turn.raise_budget!(max_cost: 1.50)` —
+  the top-up is recorded as a per-turn override and a fresh job replays
+  completed steps from rows (no model re-calls, no re-effects), continuing
+  where it left off. `bin/rails silas:chat` prompts for the top-up inline.
+  New migration adds `silas_turns.budget_overrides` (run
+  `bin/rails silas:install:migrations db:migrate` on upgrade). Notes: the
+  timeout clock includes time spent parked — size a timeout top-up from
+  elapsed wall-clock; budget parks have no TTL yet (visible in the inbox as
+  waiting); an inbox top-up card is planned.
+
 ## 0.1.4
 
 - **Fresh-app quickstart actually works.** A from-scratch install previously

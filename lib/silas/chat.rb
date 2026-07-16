@@ -73,6 +73,7 @@ module Silas
 
       if turn.parked?
         settle_parked
+        settle_budget_park(turn.reload)
         turn.reload
       end
 
@@ -80,15 +81,38 @@ module Silas
     end
 
     def print_outcome(turn)
-      case turn.reload.status
+      turn.reload
+      case turn.status
       when "completed"
         @out.puts "agent> #{turn.answer_text}"
       when "waiting", "in_doubt"
-        @out.puts "(parked — #{pending_for(turn.session).count} approval(s) still pending; " \
-                  "they also render in /silas/inbox)"
+        if turn.budget_parked?
+          @out.puts "(parked: #{turn.failure_reason} budget reached — resume with " \
+                    "turn.raise_budget! or from a fresh silas:chat)"
+        else
+          @out.puts "(parked — #{pending_for(turn.session).count} approval(s) still pending; " \
+                    "they also render in /silas/inbox)"
+        end
       when "failed"
         @out.puts "(turn failed: #{turn.failure_reason})"
       end
+    end
+
+    # A budget-parked turn prompts for a top-up right in the terminal. The
+    # resume runs synchronously on the :inline adapter, so new work (and
+    # possibly another park) follows immediately.
+    def settle_budget_park(turn)
+      return unless turn.budget_parked?
+
+      reason = turn.failure_reason
+      @out.puts "\nbudget reached — #{reason}"
+      @out.print "raise #{reason} to (blank to leave parked)> "
+      value = @in.gets&.strip
+      return if value.blank?
+
+      numeric = reason == "max_cost" ? value.to_f : value.to_i
+      turn.raise_budget!(**{ reason.to_sym => numeric })
+      print_trace(turn.reload)
     end
 
     def print_trace(turn)

@@ -40,6 +40,16 @@ module Silas
 
       index = 0
       loop do
+        # Cancellation is honored at step boundaries only — the same safe point
+        # as budgets. (Mutable-state read between steps: benign, like the
+        # budget wall-clock check — a cancel landing later on resume is still
+        # a correct cancel.)
+        if turn.reload.cancel_requested_at
+          turn.expire_pending_approvals!("turn canceled")
+          turn.finish!(:canceled, reason: "canceled")
+          return
+        end
+
         step :"step_#{index}", isolated: isolate? do
           Ledger.assert_no_checkpoint!
           StepRunner.call(turn, index)
@@ -50,9 +60,12 @@ module Silas
         return if row.parked?
         break if row.terminal?
 
-        # Budget caps (cost/tokens/time) — checked between steps, never inside one.
+        # Budget caps (cost/tokens/time) — checked between steps, never inside
+        # one. A breach PARKS the turn (state intact, zero compute) rather than
+        # failing it: a human tops up with turn.raise_budget! and the fresh job
+        # replays completed steps from rows, resuming where it left off.
         if (reason = Budget.exceeded_reason(turn))
-          turn.finish!(:failed, reason: reason)
+          turn.update!(status: "waiting", failure_reason: reason)
           return
         end
 
@@ -77,6 +90,13 @@ module Silas
         turn.update!(status: "running", job_id: job_id, started_at: turn.started_at || Time.current)
         Instructions.snapshot!(turn)
         Step.find_or_create_by!(turn: turn, index: 0) # anchor step exists before the MCP thread needs it
+      end
+
+      # Cancellation for engine-owned turns is honored only BEFORE the
+      # subprocess starts — a running claude -p is not aborted mid-flight (v1).
+      if turn.reload.cancel_requested_at
+        turn.finish!(:canceled, reason: "canceled")
+        return
       end
 
       outcome = nil

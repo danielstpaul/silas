@@ -72,6 +72,28 @@ RSpec.describe Silas::Chat do
     expect(Silas::Turn.last.reload.status).to eq("completed")
   end
 
+  it "prompts a budget-parked turn for a top-up and resumes on entry" do
+    engine = FakeEngine.new do |context|
+      if context[:index] < 2
+        EngineScripts.result(blocks: [ { "type" => "text", "text" => "s#{context[:index]}" } ],
+                             tool_calls: [ EngineScripts.tool_call("t#{context[:index]}") ]).tap do |r|
+          r.usage[:input_tokens] = 5_000
+        end
+      else
+        EngineScripts.result(blocks: [ { "type" => "text", "text" => "done" } ])
+      end
+    end
+    allow(Silas).to receive(:agent).and_return(Silas::Agent.new("limits" => { "max_input_tokens" => 4_000 }))
+    configure!(engine, recording_tool)
+
+    # budget parks after step 0; user tops up to 100000 at the prompt
+    output = run_chat("go\n100000\nexit\n")
+
+    expect(output).to include("budget reached — max_input_tokens")
+    expect(output).to include("agent> done")
+    expect(Silas::Turn.last.reload.status).to eq("completed")
+  end
+
   it "declines with a reason and the model sees the denial" do
     configure!(FakeEngine.new(&EngineScripts.n_tool_steps_then_done(1)),
                tool = recording_tool(approval: :always))
