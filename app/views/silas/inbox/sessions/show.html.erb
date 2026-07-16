@@ -1,0 +1,20 @@
+<% content_for :title, "#{@session.agent_name} · Silas Inbox" %>
+
+<% if Silas::Inbox.streaming? %>
+  <%= turbo_stream_from Silas::Inbox.stream_name(@session.id) %>
+<% else %>
+  <meta http-equiv="refresh" content="4">
+<% end %>
+
+<div class="card">
+  <div class="row-top">
+    <span class="name"><%= @session.agent_name %></span>
+    <span class="muted">#<%= @session.id %></span>
+  </div>
+  <div class="muted"><%= @session.channel.presence || "direct" %> · started <%= relative_time(@session.created_at) %></div>
+  <div id="silas-session-<%= @session.id %>-cost"><%= render "silas/inbox/sessions/cost", session: @session %></div>
+</div>
+
+<div id="silas-turns">
+  <%= render partial: "silas/inbox/turns/turn", collection: @turns, as: :turn %>
+</div>

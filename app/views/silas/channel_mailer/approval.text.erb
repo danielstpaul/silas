@@ -1,0 +1,9 @@
+Your agent needs approval to run: <%= @invocation.tool_name %>
+
+Arguments:
+<%= JSON.pretty_generate(@invocation.arguments) %>
+
+Approve: <%= silas.approval_url(token: @approve_token) %>
+Decline: <%= silas.approval_url(token: @decline_token) %>
+
+These links expire; do not forward them.

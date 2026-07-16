@@ -1,0 +1,7 @@
+<div class="turn-head">
+  <span class="turn-input"><%= truncate(turn.input, length: 90) %></span>
+  <%= status_pill(turn.status) %>
+</div>
+<% if turn.failure_reason.present? %>
+  <div class="muted">failed: <%= turn.failure_reason %></div>
+<% end %>

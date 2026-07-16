@@ -1,0 +1,10 @@
+{"run":1,"store":"pg","mode":"supervisor","scenario":"default","completed":true,"transcript_identical":true,"duplicate_side_effects":0,"kill_at_ms":1235,"total_ms":4670,"rescuer_retries":1}
+{"run":2,"store":"pg","mode":"supervisor","scenario":"default","completed":true,"transcript_identical":true,"duplicate_side_effects":0,"kill_at_ms":1671,"total_ms":2608,"rescuer_retries":0}
+{"run":3,"store":"pg","mode":"supervisor","scenario":"default","completed":true,"transcript_identical":true,"duplicate_side_effects":0,"kill_at_ms":616,"total_ms":4110,"rescuer_retries":1}
+{"run":4,"store":"pg","mode":"supervisor","scenario":"default","completed":true,"transcript_identical":true,"duplicate_side_effects":0,"kill_at_ms":1322,"total_ms":2815,"rescuer_retries":0}
+{"run":5,"store":"pg","mode":"supervisor","scenario":"default","completed":true,"transcript_identical":true,"duplicate_side_effects":0,"kill_at_ms":1923,"total_ms":3023,"rescuer_retries":0}
+{"run":6,"store":"pg","mode":"supervisor","scenario":"default","completed":true,"transcript_identical":true,"duplicate_side_effects":0,"kill_at_ms":1574,"total_ms":5683,"rescuer_retries":1}
+{"run":7,"store":"pg","mode":"supervisor","scenario":"default","completed":true,"transcript_identical":true,"duplicate_side_effects":0,"kill_at_ms":145,"total_ms":5457,"rescuer_retries":1}
+{"run":8,"store":"pg","mode":"supervisor","scenario":"default","completed":true,"transcript_identical":true,"duplicate_side_effects":0,"kill_at_ms":403,"total_ms":5829,"rescuer_retries":1}
+{"run":9,"store":"pg","mode":"supervisor","scenario":"default","completed":true,"transcript_identical":true,"duplicate_side_effects":0,"kill_at_ms":1933,"total_ms":2813,"rescuer_retries":0}
+{"run":10,"store":"pg","mode":"supervisor","scenario":"default","completed":true,"transcript_identical":true,"duplicate_side_effects":0,"kill_at_ms":319,"total_ms":4997,"rescuer_retries":1}

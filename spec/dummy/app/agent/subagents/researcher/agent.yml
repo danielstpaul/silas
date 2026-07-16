@@ -1,0 +1,3 @@
+description: Researches a question and returns a concise summary.
+limits:
+  max_steps: 5

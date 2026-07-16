@@ -1,0 +1,9 @@
+# Data-only agent config. Model defaults to Silas.config.default_model.
+# model: claude-sonnet-5
+description: This application's agent.
+limits:
+  max_steps: 25          # model calls per turn
+  # max_input_tokens: 200000   # cumulative input tokens per turn
+  # max_cost: 1.00             # dollars per turn
+  # timeout: 300               # wall-clock seconds per turn
+

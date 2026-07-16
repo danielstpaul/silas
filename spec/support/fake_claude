@@ -1,0 +1,40 @@
+#!/usr/bin/env ruby
+# Hermetic stand-in for the Claude Code CLI: no network to Anthropic. It honors
+# --version, then drives the Silas MCP endpoint exactly as `claude -p` does
+# (initialize -> tools/list -> one tools/call) and emits the verified NDJSON
+# event shapes. This exercises the REAL raw-TCP MCP server end-to-end.
+require "json"
+require "net/http"
+require "uri"
+
+if ARGV.include?("--version")
+  puts "2.1.204 (Claude Code)"
+  exit 0
+end
+
+cfg = JSON.parse(ARGV[ARGV.index("--mcp-config") + 1])
+url = cfg.dig("mcpServers", "silas", "url")
+
+def rpc(url, method, params = {}, id = 1)
+  uri = URI(url)
+  http = Net::HTTP.new(uri.host, uri.port)
+  req = Net::HTTP::Post.new(uri.request_uri, "content-type" => "application/json")
+  req.body = JSON.generate("jsonrpc" => "2.0", "id" => id, "method" => method, "params" => params)
+  res = http.request(req)
+  res.body.to_s.empty? ? nil : JSON.parse(res.body)
+end
+
+rpc(url, "initialize", { "protocolVersion" => "2025-06-18" })
+rpc(url, "notifications/initialized")
+rpc(url, "tools/list")
+rpc(url, "tools/call", { "name" => "mcp__silas__echo_note", "arguments" => { "text" => "hello from silas" } }, 2)
+
+# NDJSON, one event per line (the shapes the StreamParser expects).
+puts JSON.generate("type" => "system", "subtype" => "init", "session_id" => "fake-sess-123", "model" => "fake")
+puts JSON.generate("type" => "assistant",
+                   "message" => { "content" => [ { "type" => "tool_use", "id" => "tu1", "name" => "echo_note", "input" => { "text" => "hello from silas" } } ] })
+puts JSON.generate("type" => "user",
+                   "message" => { "content" => [ { "type" => "tool_result", "tool_use_id" => "tu1" } ] })
+puts JSON.generate("type" => "assistant", "message" => { "content" => [ { "type" => "text", "text" => "done" } ] })
+puts JSON.generate("type" => "result", "subtype" => "success", "result" => "done",
+                   "num_turns" => 2, "total_cost_usd" => 0.001, "usage" => { "input_tokens" => 10, "output_tokens" => 5 })

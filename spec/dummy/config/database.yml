@@ -1,0 +1,14 @@
+<% if ENV["STORE"] == "pg" %>
+test:
+  adapter: postgresql
+  host: localhost
+  database: silas_gem_test
+  username: <%= ENV.fetch("PGUSER", ENV["USER"]) %>
+<% else %>
+# File-based (not :memory:) so pooled connections in thread-race specs all
+# see the same database.
+test:
+  adapter: sqlite3
+  database: tmp/silas_test.sqlite3
+  timeout: 5000
+<% end %>

@@ -1,0 +1,9 @@
+<% if @invocation&.awaiting_approval? %>
+  <h1>Approval needed: <%= @invocation.tool_name %></h1>
+  <pre><%= JSON.pretty_generate(@invocation.arguments) %></pre>
+  <%= form_with url: silas.approval_path(token: params[:token]), method: :post do %>
+    <button type="submit">Confirm <%= @action %></button>
+  <% end %>
+<% else %>
+  <h1>This approval is no longer pending.</h1>
+<% end %>

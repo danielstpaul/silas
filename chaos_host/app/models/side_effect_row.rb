@@ -1,0 +1,2 @@
+class SideEffectRow < ApplicationRecord
+end

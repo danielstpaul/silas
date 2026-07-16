@@ -1,0 +1,5 @@
+model: claude-haiku-4-5-20251001
+description: Nimbus Coffee Co. refund desk.
+limits:
+  max_steps: 6
+  max_cost: 0.50

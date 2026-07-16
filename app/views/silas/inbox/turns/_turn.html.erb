@@ -1,0 +1,8 @@
+<div class="turn" id="<%= dom_id(turn) %>">
+  <div id="silas-turn-<%= turn.id %>-header">
+    <%= render "silas/inbox/turns/header", turn: turn %>
+  </div>
+  <div id="silas-turn-<%= turn.id %>-steps">
+    <%= render partial: "silas/inbox/steps/step", collection: turn.steps, as: :step %>
+  </div>
+</div>

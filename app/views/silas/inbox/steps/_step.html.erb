@@ -1,0 +1,8 @@
+<div class="step" id="<%= dom_id(step) %>">
+  <% if (text = step_text(step)) %>
+    <div class="step-text"><%= simple_format(text) %></div>
+  <% end %>
+  <div id="silas-step-<%= step.id %>-tools">
+    <%= render partial: "silas/inbox/invocations/invocation", collection: step.tool_invocations, as: :invocation %>
+  </div>
+</div>

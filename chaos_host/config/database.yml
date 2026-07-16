@@ -1,0 +1,35 @@
+# STORE=pg switches the whole development env to local Postgres (set BEFORE boot).
+<% if ENV["STORE"] == "pg" %>
+pg_default: &pg_default
+  adapter: postgresql
+  host: localhost
+  username: <%= ENV.fetch("PGUSER", ENV["USER"]) %>
+  pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
+
+development:
+  primary:
+    <<: *pg_default
+    database: silas_chaos_development
+  queue:
+    <<: *pg_default
+    database: silas_chaos_queue_development
+    migrations_paths: db/queue_migrate
+<% else %>
+default: &default
+  adapter: sqlite3
+  max_connections: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
+  timeout: 5000
+
+development:
+  primary:
+    <<: *default
+    database: storage/development.sqlite3
+  queue:
+    <<: *default
+    database: storage/development_queue.sqlite3
+    migrations_paths: db/queue_migrate
+<% end %>
+
+test:
+  adapter: sqlite3
+  database: storage/test.sqlite3

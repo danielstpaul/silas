@@ -1,0 +1,63 @@
+module Silas
+  # Rebuilds the provider conversation deterministically from persisted rows —
+  # the rows ARE the transcript (no separate events table in v0.1). Replayed
+  # executions must produce byte-identical message arrays, so nothing here may
+  # read mutable state or the clock.
+  module MessageBuilder
+    module_function
+
+    # Canonical provider-agnostic shape; adapters map it to their wire format.
+    #   { role: "user", content: "..." }
+    #   { role: "assistant", content: [ {type:, ...blocks} ] }
+    #   { role: "tool", tool_call_id:, content: {...} }
+    # NOTE: always fresh queries, never cached associations — this runs inside
+    # a live loop where rows were created moments ago on the same objects, and
+    # a memoized empty `turn.steps` silently erases the model's own history.
+    def call(turn, upto_index:)
+      messages = []
+
+      Turn.where(session_id: turn.session_id).order(:index).each do |prior|
+        break if prior.index >= turn.index
+
+        messages << { role: "user", content: prior.input }
+        messages.concat(step_messages(prior, upto_index: nil))
+      end
+
+      messages << { role: "user", content: turn.input }
+      messages.concat(step_messages(turn, upto_index: upto_index))
+      messages
+    end
+
+    def step_messages(turn, upto_index:)
+      Step.where(turn_id: turn.id).order(:index).each_with_object([]) do |step, acc|
+        next unless step.completed?
+        next if upto_index && step.index >= upto_index
+
+        # The settled invocations are the ledger's source of truth for what the
+        # model actually invoked. Reconstruct the assistant's tool_use blocks
+        # from them (not from step.response_blocks, which can drift when the
+        # model emits parallel tool calls) so every tool_result replayed below
+        # has a matching tool_use by construction — the provider requires it.
+        settled = ToolInvocation.where(step_id: step.id).order(:id)
+                                .select { |inv| inv.status == "completed" || inv.status == "failed" }
+
+        acc << { role: "assistant", content: assistant_blocks(step, settled) }
+        settled.each do |inv|
+          acc << { role: "tool", tool_call_id: inv.tool_call_id, content: inv.result }
+        end
+      end
+    end
+
+    # Text comes from the model's own blocks; tool_use blocks are rebuilt from
+    # the settled invocations so the assistant message and the tool results that
+    # follow are always a matched set (same ids, same count).
+    def assistant_blocks(step, settled)
+      text = Array(step.response_blocks).select { |b| b["type"] == "text" }
+      tools = settled.map do |inv|
+        { "type" => "tool_call", "id" => inv.tool_call_id,
+          "name" => inv.tool_name, "arguments" => inv.arguments || {} }
+      end
+      text + tools
+    end
+  end
+end

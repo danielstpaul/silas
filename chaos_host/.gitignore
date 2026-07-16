@@ -1,0 +1,7 @@
+log/*
+tmp/*
+storage/*.sqlite3*
+!log/.keep
+!tmp/.keep
+config/master.key
+Gemfile.lock

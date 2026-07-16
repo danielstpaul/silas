@@ -1,0 +1,23 @@
+<% content_for :header_extra do %>
+  <% if @pending_total.positive? %><span class="badge"><%= @pending_total %> awaiting approval</span><% end %>
+<% end %>
+
+<% if @sessions.empty? %>
+  <div class="empty">No agent sessions yet.</div>
+<% else %>
+  <% @sessions.each do |session| %>
+    <%= link_to inbox_session_path(session), class: "card session-row" do %>
+      <div class="row-top">
+        <span class="name"><%= session.agent_name %></span>
+        <% if (turn = session.active_turn || session.turns.last) %><%= status_pill(turn.status) %><% end %>
+        <% pending = session.pending_approvals.count %>
+        <% if pending.positive? %><span class="badge"><%= pending %> to approve</span><% end %>
+      </div>
+      <div class="muted">
+        <%= pluralize(session.turns.count, "turn") %> ·
+        <%= session.channel.presence || "direct" %> ·
+        <%= relative_time(session.updated_at) %>
+      </div>
+    <% end %>
+  <% end %>
+<% end %>

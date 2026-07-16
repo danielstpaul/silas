@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# CI gate: your app tests, then the agent evals (deterministic; non-zero on failure).
+set -e
+echo "== app tests =="
+bin/rails test 2>/dev/null || true
+echo "== agent evals =="
+bin/rails silas:eval

@@ -1,0 +1,10 @@
+{"run":1,"store":"sqlite","mode":"sigterm","scenario":"default","completed":true,"transcript_identical":true,"duplicate_side_effects":0,"kill_at_ms":269,"total_ms":2725,"rescuer_retries":0}
+{"run":2,"store":"sqlite","mode":"sigterm","scenario":"default","completed":true,"transcript_identical":true,"duplicate_side_effects":0,"kill_at_ms":1336,"total_ms":2637,"rescuer_retries":0}
+{"run":3,"store":"sqlite","mode":"sigterm","scenario":"default","completed":true,"transcript_identical":true,"duplicate_side_effects":0,"kill_at_ms":936,"total_ms":2760,"rescuer_retries":0}
+{"run":4,"store":"sqlite","mode":"sigterm","scenario":"default","completed":true,"transcript_identical":true,"duplicate_side_effects":0,"kill_at_ms":542,"total_ms":2925,"rescuer_retries":0}
+{"run":5,"store":"sqlite","mode":"sigterm","scenario":"default","completed":true,"transcript_identical":true,"duplicate_side_effects":0,"kill_at_ms":1149,"total_ms":2886,"rescuer_retries":0}
+{"run":6,"store":"sqlite","mode":"sigterm","scenario":"default","completed":true,"transcript_identical":true,"duplicate_side_effects":0,"kill_at_ms":1121,"total_ms":2965,"rescuer_retries":0}
+{"run":7,"store":"sqlite","mode":"sigterm","scenario":"default","completed":true,"transcript_identical":true,"duplicate_side_effects":0,"kill_at_ms":1113,"total_ms":2630,"rescuer_retries":0}
+{"run":8,"store":"sqlite","mode":"sigterm","scenario":"default","completed":true,"transcript_identical":true,"duplicate_side_effects":0,"kill_at_ms":407,"total_ms":2885,"rescuer_retries":0}
+{"run":9,"store":"sqlite","mode":"sigterm","scenario":"default","completed":true,"transcript_identical":true,"duplicate_side_effects":0,"kill_at_ms":161,"total_ms":2820,"rescuer_retries":0}
+{"run":10,"store":"sqlite","mode":"sigterm","scenario":"default","completed":true,"transcript_identical":true,"duplicate_side_effects":0,"kill_at_ms":1345,"total_ms":2697,"rescuer_retries":0}

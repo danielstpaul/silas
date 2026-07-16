@@ -1,0 +1,11 @@
+<div class="tool" id="<%= dom_id(invocation) %>">
+  <div>
+    <code><%= invocation.tool_name %></code>
+    <%= status_pill(invocation.awaiting_approval? ? "required" : invocation.status) %>
+  </div>
+  <% if invocation.awaiting_approval? %>
+    <%= render "silas/inbox/invocations/approval_card", invocation: invocation %>
+  <% elsif invocation.result.present? %>
+    <pre><%= pretty_args(invocation.result) %></pre>
+  <% end %>
+</div>
