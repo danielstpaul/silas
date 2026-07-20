@@ -1,5 +1,45 @@
 # Changelog
 
+## 0.1.6
+
+- **Named agents — the staff pattern.** An app can now employ several
+  top-level agents: `app/agents/<name>/` (instructions.md, agent.yml, tools/,
+  skills/), autoloaded under `Agents::<Name>`, started with
+  `Silas.agent(:clerk).start(input: ...)`. Sessions are stamped with the
+  agent's name and **every turn — including crash resumes — runs under that
+  agent's own scope** (tools, skills, instructions, definitions digest), so a
+  rescued staff member can never wake up holding another agent's tools. The
+  inbox gains per-agent filter chips; `silas:chat` gains `AGENT=name`. The
+  root `app/agent` is unchanged and remains the default.
+- **Scope switching is now execution-isolated (concurrency fix).**
+  `with_agent_scope` previously mutated global config — two Solid Queue
+  threads running different agents (or a delegation racing a parallel job)
+  could see each other's tools. Scopes now live in
+  `ActiveSupport::IsolatedExecutionState` (per-thread *and* per-fiber —
+  Falcon-safe), nestable, with the readers (`Silas.agent`, `tool_resolver`,
+  `tool_definitions`, `skills`, `definitions_digest`, `instructions_dir`)
+  consulting the active scope first. This also fixes a latent bug where a
+  crashed *subagent* turn resumed by the rescuer would run under the ROOT
+  agent's scope.
+
+- **Approval lambdas get indifferent-access input.** Arguments are stored as
+  jsonb (string keys); a lambda writing `input[:amount]` got a silent nil —
+  fail-closed for gates written `nil > 50 ? park : approve`, but a silent
+  always-approve for the inverse. `input` is now
+  `ActiveSupport::HashWithIndifferentAccess`.
+- **Brownfield-safe installer.** `silas:install` now leaves an existing
+  `config/initializers/ruby_llm.rb` completely untouched (no conflict prompt —
+  an accidental Y clobbered production provider config). First generator specs.
+- **hermetic integration.** `config.sandbox = Hermetic.gvisor(image: ...)` is
+  now a documented, spec-covered path (the companion
+  [hermetic](https://github.com/danielstpaul/hermetic) gem: gVisor, Firecracker,
+  hosted E2B, or hardened Docker behind one `run` call, with `trust`/`off_host?`
+  as first-class axes). `sandbox_enabled?` now honors the configured backend's
+  own `enabled?` (a `Hermetic.null` won't advertise `run_code`), and configuring
+  a hermetic backend auto-arms its ledger guard — a sandbox exec inside a ledger
+  transaction fails loud. No new runtime dependency: Silas only duck-types
+  against the seam.
+
 ## 0.1.5
 
 - **Turn cancellation.** `turn.cancel!` — a parked or queued turn settles to

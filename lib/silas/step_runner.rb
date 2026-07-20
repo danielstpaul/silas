@@ -70,9 +70,9 @@ module Silas
     # A deploy that changes tools/skills mid-turn must fail loudly, never
     # resume into a different agent than the one that started the turn.
     def assert_definitions_unchanged!(turn)
-      return if turn.definitions_digest.blank? || Silas.config.definitions_digest.nil?
+      return if turn.definitions_digest.blank? || Silas.definitions_digest.nil?
 
-      live = Silas.config.definitions_digest.call.to_s
+      live = Silas.definitions_digest.to_s
       return if live == turn.definitions_digest
 
       turn.finish!(:failed, reason: "definitions_changed")

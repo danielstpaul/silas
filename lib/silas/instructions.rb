@@ -12,7 +12,7 @@ module Silas
 
       turn.update!(
         instructions_snapshot: render(turn),
-        definitions_digest: Silas.config.definitions_digest&.call.to_s
+        definitions_digest: Silas.definitions_digest.to_s
       )
     end
 
@@ -24,7 +24,7 @@ module Silas
     def base_instructions(turn)
       # config.instructions_dir points at the active agent's directory (root or a
       # subagent, swapped during a nested run).
-      dir = Silas.config.instructions_dir || Rails.root.join("app/agent")
+      dir = Silas.instructions_dir || Rails.root.join("app/agent")
       path = Pathname(dir).join("instructions.md")
       return default_instructions unless path.exist?
 

@@ -130,6 +130,30 @@ RSpec.describe "approvals end-to-end" do
     expect(turn.reload).to have_attributes(status: "failed", failure_reason: "approval_expired")
   end
 
+  it "approval lambdas see indifferent-access input (jsonb string keys, symbol lookups work)" do
+    seen = nil
+    policy = lambda do |session:, input:|
+      seen = input
+      input[:amount].to_i > 50 ? :user_approval : :approved
+    end
+    engine = FakeEngine.new do |context|
+      if context[:index].zero?
+        EngineScripts.result(blocks: [ { "type" => "text", "text" => "gating" } ],
+                             tool_calls: [ EngineScripts.tool_call("t0", amount: 100) ])
+      else
+        EngineScripts.result(blocks: [ { "type" => "text", "text" => "done" } ])
+      end
+    end
+    tool = recording_tool(approval: policy)
+    configure!(engine, tool)
+
+    Silas::AgentLoopJob.perform_now(turn.id)
+
+    expect(seen[:amount]).to eq(100)   # symbol lookup on jsonb-stored args
+    expect(seen["amount"]).to eq(100)  # string lookup still works
+    expect(turn.reload.status).to eq("waiting") # 100 > 50 parked
+  end
+
   it "approve! refuses an invocation that is not parked" do
     engine = FakeEngine.new(&EngineScripts.n_tool_steps_then_done(0))
     tool = recording_tool(approval: :never)

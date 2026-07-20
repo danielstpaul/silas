@@ -9,17 +9,28 @@ module Silas
     # Agent::Tools::IssueRefund. Tool identity remains the filename.
     initializer "silas.agent_directory" do |app|
       agent_dir = app.root.join("app/agent")
-      next unless agent_dir.exist?
+      if agent_dir.exist?
+        unless defined?(::Agent)
+          Object.const_set(:Agent, Module.new)
+        end
+        app.autoloaders.main.push_dir(agent_dir, namespace: ::Agent)
 
-      unless defined?(::Agent)
-        Object.const_set(:Agent, Module.new)
+        # Markdown/YAML (instructions.md, agent.yml, skills/*.md) are not Ruby;
+        # keep Zeitwerk away from them. tools/, schedules/ (.rb handlers), and
+        # channels/ all autoload under the Agent namespace via push_dir above.
+        app.autoloaders.main.ignore(agent_dir.join("skills"))
       end
-      app.autoloaders.main.push_dir(agent_dir, namespace: ::Agent)
 
-      # Markdown/YAML (instructions.md, agent.yml, skills/*.md) are not Ruby;
-      # keep Zeitwerk away from them. tools/, schedules/ (.rb handlers), and
-      # channels/ all autoload under the Agent namespace via push_dir above.
-      app.autoloaders.main.ignore(agent_dir.join("skills"))
+      # Named agents: app/agents/<name>/tools/x.rb autoloads as
+      # Agents::<Name>::Tools::X — the staff pattern.
+      agents_dir = app.root.join("app/agents")
+      if agents_dir.exist?
+        unless defined?(::Agents)
+          Object.const_set(:Agents, Module.new)
+        end
+        app.autoloaders.main.push_dir(agents_dir, namespace: ::Agents)
+        Dir[agents_dir.join("*/skills")].each { |d| app.autoloaders.main.ignore(d) }
+      end
     end
 
     initializer "silas.boot_guard", after: :load_config_initializers do
@@ -28,7 +39,7 @@ module Silas
 
     # Registry rebuilds on every code reload in development, once in production.
     initializer "silas.registry" do |app|
-      next unless app.root.join("app/agent").exist?
+      next unless app.root.join("app/agent").exist? || app.root.join("app/agents").exist?
 
       app.config.to_prepare { Silas::Registry.install!(root: Rails.root) }
     end

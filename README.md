@@ -11,7 +11,9 @@ the durable stack is already booted inside your app. The only new surface is the
 Honestly early and honestly narrow: **v0.1, one maintainer, zero external
 users**, durability proven by an in-repo `kill -9` chaos harness (100/100, zero
 duplicate effects, byte-identical replay), and scoped to **trusted code you write
-yourself** (the sandbox is an interim Docker seam, not a microVM). The full pitch
+yourself** by default — for untrusted or model-generated code, drop in the
+companion gem [hermetic](https://github.com/danielstpaul/hermetic) (gVisor /
+Firecracker / hosted sandboxes behind one call, see below). The full pitch
 and the honest caveats: [Why Silas](docs/why-silas.md) ·
 [Silas vs eve](docs/vs-eve.md).
 
@@ -107,6 +109,56 @@ Inference is one pluggable seam (`config.engine`):
   OAuth is configured with `ANTHROPIC_API_KEY` present, and if the key is missing
   in api_key mode). v1 is honestly weaker than `:ruby_llm`: exactly-once *within*
   a run, `approval :never` tools only, and fail-closed on a mid-subprocess kill.
+
+## Sandbox: run untrusted code with hermetic
+
+The sandbox is a second pluggable seam (`config.sandbox`). Built-in adapters are
+`:none` (default — code execution off) and `:docker` (hardened container,
+honest-but-interim). For real isolation, the companion gem
+[**hermetic**](https://github.com/danielstpaul/hermetic) drops straight in:
+
+```ruby
+# Gemfile: gem "hermetic"   (zero runtime deps)
+Silas.configure do |c|
+  c.sandbox = Hermetic.gvisor(image: "python:3.12-slim")     # or .docker /
+  # .firecracker(kernel:, rootfs:) / .hosted(:e2b, api_key:) # pick your strength
+end
+```
+
+That's the whole integration. When a sandbox is configured and enabled, the
+`run_code` tool is advertised to the model automatically (`at_most_once!` — an
+exec is an external effect). Two properties carry through the seam:
+
+- **The trust axis is visible**: every hermetic backend exposes `trust`
+  (`:vendor`/`:remote`/`:vm`/`:host`) and `off_host?`, so you can refuse to run
+  untrusted code on the box that holds your `RAILS_MASTER_KEY` — pair any local
+  backend with `executor:` to push execution to a dedicated sandbox host.
+- **The ledger guard is auto-armed**: configuring a hermetic backend loads its
+  Silas shim, so a sandbox exec attempted inside a ledger transaction fails loud
+  (sandbox-backed tools must be `at_most_once!`, never `transactional!`).
+
+## Named agents: the staff pattern
+
+One app can employ several agents, each with its own room:
+
+```
+app/agents/
+  reader/            # Silas.agent(:reader).start(input: "...")
+    instructions.md
+    agent.yml        # model, limits — same keys as the root agent
+    tools/
+    skills/
+  clerk/
+    ...
+```
+
+Sessions are stamped with the agent's name; every turn — including crash
+resumes — runs under that agent's own tools, skills, instructions, and
+definitions digest. The inbox filters by agent; `bin/rails silas:chat
+AGENT=clerk` chats with one staff member. The root `app/agent/` remains the
+default agent, unchanged. (Subagents stay a root-agent delegation feature;
+scope switching is execution-isolated, so concurrent jobs running different
+agents never cross wires.)
 
 ## Triggers
 

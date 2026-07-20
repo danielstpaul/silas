@@ -8,8 +8,15 @@ module Silas
       def create_initializer
         template "initializer.rb", "config/initializers/silas.rb"
         # ruby_llm reads no provider keys from ENV on its own; without this the
-        # first model call raises ConfigurationError.
-        template "ruby_llm.rb", "config/initializers/ruby_llm.rb"
+        # first model call raises ConfigurationError. Brownfield apps often
+        # already configure ruby_llm themselves — never touch an existing one
+        # (not even a conflict prompt: an accidental Y clobbers production
+        # provider config).
+        if File.exist?(File.join(destination_root, "config/initializers/ruby_llm.rb"))
+          say_status :skip, "config/initializers/ruby_llm.rb exists — left untouched", :yellow
+        else
+          template "ruby_llm.rb", "config/initializers/ruby_llm.rb"
+        end
       end
 
       def create_agent_directory

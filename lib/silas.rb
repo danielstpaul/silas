@@ -12,6 +12,7 @@ require "silas/skill"
 require "silas/schedule"
 require "silas/schedule/compiler"
 require "silas/agent_scope"
+require "silas/named_agent"
 require "silas/tools/delegate"
 require "silas/nested_runner"
 require "silas/sandbox"
@@ -62,7 +63,13 @@ module Silas
       @agent = nil
     end
 
-    def sandbox_enabled? = ![ :none, nil ].include?(config.sandbox)
+    # A configured-but-disabled backend (e.g. Hermetic.null) must not register
+    # run_code, so the object's own enabled? is the final word.
+    def sandbox_enabled?
+      return false if [ :none, nil ].include?(config.sandbox)
+
+      resolved_sandbox.enabled?
+    end
 
     def resolved_sandbox
       @resolved_sandbox ||=
@@ -74,7 +81,14 @@ module Silas
                               pids: config.sandbox_pids, workdir: config.sandbox_workdir,
                               docker_bin: config.sandbox_docker_bin)
         when Symbol then raise Error, "unknown sandbox #{config.sandbox.inspect}"
-        else config.sandbox
+        else
+          # A hermetic backend drops straight in (its Result is a superset of
+          # ours). Auto-arm its ledger guard so a sandbox exec inside a ledger
+          # transaction fails loud — same posture as our own Docker adapter.
+          if defined?(Hermetic::Backends::Base) && config.sandbox.is_a?(Hermetic::Backends::Base)
+            require "hermetic/silas"
+          end
+          config.sandbox
         end
     end
 
@@ -92,26 +106,60 @@ module Silas
         end
     end
 
+    # ---- scope-aware readers -------------------------------------------------
+    # Every reader consults the active AgentScope first (named agent or
+    # subagent), falling back to the boot-time config the Registry installed.
+    # The scope lives in IsolatedExecutionState — per-thread AND per-fiber
+    # (Falcon-safe), so concurrent jobs running different agents in one
+    # process can never see each other's tools.
+
     def tool_resolver
-      config.tool_resolver or raise Error, "no tool resolver configured (Registry boots one; specs must inject)"
+      current_scope&.resolver ||
+        config.tool_resolver or raise Error, "no tool resolver configured (Registry boots one; specs must inject)"
     end
 
     def tool_definitions
-      config.tool_definitions&.call || []
+      current_scope&.definitions || config.tool_definitions&.call || []
     end
 
     def skills
-      config.skills&.call || []
+      current_scope&.skills || config.skills&.call || []
     end
 
     def schedules
       config.schedules&.call || []
     end
 
-    # The active agent definition. config.agent_override is set during a nested
-    # subagent run; otherwise it's the root app/agent.
-    def agent
-      config.agent_override || (@agent ||= Agent.load)
+    # The live definitions digest as a String (nil when none configured).
+    def definitions_digest
+      current_scope&.digest || config.definitions_digest&.call&.to_s.presence
+    end
+
+    def instructions_dir
+      current_scope&.dir || config.instructions_dir
+    end
+
+    # The active agent definition — or, given a name, a handle for a NAMED
+    # agent (app/agents/<name>/) whose sessions run under that agent's scope:
+    #
+    #   Silas.agent.start(input: "...")            # the root app/agent
+    #   Silas.agent(:clerk).start(input: "...")    # a named staff member
+    def agent(name = nil)
+      return NamedAgent.new(named_agent_scope!(name)) if name
+
+      current_scope&.agent || config.agent_override || (@agent ||= Agent.load)
+    end
+
+    # Named-agent roster: { "name" => AgentScope }.
+    def named_agent_scopes = config.named_agent_scopes&.call || {}
+    def named_agent?(name) = named_agent_scopes.key?(name.to_s)
+
+    def named_agent_scope!(name)
+      named_agent_scopes.fetch(name.to_s) do
+        known = named_agent_scopes.keys
+        raise Error, "unknown agent #{name.inspect}" \
+                     "#{known.any? ? " (known: #{known.join(', ')})" : " — no app/agents/ directories found"}"
+      end
     end
 
     # Subagent roster: [[name, description], ...] (model-visible, so it's in the
@@ -120,24 +168,36 @@ module Silas
     def subagent?(name) = subagent_index.any? { |n, _| n == name.to_s }
     def subagent_scope(name) = config.subagent_scopes&.call&.fetch(name.to_s)
 
-    # Run a block with a subagent's scope swapped in as the active globals,
-    # restoring afterward. Synchronous/depth-1 — safe because delegation runs
-    # inline on one thread while the parent loop is paused in the delegate tool.
+    # The scope a session's turns must run under: nil for the root agent,
+    # otherwise the named-agent or subagent scope matching session.agent_name.
+    # Fails loud on an unknown name — a session pointing at a deleted agent
+    # directory must never silently run with the root agent's tools.
+    def scope_for_session(session)
+      name = session.agent_name.to_s
+      return nil if name.empty? || name == "agent"
+
+      named_agent_scopes[name] || config.subagent_scopes&.call&.[](name) or
+        raise Error, "session #{session.id} belongs to agent #{name.inspect}, " \
+                     "but no app/agents/#{name} or app/agent/subagents/#{name} exists"
+    end
+
+    # ---- scope switching -----------------------------------------------------
+
+    SCOPE_KEY = :silas_agent_scope
+
+    def current_scope
+      ActiveSupport::IsolatedExecutionState[SCOPE_KEY]
+    end
+
+    # Run a block under an AgentScope. Nestable (delegation inside a named
+    # agent restores the outer scope on exit) and isolated per execution
+    # context — no global config is mutated, so concurrent jobs are safe.
     def with_agent_scope(scope)
-      saved = {
-        tool_resolver: config.tool_resolver, tool_definitions: config.tool_definitions,
-        definitions_digest: config.definitions_digest, skills: config.skills,
-        agent_override: config.agent_override, instructions_dir: config.instructions_dir
-      }
-      config.tool_resolver = scope.resolver
-      config.tool_definitions = -> { scope.definitions }
-      config.definitions_digest = -> { scope.digest }
-      config.skills = -> { scope.skills }
-      config.agent_override = scope.agent
-      config.instructions_dir = scope.dir
+      previous = ActiveSupport::IsolatedExecutionState[SCOPE_KEY]
+      ActiveSupport::IsolatedExecutionState[SCOPE_KEY] = scope
       yield
     ensure
-      saved.each { |k, v| config.public_send("#{k}=", v) }
+      ActiveSupport::IsolatedExecutionState[SCOPE_KEY] = previous
     end
   end
 end

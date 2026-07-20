@@ -2,6 +2,16 @@
   <% if @pending_total.positive? %><span class="badge"><%= @pending_total %> awaiting approval</span><% end %>
 <% end %>
 
+<% if @agent_names && @agent_names.size > 1 %>
+  <div class="agent-filter">
+    <%= link_to "all", inbox_sessions_path, class: params[:agent].blank? ? "chip chip-on" : "chip" %>
+    <% @agent_names.each do |name| %>
+      <%= link_to name, inbox_sessions_path(agent: name),
+            class: params[:agent] == name ? "chip chip-on" : "chip" %>
+    <% end %>
+  </div>
+<% end %>
+
 <% if @sessions.empty? %>
   <div class="empty">No agent sessions yet.</div>
 <% else %>

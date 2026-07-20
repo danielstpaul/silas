@@ -26,6 +26,9 @@ module Silas
     # Subagents: the roster (name+description) and per-name scope builders, plus
     # the active-agent overrides swapped in during a nested run.
     attr_accessor :subagent_index, :subagent_scopes, :agent_override, :instructions_dir
+
+    # Named top-level agents (app/agents/<name>/): lambda -> { name => AgentScope }.
+    attr_accessor :named_agent_scopes
     # Channels: name -> Channel subclass (wired by the Registry). Slack creds
     # default to credentials.dig(:silas, :slack, ...); nil disables Slack.
     attr_accessor :channel_resolver

@@ -20,6 +20,21 @@ module Silas
       turn = Turn.find(turn_id)
       return if turn.completed? || %w[failed canceled].include?(turn.status)
 
+      # Named-agent / subagent sessions run EVERY turn under their own scope
+      # (tools, skills, instructions, digest) — including resumes: a rescued
+      # turn re-enters here and re-establishes the same scope, so a crashed
+      # staff member never wakes up holding the root agent's tools.
+      scope = Silas.scope_for_session(turn.session)
+      if scope
+        Silas.with_agent_scope(scope) { drive(turn) }
+      else
+        drive(turn)
+      end
+    end
+
+    private
+
+    def drive(turn)
       if Silas.resolved_engine.class.loop_ownership == :engine
         perform_engine_owned(turn)
       else
@@ -27,7 +42,6 @@ module Silas
       end
     end
 
-    private
 
     # :ruby_llm — the framework drives the loop, one model call per step, tools
     # executed through the Ledger. The determinism constraints live here.

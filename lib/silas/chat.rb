@@ -43,9 +43,15 @@ module Silas
 
     private
 
+    # AGENT=clerk resumes/starts against a named agent (app/agents/clerk/).
+    def agent_handle
+      @agent_handle ||= ENV["AGENT"].present? ? Silas.agent(ENV["AGENT"]) : Silas.agent
+    end
+
     def banner
-      description = Silas.agent.description.presence || "your agent"
-      @out.puts "Silas chat — #{description} (#{Silas.agent.model})."
+      description = agent_handle.description.presence || "your agent"
+      label = ENV["AGENT"].present? ? "#{ENV['AGENT']} — " : ""
+      @out.puts "Silas chat — #{label}#{description} (#{agent_handle.model})."
       @out.puts "Approvals prompt inline. 'exit' or Ctrl-D to quit."
       @out.puts "Resuming session #{@session.id} (#{@session.turns.count} turns)." if @session
     end
@@ -53,7 +59,7 @@ module Silas
     def submit(text)
       turn =
         if @session.nil?
-          @session = Silas.agent.start(input: text)
+          @session = agent_handle.start(input: text)
           @session.turns.first
         else
           @session.continue(input: text)

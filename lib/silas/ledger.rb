@@ -148,7 +148,10 @@ module Silas
         when :once
           previously_approved?(invocation) ? :approved : :user_approval
         when Proc
-          policy.call(session: invocation.turn.session, input: invocation.arguments)
+          # Indifferent access: arguments are stored as jsonb (string keys),
+          # but a lambda writing input[:amount] must not get a silent nil.
+          policy.call(session: invocation.turn.session,
+                      input: invocation.arguments.with_indifferent_access)
         else
           :not_applicable
         end

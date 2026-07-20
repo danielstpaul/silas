@@ -16,6 +16,7 @@ module Silas
       Silas.config.channel_resolver = ->(name) { registry.channels[name] }
       Silas.config.subagent_index = -> { registry.subagent_index }
       Silas.config.subagent_scopes = -> { registry.subagent_scopes }
+      Silas.config.named_agent_scopes = -> { registry.named_agent_scopes }
       Silas.config.agent_override = nil
       Silas.config.instructions_dir = nil
       Silas.reset_agent_memo!
@@ -103,6 +104,31 @@ module Silas
       }))
     end
 
+    # --- named agents (app/agents/<name>/ — the staff pattern) ---------------
+
+    RESERVED_AGENT_NAMES = %w[agent shared].freeze
+
+    def named_agent_dirs
+      @named_agent_dirs ||= Dir[@root.join("app/agents/*")].select { |p| File.directory?(p) }.sort
+    end
+
+    # { "clerk" => AgentScope, ... }. Each named agent is a full top-level
+    # agent: its own instructions.md, agent.yml, tools/, skills/ — autoloaded
+    # under Agents::<Camelized>. Sessions stamped with the name run every turn
+    # under this scope (loop-enforced, resume-safe, thread-isolated).
+    def named_agent_scopes
+      @named_agent_scopes ||= named_agent_dirs.to_h do |dir|
+        name = File.basename(dir)
+        if RESERVED_AGENT_NAMES.include?(name)
+          raise Error, "app/agents/#{name} collides with a reserved name — " \
+                       "'agent' is the root app/agent; rename the directory"
+        end
+
+        [ name, build_agent_scope(Pathname(dir), name, const_base: "Agents::#{name.camelize}",
+                                                       run_code: Silas.sandbox_enabled?) ]
+      end
+    end
+
     # --- subagents -----------------------------------------------------------
 
     def subagent_dirs
@@ -133,7 +159,15 @@ module Silas
     end
 
     def build_subagent_scope(dir, name)
-      const_base = "Agent::Subagents::#{name.camelize}"
+      build_agent_scope(dir, name, const_base: "Agent::Subagents::#{name.camelize}",
+                                   agent: subagent_agent(dir, name))
+    end
+
+    # Shared scope builder for subagents and named agents: tools by filename
+    # identity under const_base, skills, the load_skill builtin when skills
+    # exist, run_code when asked, and the scope's own digest (the same
+    # NondeterminismError guard root turns get).
+    def build_agent_scope(dir, name, const_base:, agent: nil, run_code: false)
       tools = Dir[dir.join("tools/*.rb")].sort.to_h do |file|
         tname = File.basename(file, ".rb")
         klass = "#{const_base}::Tools::#{tname.camelize}".constantize
@@ -143,12 +177,14 @@ module Silas
         [ tname, klass ]
       end
       skills = Dir[dir.join("skills/*.md")].sort.map { |f| Skill.parse(f) }
-      builtins = skills.any? ? { "load_skill" => Silas::Tools::LoadSkill } : {}
+      builtins = {}
+      builtins["load_skill"] = Silas::Tools::LoadSkill if skills.any?
+      builtins["run_code"] = Silas::Tools::RunCode if run_code
       resolver = ->(n) { (tools[n] || builtins.fetch(n)).new }
       definitions = (tools.values + builtins.values).map(&:schema)
       digest = Digest::SHA256.hexdigest(JSON.generate(tools: definitions, skills: skills.map { |s| [ s.name, s.description ] }))
 
-      Silas::AgentScope.new(name: name, dir: dir, agent: subagent_agent(dir, name),
+      Silas::AgentScope.new(name: name, dir: dir, agent: agent || Silas::Agent.load(dir: dir),
                             resolver: resolver, definitions: definitions, digest: digest, skills: skills)
     end
   end
