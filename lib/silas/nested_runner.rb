@@ -10,8 +10,8 @@ module Silas
   module NestedRunner
     module_function
 
-    def run(session, input:)
-      scope = Silas.subagent_scope(session.agent_name)
+    def run(session, input:, scope: nil)
+      scope ||= Silas.subagent_scope(session.agent_name)
       turn = session.turns.create!(index: 0, input: input)
 
       Silas.with_agent_scope(scope) do

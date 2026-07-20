@@ -160,6 +160,24 @@ default agent, unchanged. (Subagents stay a root-agent delegation feature;
 scope switching is execution-isolated, so concurrent jobs running different
 agents never cross wires.)
 
+## Memory & handoffs
+
+Silas memory is **graph-shaped, not a graph database**: facts as
+`subject · attribute · content` triples with provenance and supersession
+("author:jane · report_format: prefers CSV" — a new value retires the old).
+The `remember` tool is **approval-gated by default** — the memory card parks
+in your inbox before anything persists; `recall` digs deeper than the few
+recent memories injected into each turn. Private per agent, or `shared: true`
+for the whole staff. Your *domain* data does not belong here — it belongs in
+your own tables, which your tools already read; memory is for the fuzzy
+residue with no natural home.
+
+Staff compose through **handoffs, not conversations**: `handoff` files a
+self-contained brief that starts a linked session for another named agent
+(async, or `await: true` for an answer), exactly-once-guarded, cycle-checked.
+Two models chatting freely is a cost and audit hazard — deliberately
+unblessed.
+
 ## Triggers
 
 An agent is reached by more than a method call:

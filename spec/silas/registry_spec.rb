@@ -62,7 +62,7 @@ RSpec.describe Silas::Registry do
     it "wires resolver, definitions, and digest into config" do
       described_class.install!(root: DummyApp.root)
       expect(Silas.tool_resolver.call("echo_note")).to be_a(Agent::Tools::EchoNote)
-      expect(Silas.tool_definitions.map { |d| d["name"] }).to eq(%w[echo_note refund_order load_skill delegate])
+      expect(Silas.tool_definitions.map { |d| d["name"] }).to eq(%w[echo_note refund_order load_skill delegate remember recall handoff])
       expect(Silas.config.definitions_digest.call).to be_present
     end
   end

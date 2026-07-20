@@ -28,6 +28,9 @@ require "silas/budget"
 require "silas/registry"
 require "silas/agent"
 require "silas/tools/load_skill"
+require "silas/tools/remember"
+require "silas/tools/recall"
+require "silas/tools/handoff"
 require "silas/engines/base"
 require "silas/agent_sdk/version_guard"
 require "silas/agent_sdk/stream_parser"
@@ -152,6 +155,14 @@ module Silas
 
     # Named-agent roster: { "name" => AgentScope }.
     def named_agent_scopes = config.named_agent_scopes&.call || {}
+
+    # Memory is on when configured AND the table exists (upgrade-safe: an app
+    # that hasn't run the 0.1.7 migration simply doesn't advertise the tools).
+    def memory_enabled?
+      config.memory && Memory.table_exists?
+    rescue ActiveRecord::NoDatabaseError, ActiveRecord::ConnectionNotEstablished
+      false
+    end
     def named_agent?(name) = named_agent_scopes.key?(name.to_s)
 
     def named_agent_scope!(name)

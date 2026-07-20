@@ -17,7 +17,7 @@ module Silas
     end
 
     def render(turn)
-      [ base_instructions(turn), skill_index_block(turn.session), loaded_skills_block(turn.session) ]
+      [ base_instructions(turn), memory_block(turn.session), skill_index_block(turn.session), loaded_skills_block(turn.session) ]
         .compact.join("\n\n")
     end
 
@@ -29,6 +29,18 @@ module Silas
       return default_instructions unless path.exist?
 
       ERB.new(path.read).result_with_hash(session: turn.session, agent_name: turn.session.agent_name)
+    end
+
+    # Recent memories surface into the snapshot (bounded; recall digs deeper).
+    def memory_block(session)
+      return nil unless Silas.memory_enabled?
+
+      memories = Silas::Memory.recall(agent_name: session.agent_name,
+                                      limit: Silas.config.memory_injection_limit)
+      return nil if memories.empty?
+
+      "## Memory (most recent — use the recall tool for more)\n\n" +
+        memories.map { |m| "- #{m.to_line}" }.join("\n")
     end
 
     # Advertise skill descriptions (eve's routing hint); bodies load on demand.

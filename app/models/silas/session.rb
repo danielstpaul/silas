@@ -19,15 +19,17 @@ module Silas
     end
 
     # Enqueue the next turn. One active turn per session — the partial unique
-    # index is the backstop; this is the friendly front door.
-    def continue(input:)
+    # index is the backstop; this is the friendly front door. enqueue: false
+    # creates the turn without scheduling it (callers that drive it themselves,
+    # e.g. an awaited handoff running the loop inline).
+    def continue(input:, enqueue: true)
       if active_turn
         raise TurnInProgressError, "session #{id} already has an active turn (##{active_turn.index})"
       end
 
       next_index = (turns.maximum(:index) || -1) + 1
       turn = turns.create!(index: next_index, input: input)
-      AgentLoopJob.perform_later(turn.id)
+      AgentLoopJob.perform_later(turn.id) if enqueue
       turn
     rescue ActiveRecord::RecordNotUnique
       raise TurnInProgressError, "session #{id} already has an active turn"

@@ -15,7 +15,7 @@ RSpec.describe "named agents" do
     filer  = Silas.named_agent_scopes["filer"]
     expect(scribe.definitions.map { |d| d["name"] }).to include("sign_scroll", "load_skill")
     expect(scribe.definitions.map { |d| d["name"] }).not_to include("file_report")
-    expect(filer.definitions.map { |d| d["name"] }).to eq(%w[file_report])
+    expect(filer.definitions.map { |d| d["name"] }).to eq(%w[file_report remember recall handoff])
     expect(scribe.digest).not_to eq(filer.digest)
   end
 
@@ -107,7 +107,8 @@ RSpec.describe "named agents" do
     results = 2.times.map { seen.pop }.to_h
     expect(results[:t1]).to include("sign_scroll")
     expect(results[:t1]).not_to include("file_report")
-    expect(results[:t2]).to eq(%w[file_report])
+    expect(results[:t2]).to include("file_report")
+    expect(results[:t2]).not_to include("sign_scroll")
   end
 
   it "nested scopes restore the outer scope on exit" do

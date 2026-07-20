@@ -73,6 +73,11 @@ module Silas
       b["load_skill"] = Silas::Tools::LoadSkill if skills.any?
       b["delegate"] = Silas::Tools::Delegate if subagent_dirs.any?
       b["run_code"] = Silas::Tools::RunCode if Silas.sandbox_enabled?
+      if Silas.memory_enabled?
+        b["remember"] = Silas::Tools::Remember
+        b["recall"] = Silas::Tools::Recall
+      end
+      b["handoff"] = Silas::Tools::Handoff if named_agent_dirs.any?
       b
     end
 
@@ -125,7 +130,7 @@ module Silas
         end
 
         [ name, build_agent_scope(Pathname(dir), name, const_base: "Agents::#{name.camelize}",
-                                                       run_code: Silas.sandbox_enabled?) ]
+                                                       run_code: Silas.sandbox_enabled?, named: true) ]
       end
     end
 
@@ -167,7 +172,7 @@ module Silas
     # identity under const_base, skills, the load_skill builtin when skills
     # exist, run_code when asked, and the scope's own digest (the same
     # NondeterminismError guard root turns get).
-    def build_agent_scope(dir, name, const_base:, agent: nil, run_code: false)
+    def build_agent_scope(dir, name, const_base:, agent: nil, run_code: false, named: false)
       tools = Dir[dir.join("tools/*.rb")].sort.to_h do |file|
         tname = File.basename(file, ".rb")
         klass = "#{const_base}::Tools::#{tname.camelize}".constantize
@@ -180,6 +185,11 @@ module Silas
       builtins = {}
       builtins["load_skill"] = Silas::Tools::LoadSkill if skills.any?
       builtins["run_code"] = Silas::Tools::RunCode if run_code
+      if named && Silas.memory_enabled?
+        builtins["remember"] = Silas::Tools::Remember
+        builtins["recall"] = Silas::Tools::Recall
+      end
+      builtins["handoff"] = Silas::Tools::Handoff if named && named_agent_dirs.size > 1
       resolver = ->(n) { (tools[n] || builtins.fetch(n)).new }
       definitions = (tools.values + builtins.values).map(&:schema)
       digest = Digest::SHA256.hexdigest(JSON.generate(tools: definitions, skills: skills.map { |s| [ s.name, s.description ] }))

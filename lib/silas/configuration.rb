@@ -29,6 +29,10 @@ module Silas
 
     # Named top-level agents (app/agents/<name>/): lambda -> { name => AgentScope }.
     attr_accessor :named_agent_scopes
+
+    # Memory (silas_memories): memory=false disables entirely; memory_approval
+    # :always parks every remember for a human (default), :never auto-approves.
+    attr_accessor :memory, :memory_approval, :memory_injection_limit
     # Channels: name -> Channel subclass (wired by the Registry). Slack creds
     # default to credentials.dig(:silas, :slack, ...); nil disables Slack.
     attr_accessor :channel_resolver
@@ -95,6 +99,9 @@ module Silas
       @eval_dir = "test/agent_evals"
       @eval_grader = nil
       @sandbox = :none
+      @memory = true
+      @memory_approval = :always
+      @memory_injection_limit = 8
       @sandbox_image = nil
       @sandbox_network = "none"
       @sandbox_memory = "512m"

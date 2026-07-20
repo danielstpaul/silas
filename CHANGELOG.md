@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.1.7
+
+- **Memory — graph-shaped, not a graph database.** New `silas_memories` table:
+  entity-attributed facts (`subject · attribute · content`) with provenance
+  (session/turn) and **supersession** — a new fact about the same
+  subject+attribute retires the old one. Two built-ins: `remember`
+  (`transactional!`, **approval-gated by default** — the memory card parks in
+  your inbox; `config.memory_approval = :never` opts out) and `recall`
+  (on-demand subject lookup). Recent memories inject into the instructions
+  snapshot (bounded by `config.memory_injection_limit`). Scopes: private
+  per-agent or `shared: true` app-wide. Domain memory stays where it belongs —
+  your own tables; this is for the fuzzy residue with no natural home. Edges
+  are a deliberate not-yet. Upgrade-safe: tools only advertise when the
+  migration has run.
+- **Handoffs — staff composition without agent chatter.** New `handoff`
+  built-in (advertised when `app/agents/` exists): file a self-contained brief
+  that starts another named agent's linked session (`parent_session_id`),
+  async by default, `await: true` for run-now-and-return-answer.
+  `at_most_once!` through the ledger; refuses self-handoffs, unknown targets,
+  cycles, and chains deeper than 3. Free-form agent-to-agent conversation
+  remains deliberately unblessed.
+- `Session#continue(enqueue: false)` for callers that drive the turn
+  themselves. New migration: run `bin/rails silas:install:migrations
+  db:migrate` on upgrade.
+
 ## 0.1.6
 
 - **Named agents — the staff pattern.** An app can now employ several
