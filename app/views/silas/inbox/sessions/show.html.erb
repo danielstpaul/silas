@@ -18,3 +18,14 @@
 <div id="silas-turns">
   <%= render partial: "silas/inbox/turns/turn", collection: @turns, as: :turn %>
 </div>
+
+<div class="card composer">
+  <%= form_with url: inbox_session_turns_path(@session) do |f| %>
+    <%= f.text_area :input, rows: 2, required: true, class: "composer-input",
+          placeholder: "Message #{@session.agent_name}…" %>
+    <div class="composer-row">
+      <span class="muted"><%= "a turn is running — sending will queue behind it" if @session.active_turn %></span>
+      <%= f.submit "Send", class: "btn send" %>
+    </div>
+  <% end %>
+</div>

@@ -37,6 +37,12 @@ module Silas
       Silas.config.boot_guard!
     end
 
+    # Live token streaming into the inbox trace: one process-wide subscriber on
+    # "silas.delta"; a no-op unless turbo-rails is present and streaming is on.
+    initializer "silas.delta_broadcaster" do
+      Silas::Inbox::DeltaBroadcaster.subscribe!
+    end
+
     # Registry rebuilds on every code reload in development, once in production.
     initializer "silas.registry" do |app|
       next unless app.root.join("app/agent").exist? || app.root.join("app/agents").exist?

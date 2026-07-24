@@ -1,9 +1,9 @@
 module Silas
   class Error < StandardError; end
 
-  # The :agent_sdk + OAuth footgun (PLAN.md boot guard, non-negotiable): an
-  # ANTHROPIC_API_KEY in the environment would silently override subscription
-  # OAuth and drain credits.
+  # A fatal misconfiguration detected at boot — e.g. a removed engine still
+  # configured, or a missing API key for the configured engine. Fail loud at
+  # configure time, never on the first turn.
   class BootGuardError < Error; end
 
   # A continuation checkpoint occurred inside a ledger transaction. Checkpoints

@@ -2,20 +2,20 @@ require "socket"
 
 module Silas
   module Mcp
-    # A minimal HTTP/1.1 server hosting the MCP Handler for the lifetime of one
-    # claude -p subprocess. Deliberately NOT Puma/Rack: the transport claude's
-    # MCP client needs (verified in the spike) is plain request/response JSON —
-    # one request per connection, application/json, no SSE — so a raw threaded
-    # TCPServer is fewer moving parts than embedding an app server in a worker.
+    # A minimal HTTP/1.1 server hosting the MCP Handler in-process. Deliberately
+    # NOT Puma/Rack: the transport MCP clients need (verified in the spike) is
+    # plain request/response JSON — one request per connection,
+    # application/json, no SSE — so a raw threaded TCPServer is fewer moving
+    # parts than embedding an app server in a worker.
     #
     # In-process: the Handler has direct access to the Ledger/models, so no
-    # cross-service call is needed and it works on any worker box.
+    # cross-service call is needed and it works on any worker box. This is the
+    # seam for the "mount your agent's tools as an MCP server" feature.
     class Server
       attr_reader :port
 
-      def self.start(turn:, step:, tools:, resolver:, host: Silas.config.agent_sdk_mcp_host)
-        token = SecureRandom.hex(16)
-        turn.update_columns(mcp_token: token)
+      def self.start(turn:, step:, tools:, resolver:, host: Silas.config.mcp_server_host)
+        token = SecureRandom.hex(16) # minted and compared in memory only
         handler = Handler.new(turn: turn, step: step, tools: tools, resolver: resolver, token: token)
         new(handler: handler, turn: turn, token: token, host: host).tap(&:boot)
       end

@@ -1,9 +1,7 @@
 module Silas
   class Configuration
-    # Inference engine seam: :ruby_llm (Phase 1) or :agent_sdk (stub).
+    # Inference engine seam: :ruby_llm, or any object responding to #execute_step.
     attr_accessor :engine
-    # Auth mode for :agent_sdk — :api_key or :oauth (subscription).
-    attr_accessor :auth
     # Default model when agent.yml doesn't specify one.
     attr_accessor :default_model
     # Active Job queue for agent turns.
@@ -37,9 +35,31 @@ module Silas
     # default to credentials.dig(:silas, :slack, ...); nil disables Slack.
     attr_accessor :channel_resolver
     attr_writer :slack_signing_secret, :slack_bot_token
-    # :agent_sdk engine knobs.
-    attr_accessor :agent_sdk_claude_bin, :agent_sdk_model, :agent_sdk_mcp_host,
-                  :agent_sdk_mcp_timeout_ms, :agent_sdk_cli_version_range
+    # Bind host for the in-process MCP server (Mcp::Server — the "mount your
+    # tools as MCP" seam).
+    attr_accessor :mcp_server_host
+
+    # Removed in 0.2 with the :agent_sdk engine. Accepted as warning no-ops for
+    # one release so an existing initializer doesn't crash at boot; hard removal
+    # in 0.3.
+    REMOVED_AGENT_SDK_OPTIONS = %i[
+      auth agent_sdk_claude_bin agent_sdk_model agent_sdk_mcp_host
+      agent_sdk_mcp_timeout_ms agent_sdk_cli_version_range
+    ].freeze
+
+    REMOVED_AGENT_SDK_OPTIONS.each do |option|
+      define_method("#{option}=") { |_value| warn_removed_agent_sdk_option(option) }
+      define_method(option) do
+        warn_removed_agent_sdk_option(option)
+        nil
+      end
+    end
+
+    def warn_removed_agent_sdk_option(option)
+      message = "[Silas] config.#{option} was removed in 0.2 with the :agent_sdk engine and " \
+                "is now a no-op — delete it from your initializer (hard removal in 0.3)."
+      (defined?(::Rails) && ::Rails.logger ? ::Rails.logger.warn(message) : nil) || Kernel.warn(message)
+    end
     # Inbox (mountable UI at /silas/inbox).
     #   inbox_auth        — deny-by-default lambda; the host renders/head-404s to
     #                       DENY and passes by NOT rendering (resilience pattern).
@@ -70,7 +90,6 @@ module Silas
 
     def initialize
       @engine = :ruby_llm
-      @auth = :api_key
       # Must be resolvable by the installed ruby_llm's model registry — newer
       # Claude models may need `RubyLLM.models.refresh!` before they resolve.
       @default_model = "claude-opus-4-8"
@@ -91,11 +110,7 @@ module Silas
       @channel_resolver = nil
       @slack_signing_secret = nil
       @slack_bot_token = nil
-      @agent_sdk_claude_bin = "claude"
-      @agent_sdk_model = nil # falls back to the agent model; must be a CLI-accepted id
-      @agent_sdk_mcp_host = "127.0.0.1"
-      @agent_sdk_mcp_timeout_ms = 15_000
-      @agent_sdk_cli_version_range = ">= 2.1.150, < 3"
+      @mcp_server_host = "127.0.0.1"
       @eval_dir = "test/agent_evals"
       @eval_grader = nil
       @sandbox = :none
@@ -129,24 +144,45 @@ module Silas
       self
     end
 
-    # PLAN.md §1, non-negotiable: raise if subscription OAuth is configured
-    # while an API key is present — the key would silently win and bill credits.
-    # The inverse also holds: :agent_sdk runs --bare (API-key auth only), so
-    # api_key mode needs a key present.
+    # Fail-loud misconfiguration checks, run from Silas.configure and at boot.
     def boot_guard!
-      if engine == :agent_sdk && auth == :oauth && ENV["ANTHROPIC_API_KEY"].present?
+      if engine == :agent_sdk
         raise BootGuardError,
-              "engine :agent_sdk with auth: :oauth is configured, but ANTHROPIC_API_KEY exists " \
-              "in the environment. The key would silently override subscription OAuth and drain " \
-              "API credits. Unset ANTHROPIC_API_KEY or switch to auth: :api_key."
+              "the :agent_sdk engine was removed in Silas 0.2 — the claude -p subprocess " \
+              "integration is gone (its subscription-auth rationale was unreachable). " \
+              "Use engine :ruby_llm, the production path."
       end
 
-      if engine == :agent_sdk && auth == :api_key && ENV["ANTHROPIC_API_KEY"].blank?
-        raise BootGuardError,
-              "engine :agent_sdk uses --bare (API-key auth only) but ANTHROPIC_API_KEY is not set."
-      end
-
+      check_provider_credentials!
       warn_unsafe_queue_adapter!
+    end
+
+    # The most common first-run failure: no provider key configured, so the
+    # first turn dies deep inside RubyLLM with a third-party error. Surface it
+    # at boot with the fix. Raises in production (a keyless prod deploy is
+    # always a misconfiguration); warns in development so a fresh app can
+    # still boot and browse the inbox before a key exists.
+    def check_provider_credentials!
+      return unless engine == :ruby_llm && defined?(::RubyLLM)
+
+      providers = ::RubyLLM::Provider.providers.values
+      configured = providers.any? do |provider|
+        requirements = provider.configuration_requirements
+        requirements.any? && requirements.all? { |key| ::RubyLLM.config.public_send(key).present? }
+      end
+      return if configured
+
+      message = "[Silas] engine :ruby_llm has no configured provider — no API key is set on " \
+                "RubyLLM.config. Set one in config/initializers/ruby_llm.rb, e.g. " \
+                "RubyLLM.configure { |c| c.anthropic_api_key = ENV[\"ANTHROPIC_API_KEY\"] } " \
+                "— the first agent turn will fail without it."
+      raise BootGuardError, message if defined?(::Rails) && ::Rails.env.production?
+
+      (defined?(::Rails) && ::Rails.logger ? ::Rails.logger.warn(message) : nil) || Kernel.warn(message)
+    rescue BootGuardError
+      raise
+    rescue StandardError
+      nil # a diagnostic must never break boot
     end
 
     # Silas's durability and exactly-once guarantees rest on the queue adapter:
@@ -158,6 +194,10 @@ module Silas
     # mints new tool_call ids the ledger cannot dedup). Solid Queue — or any
     # durable, serializing, DB-backed adapter — is required to run agents; the
     # synchronous :inline adapter is safe for scripts and demos (no durability).
+    #
+    # RAISES in production — running agents on the Async adapter there silently
+    # voids the durability contract. Warns in development (Rails' dev default
+    # is :async and a fresh app must still boot).
     def warn_unsafe_queue_adapter!
       return unless defined?(::ActiveJob::Base)
 
@@ -169,7 +209,11 @@ module Silas
                 "the original job, which double-executes agent steps and breaks " \
                 "exactly-once tool effects. Use :solid_queue (production) or " \
                 ":inline (scripts/demos). See Silas DEPLOY.md."
+      raise BootGuardError, message if defined?(::Rails) && ::Rails.env.production?
+
       (defined?(::Rails) && ::Rails.logger ? ::Rails.logger.warn(message) : nil) || Kernel.warn(message)
+    rescue BootGuardError
+      raise
     rescue StandardError
       # A diagnostic must never break boot.
       nil

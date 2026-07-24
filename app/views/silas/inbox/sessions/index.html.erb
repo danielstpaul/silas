@@ -1,5 +1,7 @@
 <% content_for :header_extra do %>
-  <% if @pending_total.positive? %><span class="badge"><%= @pending_total %> awaiting approval</span><% end %>
+  <% if @pending_total.positive? %>
+    <%= link_to "#{@pending_total} awaiting approval", inbox_sessions_path(pending: 1), class: "badge" %>
+  <% end %>
 <% end %>
 
 <% if @agent_names && @agent_names.size > 1 %>
@@ -12,8 +14,24 @@
   </div>
 <% end %>
 
+<div class="card composer">
+  <%= form_with url: inbox_sessions_path do |f| %>
+    <% roster = Silas.named_agent_scopes.keys.sort %>
+    <% if roster.any? %>
+      <%= f.select :agent, [ [ "agent (root)", "" ] ] + roster.map { |a| [ a, a ] },
+            {}, class: "composer-agent" %>
+    <% end %>
+    <%= f.text_area :input, rows: 2, required: true, class: "composer-input",
+          placeholder: "Start a new session…" %>
+    <div class="composer-row">
+      <span></span>
+      <%= f.submit "Start session", class: "btn send" %>
+    </div>
+  <% end %>
+</div>
+
 <% if @sessions.empty? %>
-  <div class="empty">No agent sessions yet.</div>
+  <div class="empty">No agent sessions yet — start one above.</div>
 <% else %>
   <% @sessions.each do |session| %>
     <%= link_to inbox_session_path(session), class: "card session-row" do %>

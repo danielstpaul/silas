@@ -7,6 +7,11 @@ module Silas
   #     approval :always                          # :never | :once | :always | lambda
   #     transactional!                            # or at_most_once! (default) / idempotent!
   #
+  # :once approves ONE (tool, arguments) pair per session — an identical repeat
+  # call skips re-approval; different arguments park again. For graded gates
+  # (e.g. auto-approve under a threshold) use a lambda:
+  #   approval ->(session:, input:) { input[:amount] > 5000 ? :user_approval : :approved }
+  #
   #     def call(order_id:, amount:, note: nil)
   #       ...
   #     end

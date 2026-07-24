@@ -24,6 +24,8 @@ require "silas/connection"
 require "silas/connections"
 require "silas/inbox"
 require "silas/inbox/cost"
+require "silas/inbox/delta_broadcaster"
+require "silas/delta_buffer"
 require "silas/budget"
 require "silas/registry"
 require "silas/agent"
@@ -31,19 +33,14 @@ require "silas/tools/load_skill"
 require "silas/tools/remember"
 require "silas/tools/recall"
 require "silas/tools/handoff"
-require "silas/engines/base"
-require "silas/agent_sdk/version_guard"
-require "silas/agent_sdk/stream_parser"
-require "silas/agent_sdk/cli"
 require "silas/mcp/handler"
 require "silas/mcp/server"
-require "silas/engines/agent_sdk"
+require "silas/engines/base"
 require "ruby_llm"
 require "silas/engines/ruby_llm"
 require "silas/message_builder"
 require "silas/instructions"
 require "silas/step_runner"
-require "silas/subprocess_runner"
 require "silas/eval" # after engines (ScriptedEngine < Engines::Base)
 require "silas/chat"
 
@@ -97,13 +94,16 @@ module Silas
 
     def reset_agent_memo! = (@agent = nil) # after Registry.install! swaps dirs
 
-    # The inference adapter instance. config.engine may be a symbol (:ruby_llm,
-    # :agent_sdk) or any object responding to #execute_step (specs, custom).
+    # The inference adapter instance. config.engine may be :ruby_llm or any
+    # object responding to #execute_step (specs, custom).
     def resolved_engine
       @resolved_engine ||=
         case config.engine
         when :ruby_llm then Engines::RubyLLM.new
-        when :agent_sdk then Engines::AgentSdk.new
+        when :agent_sdk
+          raise Error, "the :agent_sdk engine was removed in Silas 0.2 — the claude -p " \
+                       "subprocess integration is gone (its subscription-auth rationale was " \
+                       "unreachable). Use engine :ruby_llm, the production path."
         when Symbol then raise Error, "unknown engine #{config.engine.inspect}"
         else config.engine
         end

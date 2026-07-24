@@ -2,10 +2,26 @@
   <div>
     <code><%= invocation.tool_name %></code>
     <%= status_pill(invocation.awaiting_approval? ? "required" : invocation.status) %>
+    <%# The audit line — who held the lever, and why it moved. %>
+    <% if invocation.approval_state == "approved" && invocation.approved_by.present? %>
+      <span class="muted">approved by <%= invocation.approved_by %></span>
+    <% elsif invocation.approval_state == "declined" %>
+      <span class="muted">declined<%= " by #{invocation.approved_by}" if invocation.approved_by.present? %><%= " — “#{invocation.decline_reason}”" if invocation.decline_reason.present? %></span>
+    <% elsif invocation.approval_state == "expired" %>
+      <span class="muted">approval expired unanswered</span>
+    <% end %>
   </div>
   <% if invocation.awaiting_approval? %>
     <%= render "silas/inbox/invocations/approval_card", invocation: invocation %>
-  <% elsif invocation.result.present? %>
-    <pre><%= pretty_args(invocation.result) %></pre>
+  <% else %>
+    <%# What the agent passed — the question an audit surface must answer. %>
+    <% if invocation.arguments.present? %>
+      <pre class="args"><%= pretty_args(invocation.arguments) %></pre>
+    <% end %>
+    <% if invocation.error.present? %>
+      <pre class="error"><%= invocation.error %></pre>
+    <% elsif invocation.result.present? %>
+      <pre><%= pretty_args(invocation.result) %></pre>
+    <% end %>
   <% end %>
 </div>

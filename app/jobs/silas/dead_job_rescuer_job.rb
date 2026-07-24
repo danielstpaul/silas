@@ -20,12 +20,33 @@ module Silas
 
       rescued = 0
       SolidQueue::FailedExecution.includes(:job).find_each do |failed|
-        next unless DEAD_PROCESS_ERRORS.include?(failed.error&.dig("exception_class"))
-
-        failed.retry
-        rescued += 1
+        if DEAD_PROCESS_ERRORS.include?(failed.error&.dig("exception_class"))
+          failed.retry
+          rescued += 1
+        elsif failed.job&.class_name == "Silas::AgentLoopJob"
+          fail_stranded_turn(failed)
+        end
       end
       rescued
+    end
+
+    private
+
+    # A loop job that failed with a NON-dead-process error (something outside
+    # AgentLoopJob's retry list — a NoMethodError in a tool, an AR blip) will
+    # never be retried by anyone. Without this sweep its turn sits in
+    # "running" forever: not failed, not parked, invisible as broken. The
+    # failed execution stays in Solid Queue for forensics; the TURN is failed
+    # loudly with its approvals expired.
+    def fail_stranded_turn(failed)
+      turn = Turn.find_by(id: failed.job.arguments&.dig("arguments", 0))
+      return unless turn&.active?
+
+      exception = failed.error&.dig("exception_class")
+      turn.expire_pending_approvals!("turn failed: #{exception}")
+      turn.finish!(:failed, reason: "job_failed")
+      Rails.logger&.error("[silas] turn #{turn.id} failed: its loop job died with " \
+                          "#{exception} — #{failed.error&.dig('message')}")
     end
   end
 end

@@ -171,5 +171,51 @@ RSpec.describe Silas::Ledger do
     it "does not raise outside a ledger transaction" do
       expect { described_class.assert_no_checkpoint! }.not_to raise_error
     end
+
+    it "survives into an internally-created fiber (enumerators, streaming bodies)" do
+      # Thread.current[] is fiber-local, so the old guard silently vanished
+      # inside any fiber created mid-transaction. IsolatedExecutionState under
+      # the default :thread isolation is a true thread-local and does not.
+      seen = nil
+      described_class.send(:guarded_transaction) do
+        seen = Fiber.new { described_class.in_transaction? }.resume
+      end
+      expect(seen).to be(true)
+    end
+
+    it "restores (not clears) the outer guard when transactions nest" do
+      states = []
+      described_class.send(:guarded_transaction) do
+        described_class.send(:guarded_transaction) { states << described_class.in_transaction? }
+        states << described_class.in_transaction? # the old ensure set this to false
+      end
+      states << described_class.in_transaction?
+      expect(states).to eq([ true, true, false ])
+    end
+  end
+
+  describe "approval :once argument scoping" do
+    it "auto-approves an identical repeat call (same tool, same arguments)" do
+      tool = tool_double(approval: :once)
+      Silas::ToolInvocation.create!(step: step, turn: turn, tool_call_id: "prior",
+                                    tool_name: "record", effect_mode: "transactional",
+                                    arguments: { "x" => 1 }, approval_state: "approved",
+                                    status: "completed", result: {})
+      invocation!(tool_call_id: "t9") # arguments {x: 1} — identical
+      expect(described_class.settle!(step, resolver: resolver_for(tool))).to eq(:completed)
+      expect(tool.executions.size).to eq(1)
+    end
+
+    it "parks again when the arguments differ (a £5 approval must not bless a £5,000 call)" do
+      tool = tool_double(approval: :once)
+      Silas::ToolInvocation.create!(step: step, turn: turn, tool_call_id: "prior",
+                                    tool_name: "record", effect_mode: "transactional",
+                                    arguments: { "x" => 5 }, approval_state: "approved",
+                                    status: "completed", result: {})
+      inv = invocation!(tool_call_id: "t9") # arguments {x: 1} — different
+      expect(described_class.settle!(step, resolver: resolver_for(tool))).to eq(:parked)
+      expect(inv.reload.approval_state).to eq("required")
+      expect(tool.executions).to be_empty
+    end
   end
 end

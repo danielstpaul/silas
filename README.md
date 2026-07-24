@@ -88,6 +88,13 @@ hundreds of times per release (results in `chaos_host/results/`):
 - **Approvals park at zero compute** — the job exits; approving enqueues a fresh
   one that replays completed work from rows, never re-calling the model or
   re-running tools. Parks expire (default 7 days) rather than ghosting forever.
+- **Transient model errors retry from the checkpoint.** A rate limit,
+  overload, or timeout backs off and retries the job — and the continuation
+  resumes from the last completed step, never re-running completed work.
+  Exhausted retries and permanent rejections (bad key, bad request) expire
+  pending approvals and fail the turn loudly. **A turn can never sit in
+  `running` forever**: the rescuer also fails turns stranded by a loop job
+  that died outside the retry list.
 - **The rescuer is part of the contract.** Solid Queue marks a dead worker's
   jobs failed and nothing retries them; the installer wires
   `Silas::DeadJobRescuerJob` as a recurring task (every 30s). Recovery time ≈
@@ -96,19 +103,19 @@ hundreds of times per release (results in `chaos_host/results/`):
   deploy that changes tools/skills mid-turn fails the turn loudly
   (`NondeterminismError`) instead of resuming into a different agent.
 
-## Engines
+## Engine
 
-Inference is one pluggable seam (`config.engine`):
+Inference is one pluggable seam (`config.engine`): `:ruby_llm` — API-key auth
+via [RubyLLM](https://rubyllm.com), any provider it supports — is the default
+and the production path. Compose resilience via `config.around_model_call`, or
+swap in any object responding to `#execute_step` (the eval harness and the
+chaos tests do exactly that).
 
-- `:ruby_llm` — API-key auth via [RubyLLM](https://rubyllm.com); any provider it
-  supports. Canonical, production mode. Compose resilience via
-  `config.around_model_call`.
-- `:agent_sdk` — a `claude -p` subprocess runs the whole turn, calling back into
-  your tools over an in-worker HTTP MCP endpoint whose `tools/call` goes through
-  the same Ledger. Always `--bare` (API-key auth only; the boot guard raises if
-  OAuth is configured with `ANTHROPIC_API_KEY` present, and if the key is missing
-  in api_key mode). v1 is honestly weaker than `:ruby_llm`: exactly-once *within*
-  a run, `approval :never` tools only, and fail-closed on a mid-subprocess kill.
+> The experimental `:agent_sdk` engine (a `claude -p` subprocess) was removed
+> in 0.2: its subscription-auth rationale was structurally unreachable, and it
+> carried weaker guarantees than `:ruby_llm` on every axis. Its in-process MCP
+> server survives and returns as a first-class *mount your tools as MCP*
+> feature.
 
 ## Sandbox: run untrusted code with hermetic
 
@@ -190,12 +197,28 @@ An agent is reached by more than a method call:
   approvals render as Slack buttons / signed email links that call the same
   `approve!`/`decline!`. Outbound delivery is idempotent and off the durable loop.
 
+## Streaming
+
+Turns stream. The `:ruby_llm` engine emits text deltas as the model responds:
+`bin/rails silas:chat` prints tokens as they arrive, and the inbox trace
+renders them live over Turbo (coalesced to ~10Hz). Deltas are decoration over
+the durable rows — never persisted, never fed back to the model, and a
+replayed step renders from its row with no deltas at all, so streaming adds
+zero risk to the durability contract. Custom sinks subscribe to the
+`"silas.delta"` notification (`{ session_id:, turn_id:, step_id:, step_index:,
+text: }`, where `text` is the accumulated string so far — filter by ids;
+notifications are process-global).
+
 ## The inbox
 
 Mount the engine (the generator does this) and a live inbox appears at
-`/silas/inbox`: a session list, a live step-trace that streams over Turbo
-Streams as the agent runs, approval cards whose Approve/Decline buttons call the
-exact same `approve!`/`decline!` as Slack and email, and per-session token/cost
+`/silas/inbox`: a session list, **web chat** (start a session or reply from
+the browser — same durable loop, no separate surface), a live step-trace that
+streams tokens over Turbo Streams as the agent runs, approval cards whose
+Approve/Decline buttons call the exact same `approve!`/`decline!` as Slack and
+email, a full **audit trail** (every tool call's arguments and its result or
+recorded error; who approved; who declined and why), **cancel** on active
+turns (honored at the next step boundary), and per-session token/cost
 accounting. It's **deny-by-default** — invisible until you wire auth:
 
 ```ruby

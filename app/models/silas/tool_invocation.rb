@@ -35,6 +35,7 @@ module Silas
     # in-doubt invocation, approval means "it did not run — re-execute".
     def approve!(by: nil)
       assert_parked!
+      assert_turn_resumable!
       update!(status: "pending", approval_state: "approved", approved_by: by)
       resume_turn!
     end
@@ -45,6 +46,7 @@ module Silas
     # abandon" — the operator-supplied reason becomes the recorded outcome.
     def decline!(reason:, by: nil)
       assert_parked!
+      assert_turn_resumable!
       update!(status: "failed", approval_state: "declined", approved_by: by,
               decline_reason: reason, result: { "denied" => reason })
       resume_turn!
@@ -68,8 +70,18 @@ module Silas
       raise Error, "invocation #{id} is not awaiting approval (state: #{approval_state.inspect})"
     end
 
+    # A failed turn must never be zombie-resumed by a stale approval card:
+    # force-fail paths expire approvals first, but a card already rendered in
+    # someone's browser can still POST — the verdict must land on a live turn.
+    def assert_turn_resumable!
+      return unless turn.reload.failed?
+
+      raise Error, "turn #{turn.id} already failed (#{turn.failure_reason}) — " \
+                   "this approval can no longer resume it"
+    end
+
     def resume_turn!
-      return if turn.reload.canceled? # a canceled turn never zombie-resumes
+      return if turn.reload.canceled? || turn.failed? # settled turns never zombie-resume
       return if turn.tool_invocations.where(approval_state: "required").exists?
 
       turn.update!(status: "queued")

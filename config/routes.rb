@@ -8,7 +8,12 @@ Silas::Engine.routes.draw do
 
   namespace :inbox do
     root to: "sessions#index"
-    resources :sessions, only: %i[index show]
+    resources :sessions, only: %i[index show create] do
+      resources :turns, only: :create
+    end
+    resources :turns, only: [] do
+      member { post :cancel }
+    end
     resources :invocations, only: [] do
       member do
         post :approve
