@@ -4,8 +4,6 @@ module Silas
     # eval script the MODEL's decisions while the REAL Ledger runs the REAL tools —
     # so assertions see a genuine transcript.
     class ScriptedEngine < Silas::Engines::Base
-      def self.loop_ownership = :framework
-
       attr_reader :calls
 
       def initialize(steps)

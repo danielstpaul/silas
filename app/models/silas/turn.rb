@@ -17,6 +17,7 @@ module Silas
 
     ACTIVE_STATUSES.each { |s| define_method(:"#{s}?") { status == s } }
     def completed? = status == "completed"
+    def failed?    = status == "failed"
     def active?    = ACTIVE_STATUSES.include?(status)
     def parked?    = status == "waiting" || status == "in_doubt"
 

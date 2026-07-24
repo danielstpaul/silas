@@ -47,6 +47,23 @@ RSpec.describe Silas::Chat do
     expect(Silas::Turn.last.status).to eq("completed")
   end
 
+  it "streams the answer as it arrives and never prints it twice" do
+    engine = Class.new(Silas::Engines::Base) do
+      def execute_step(_context, &on_event)
+        on_event&.call(Silas::Event.new(type: :text_delta, payload: { text: "Str" }))
+        on_event&.call(Silas::Event.new(type: :text_delta, payload: { text: "eamed." }))
+        Silas::Engines::Result.new(blocks: [ { "type" => "text", "text" => "Streamed." } ],
+                                   tool_calls: [], stop_reason: "end_turn", usage: {})
+      end
+    end.new
+    configure!(engine, recording_tool)
+
+    output = run_chat("hello\nexit\n")
+
+    expect(output).to include("agent> Streamed.")            # printed live, suffix by suffix
+    expect(output.scan("Streamed.").count).to eq(1)          # the outcome line doesn't repeat it
+  end
+
   it "prompts for a parked approval inline and resumes on yes" do
     configure!(FakeEngine.new(&EngineScripts.n_tool_steps_then_done(1)),
                tool = recording_tool(approval: :always))

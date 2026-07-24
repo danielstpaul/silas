@@ -12,9 +12,50 @@ module Silas
   class AgentLoopJob < ActiveJob::Base
     include ActiveJob::Continuable
 
+    # Errors must reach retry_on. By default Continuable swallows any
+    # StandardError raised after a checkpoint and silently self-resumes —
+    # unbounded invisible retries that bypass attempts/wait/jitter entirely
+    # (verified against activejob 8.1: the around_perform rescue runs before
+    # rescue_with_handler). Checkpoints still survive retry_on's re-enqueues —
+    # continuation state rides the job payload — so a retried execution skips
+    # completed steps. Isolation interrupts are rescued separately and are
+    # unaffected by this flag. Do NOT reach for max_resumptions as an error
+    # bound: with isolate_steps on, every isolated step consumes one
+    # resumption by design.
+    self.resume_errors_after_advancing = false
+
     self.resume_options = { wait: 0 } # spike: default 5s wait makes turns crawl
 
     queue_as { Silas.config.queue_name }
+
+    # Transient provider trouble: back off and retry; the continuation resumes
+    # from the last completed step. Exhaustion fails the turn LOUDLY — a turn
+    # must never strand in "running". (Never retry_on StandardError: it would
+    # catch Continuation::Error subclasses and retry a structurally broken job
+    # forever.)
+    retry_on ::RubyLLM::RateLimitError, ::RubyLLM::OverloadedError,
+             ::RubyLLM::ServiceUnavailableError, ::RubyLLM::ServerError,
+             ::Faraday::TimeoutError, ::Faraday::ConnectionFailed,
+             wait: :polynomially_longer, attempts: 5, jitter: 0.15 do |job, error|
+      fail_turn(job, error)
+    end
+
+    # Permanent provider rejections: retrying cannot help. Fail the turn now.
+    discard_on ::RubyLLM::UnauthorizedError, ::RubyLLM::PaymentRequiredError,
+               ::RubyLLM::ForbiddenError, ::RubyLLM::BadRequestError do |job, error|
+      fail_turn(job, error)
+    end
+
+    # The force-fail path: expire approvals FIRST so no stale card can
+    # zombie-resume the failed turn, then finish loudly.
+    def self.fail_turn(job, error)
+      turn = Turn.find_by(id: job.arguments.first)
+      return unless turn&.active?
+
+      turn.expire_pending_approvals!("turn failed: model error")
+      turn.finish!(:failed, reason: "model_error")
+      Rails.logger&.error("[silas] turn #{turn.id} failed on #{error.class}: #{error.message}")
+    end
 
     def perform(turn_id)
       turn = Turn.find(turn_id)
@@ -26,26 +67,17 @@ module Silas
       # staff member never wakes up holding the root agent's tools.
       scope = Silas.scope_for_session(turn.session)
       if scope
-        Silas.with_agent_scope(scope) { drive(turn) }
+        Silas.with_agent_scope(scope) { run_turn(turn) }
       else
-        drive(turn)
+        run_turn(turn)
       end
     end
 
     private
 
-    def drive(turn)
-      if Silas.resolved_engine.class.loop_ownership == :engine
-        perform_engine_owned(turn)
-      else
-        perform_framework_owned(turn)
-      end
-    end
-
-
-    # :ruby_llm — the framework drives the loop, one model call per step, tools
-    # executed through the Ledger. The determinism constraints live here.
-    def perform_framework_owned(turn)
+    # The framework drives the loop: one model call per step, tools executed
+    # through the Ledger. The determinism constraints live here.
+    def run_turn(turn)
       step :prepare, isolated: isolate? do
         Ledger.assert_no_checkpoint!
         turn.update!(status: "running", job_id: job_id, started_at: turn.started_at || Time.current)
@@ -92,35 +124,6 @@ module Silas
 
       step :finalize do
         turn.finish!(:completed)
-      end
-    end
-
-    # :agent_sdk — Claude Code owns the loop; one isolated :run step wraps the
-    # whole subprocess (one Continuation checkpoint per invocation). Same
-    # durable shell, same queue/rescuer/single-active-turn invariants.
-    def perform_engine_owned(turn)
-      step :prepare, isolated: isolate? do
-        Ledger.assert_no_checkpoint!
-        turn.update!(status: "running", job_id: job_id, started_at: turn.started_at || Time.current)
-        Instructions.snapshot!(turn)
-        Step.find_or_create_by!(turn: turn, index: 0) # anchor step exists before the MCP thread needs it
-      end
-
-      # Cancellation for engine-owned turns is honored only BEFORE the
-      # subprocess starts — a running claude -p is not aborted mid-flight (v1).
-      if turn.reload.cancel_requested_at
-        turn.finish!(:canceled, reason: "canceled")
-        return
-      end
-
-      outcome = nil
-      step :run, isolated: isolate? do
-        Ledger.assert_no_checkpoint!
-        outcome = SubprocessRunner.call(turn)
-      end
-
-      step :finalize do
-        turn.finish!(:completed) if outcome == :terminal
       end
     end
 

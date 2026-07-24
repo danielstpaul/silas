@@ -42,11 +42,11 @@ RSpec.describe "hermetic as the Silas sandbox" do
     configure_sandbox!(backend)
     Silas.resolved_sandbox # resolve -> requires hermetic/silas
 
-    Thread.current[Silas::Ledger::GUARD_KEY] = true
-    expect { backend.run("echo hi") }
-      .to raise_error(Hermetic::Error, /inside a ledger transaction/)
-  ensure
-    Thread.current[Silas::Ledger::GUARD_KEY] = nil
+    # Arm the guard through the real path (0.2 moved its storage to
+    # IsolatedExecutionState — the shim reads the public in_transaction?).
+    expect {
+      Silas::Ledger.send(:guarded_transaction) { backend.run("echo hi") }
+    }.to raise_error(Hermetic::Error, /inside a ledger transaction/)
   end
 
   it "keeps the exit-status contract under timeout (124, not success)" do

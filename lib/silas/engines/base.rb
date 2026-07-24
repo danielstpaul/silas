@@ -1,8 +1,10 @@
 module Silas
-  # Streamed event from an engine (or the framework) during a step.
-  # Types: :text_delta, :tool_call, :thinking, :usage — and :approval_request,
-  # which only :engine-owned loops (agent_sdk) emit; in :framework-owned loops
-  # approvals are a Ledger concern, never an engine event.
+  # Streamed event from an engine during a step. The type vocabulary is an open
+  # set — consumers must ignore unknown types. Emitted today by Engines::RubyLLM:
+  #   :message_start — once per model call (before_message)
+  #   :text_delta    — { text: } chunks as the response streams
+  # StepRunner coalesces :text_delta into "silas.delta" notifications (see
+  # DeltaBuffer); everything else is available to custom engines/hooks.
   Event = Data.define(:type, :payload)
 
   module Engines
@@ -10,10 +12,6 @@ module Silas
     # and reports what came back; the framework owns the loop, the ledger owns
     # tool execution.
     class Base
-      # :framework — Silas's AgentLoopJob drives the loop (ruby_llm).
-      # :engine    — the engine drives its own loop (agent_sdk, future).
-      def self.loop_ownership = :framework
-
       # context: { turn:, index:, system:, messages:, tools:, model:, limits: }
       # Yields Silas::Event objects as they stream; returns a Result.
       def execute_step(context, &on_event)

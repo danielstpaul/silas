@@ -8,8 +8,6 @@ module Silas
     class RubyLLM < Base
       INTERCEPTED = "__silas_intercepted__".freeze
 
-      def self.loop_ownership = :framework
-
       def execute_step(context, &on_event)
         chat = build_chat(context, &on_event)
 
@@ -17,7 +15,17 @@ module Silas
                                                            turn_id: context[:turn]&.id,
                                                            index: context[:index],
                                                            model: context[:model]) do
-          chat.complete
+          if on_event
+            # Streamed: RubyLLM's accumulator returns a Message identical in
+            # shape to the sync path, so to_result needs no branch. Chunks with
+            # tool-call fragments carry nil/empty content — only text streams.
+            chat.complete do |chunk|
+              text = chunk.content
+              on_event.call(Event.new(type: :text_delta, payload: { text: text })) if text.is_a?(String) && !text.empty?
+            end
+          else
+            chat.complete
+          end
         end
 
         to_result(chat, response)
@@ -40,7 +48,10 @@ module Silas
         replay_history(chat, context[:messages])
 
         if on_event
-          chat.on_new_message { on_event.call(Event.new(type: :message_start, payload: {})) }
+          # before_message replaces the deprecated on_new_message (gone in
+          # RubyLLM 2.0). Under streaming it fires BEFORE the HTTP request —
+          # deliberate; don't "fix" the earlier timing.
+          chat.before_message { on_event.call(Event.new(type: :message_start, payload: {})) }
         end
         chat
       end

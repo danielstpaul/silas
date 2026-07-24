@@ -4,9 +4,9 @@ require "securerandom"
 module Silas
   module Mcp
     # JSON-RPC handler for the hosted MCP endpoint. tools/call runs the tool
-    # THROUGH the Ledger, so the :agent_sdk path gets the same exactly-once and
-    # effect-mode semantics as :ruby_llm. Closes over one turn + its anchor step;
-    # authenticated by a per-turn bearer token in the URL query.
+    # THROUGH the Ledger, so a remote MCP caller gets the same exactly-once and
+    # effect-mode semantics as the in-process loop. Closes over one turn + its
+    # anchor step; authenticated by a bearer token in the URL query.
     class Handler
       TOOL_PREFIX = "mcp__silas__".freeze
 
@@ -50,8 +50,9 @@ module Silas
         invocation.reload
 
         if outcome == :parked
-          # v1 excludes approval-gated tools; if one slips through, fail loud.
-          { "isError" => true, "content" => [ text_content("approval-gated tools are not supported by :agent_sdk") ] }
+          # The hosted endpoint excludes approval-gated tools; if one slips
+          # through, fail loud rather than park a caller that can't wait.
+          { "isError" => true, "content" => [ text_content("approval-gated tools are not supported over the hosted MCP endpoint") ] }
         else
           { "content" => [ text_content(JSON.generate(invocation.result)) ] }
         end

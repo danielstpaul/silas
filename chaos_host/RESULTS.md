@@ -1,9 +1,13 @@
-# Silas acceptance gate — chaos results (2026-07-14)
+# Silas acceptance gate — chaos results (2026-07-24, v0.2.0)
 
 The Phase 0 spike bar, run against the gem itself (`bin/chaos`). Evidence in
 `results/*.jsonl`. Engine: deterministic in-process ChaosEngine (8 steps × 2
 transactional tool calls per turn, MODEL_TURN_MS=120); the production
 configuration under test: isolated continuation steps, `wait: 0`, ledger on.
+
+Re-run in full for **0.2.0**, which changed the loop's error semantics
+(`resume_errors_after_advancing = false` + `retry_on`), the step runner
+(streaming delta buffer), and the ledger guard (IsolatedExecutionState).
 
 | Mode | Store | Runs | Completed | Byte-identical | Duplicate side effects |
 |---|---|---|---|---|---|
@@ -16,7 +20,8 @@ configuration under test: isolated continuation steps, `wait: 0`, ledger on.
 
 **Gate: PASSED** — same bar as spike/SPIKE_RESULTS.md (which additionally
 covered real-API chaos timing, 10/10; the gem's real-API path is covered by
-`spec/smoke`).
+`spec/smoke`). Streaming deltas are never persisted, so byte-identical replay
+is unaffected by the 0.2 streaming pipeline — these runs confirm it.
 
 Operational notes:
 - Every hard-kill run needed exactly one DeadJobRescuerJob rescue; SIGTERM

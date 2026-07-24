@@ -22,21 +22,23 @@ module Silas
 
     def run
       banner
-      if @session && pending_for(@session).exists? # resuming a session that parked last time
-        settle_parked
-        print_outcome(@session.turns.reload.last)
-      end
+      with_delta_stream do
+        if @session && pending_for(@session).exists? # resuming a session that parked last time
+          settle_parked
+          print_outcome(@session.turns.reload.last)
+        end
 
-      loop do
-        @out.print "\nyou> "
-        line = @in.gets
-        break if line.nil?
+        loop do
+          @out.print "\nyou> "
+          line = @in.gets
+          break if line.nil?
 
-        line = line.strip
-        next if line.empty?
-        break if %w[exit quit].include?(line.downcase)
+          line = line.strip
+          next if line.empty?
+          break if %w[exit quit].include?(line.downcase)
 
-        submit(line)
+          submit(line)
+        end
       end
       @out.puts "bye — session #{@session.id}" if @session
     end
@@ -56,7 +58,33 @@ module Silas
       @out.puts "Resuming session #{@session.id} (#{@session.turns.count} turns)." if @session
     end
 
+    # The REPL runs inline, in the same process as the loop — so it hears the
+    # "silas.delta" notifications and prints tokens as they arrive. Filtered by
+    # session id: notifications are process-global.
+    def with_delta_stream
+      @live = {}
+      subscription = ActiveSupport::Notifications.subscribe("silas.delta") do |*args|
+        payload = args.last
+        print_delta(payload) if @session && payload[:session_id] == @session.id
+      end
+      yield
+    ensure
+      ActiveSupport::Notifications.unsubscribe(subscription) if subscription
+    end
+
+    def print_delta(payload)
+      printed = @live[payload[:step_id]] || 0
+      text = payload[:text].to_s
+      @out.print "\nagent> " if printed.zero?
+      @out.print text[printed..]
+      @out.flush if @out.respond_to?(:flush)
+      @live[payload[:step_id]] = text.length
+      @last_streamed = text
+    end
+
     def submit(text)
+      @live = {}
+      @last_streamed = nil
       turn =
         if @session.nil?
           @session = agent_handle.start(input: text)
@@ -90,7 +118,11 @@ module Silas
       turn.reload
       case turn.status
       when "completed"
-        @out.puts "agent> #{turn.answer_text}"
+        if @last_streamed.present? && @last_streamed == turn.answer_text
+          @out.puts # the streamed line IS the answer; just terminate it
+        else
+          @out.puts "agent> #{turn.answer_text}"
+        end
       when "waiting", "in_doubt"
         if turn.budget_parked?
           @out.puts "(parked: #{turn.failure_reason} budget reached — resume with " \

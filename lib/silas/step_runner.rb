@@ -11,7 +11,7 @@ module Silas
       step = Step.find_or_create_by!(turn: turn, index: index)
 
       unless step.completed?
-        result = execute_model_call(turn, index)
+        result = execute_model_call(turn, index, step)
 
         # One transaction: the step's response, its terminal verdict, and the
         # pending ledger rows commit together — or none of them do.
@@ -48,7 +48,7 @@ module Silas
       end
     end
 
-    def execute_model_call(turn, index)
+    def execute_model_call(turn, index, step)
       assert_definitions_unchanged!(turn)
       engine = Silas.resolved_engine
       context = {
@@ -60,10 +60,25 @@ module Silas
         model: turn_model(turn),
         limits: { max_steps: Silas.agent.max_steps }
       }
-      if (hook = Silas.config.around_model_call)
-        hook.call(context) { engine.execute_step(context) }
-      else
-        engine.execute_step(context)
+
+      # Live deltas: the engine yields Events, the buffer coalesces them into
+      # "silas.delta" notifications. A replayed step never reaches this method
+      # (the completed? guard above), so replay emits nothing. The emitter is
+      # created HERE and closed over by the inner block, so around_model_call
+      # hooks keep their existing one-argument contract and can't swallow it.
+      buffer = DeltaBuffer.new(turn: turn, step: step)
+      emitter = ->(event) { buffer.append(event.payload[:text].to_s) if event.type == :text_delta }
+
+      begin
+        if (hook = Silas.config.around_model_call)
+          hook.call(context) { engine.execute_step(context, &emitter) }
+        else
+          engine.execute_step(context, &emitter)
+        end
+      ensure
+        # Tail flush BEFORE the step row commits — the authoritative
+        # after_commit render must never race a straggling delta batch.
+        buffer.finish
       end
     end
 

@@ -1,5 +1,98 @@
 # Changelog
 
+## 0.2.0 (unreleased)
+
+- **Token streaming, end to end.** The engine seam's `&on_event` block — dead
+  code since 0.1.0 — is live: the `:ruby_llm` engine streams the model
+  response (`chat.complete` with a block; the assembled message is identical
+  to the sync path, so durability semantics are untouched), `StepRunner`
+  coalesces text deltas into ~10Hz `"silas.delta"` notifications
+  (`Silas::DeltaBuffer`) carrying the accumulated text, and two subscribers
+  render them: the inbox trace (synchronous Turbo `broadcast_update_to` into a
+  stable per-step target — crash-restream overwrites, never duplicates) and
+  the `silas:chat` REPL (tokens print as they arrive). Deltas are decoration
+  over the authoritative rows: never persisted, never fed to the model, and a
+  replayed step emits none. `around_model_call` hooks keep their existing
+  contract and can no longer swallow the stream.
+- **Onboarding fixes.** The generated `bin/ci` can now actually fail on app
+  tests (it silently swallowed them with `|| true`); the generated initializer
+  shows every option the next-steps mention (`inbox_auth`, `sandbox`,
+  `memory_approval`, `model_prices`, `eval_dir`, `approval_ttl`) and defaults
+  to `claude-sonnet-5` instead of handing a first run the most expensive model
+  with no budget set; the rescuer's `recurring.yml` entry is now **idempotent
+  and environment-aware** (injected under every deployable env block —
+  staging included — never blind-appended into whatever block ends the file,
+  never duplicated on a re-run); a missing provider API key is caught **at
+  boot** with the exact fix (warns in development, raises `BootGuardError` in
+  production); and the unsafe Async-adapter warning **raises in production**,
+  where running agents on it silently voids the durability contract.
+- **Model-call resilience: transient provider errors retry from the
+  checkpoint; nothing ever strands in `running`.** Previously a single
+  429/529/timeout failed the loop job permanently and invisibly — the turn sat
+  in `running` forever with no retry and no signal. Now:
+  `resume_errors_after_advancing = false` on the loop job (Active Job
+  Continuations otherwise swallow errors raised after a checkpoint and
+  self-resume unboundedly, bypassing `retry_on` — verified against activejob
+  8.1); transient classes (`RateLimitError`, `OverloadedError`,
+  `ServiceUnavailableError`, `ServerError`, Faraday timeouts) retry with
+  polynomial backoff + jitter and **resume from the last completed step**;
+  exhaustion and permanent rejections (`UnauthorizedError`,
+  `PaymentRequiredError`, …) expire pending approvals and fail the turn
+  loudly. The rescuer now also sweeps **stranded turns** — a loop job that
+  died with an error outside the retry list fails its turn
+  (`reason: "job_failed"`) instead of leaving it running forever. Stale
+  approval cards can no longer zombie-resume a failed turn (`approve!` /
+  `decline!` refuse; `resume_turn!` guards).
+- **The inbox now shows the audit trail it exists to provide.** Tool
+  `arguments` render for every settled invocation (not just parked ones), a
+  failed tool shows its recorded `error` instead of a bare red pill, and
+  `approved_by` / `decline_reason` render on settled approvals — who held the
+  lever, and why it moved. Active turns gain a **Cancel** button (running
+  turns flag for a step-boundary cancel, parked turns cancel immediately),
+  and the "N awaiting approval" badge is now a link filtering the session
+  list to what needs you (`?pending=1`).
+- **Web chat in the inbox.** The session page gains a composer (`POST
+  .../sessions/:id/turns`) and the index a start-a-session form (with a named
+  agent picker) — the browser is now a first-class conversational surface, not
+  just approve/decline. Writes ride `authenticate_write!` exactly like
+  approvals; a turn-in-progress renders as an inline alert; web-chat sessions
+  stay `channel: nil` ("direct"), so no outbound delivery jobs are enqueued.
+
+- **`approval :once` is now scoped to (tool, arguments), not tool name alone.**
+  Name-only matching was a footgun: approving a £5 refund silently
+  auto-approved a £5,000 refund later in the same session. Identical repeat
+  calls still skip re-approval; different arguments park again. Graded gates
+  belong in an approval lambda.
+- **The ledger's checkpoint guard moved to `IsolatedExecutionState`** (from
+  `Thread.current[]`, which is fiber-local) — it now follows the app's
+  configured isolation level exactly like agent scopes, surviving into
+  internally-created fibers where the old flag silently vanished. Nested
+  ledger transactions now save/restore the guard instead of clearing it (the
+  old `ensure` opened a checkpoint-guard hole for the rest of the outer
+  transaction).
+- **Removed the `:agent_sdk` engine** (the `claude -p` subprocess integration).
+  Its differentiating rationale — running on a Claude subscription plan instead
+  of API credits — was structurally unreachable: `--bare` was hardcoded and the
+  engine raised without `ANTHROPIC_API_KEY` regardless of `config.auth`, so the
+  OAuth path could never execute a turn. What remained was a second engine with
+  weaker guarantees on every axis (exactly-once only *within* a run,
+  `approval :never` tools only, fail-closed on any mid-subprocess kill) that
+  made the durability contract conditional. One production path now:
+  `:ruby_llm`.
+  - `config.engine = :agent_sdk` raises a clear `BootGuardError` at configure
+    time. `config.auth` and the `agent_sdk_*` options are warning no-ops for
+    this release (hard removal in 0.3) — an existing initializer won't crash.
+  - The in-process MCP server (`Silas::Mcp::Server`/`Handler`) **survives the
+    cut** — it is the seam for a planned "mount your agent's tools as an MCP
+    server" feature — with its own integration spec. Its bind host moved from
+    `config.agent_sdk_mcp_host` to `config.mcp_server_host`.
+  - New migration drops `silas_turns.cli_session_id` and
+    `silas_turns.mcp_token` (the latter was write-only; tokens are minted and
+    compared in memory). Run `bin/rails silas:install:migrations db:migrate`.
+  - `Silas::Engines::Base.loop_ownership` is gone — every engine executes one
+    model call per step under the framework-owned loop. Custom engines that
+    merely inherited it are unaffected.
+
 ## 0.1.7
 
 - **Memory — graph-shaped, not a graph database.** New `silas_memories` table:

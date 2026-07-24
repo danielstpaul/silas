@@ -20,10 +20,16 @@ module Silas
     GUARD_KEY = :silas_ledger_transaction
 
     class << self
-      # True while a ledger transaction is open on this thread. A continuation
-      # checkpoint inside would raise Interrupt and roll back committed-looking
-      # progress (spike finding #5) — AgentLoopJob asserts against this.
-      def in_transaction? = Thread.current[GUARD_KEY] == true
+      # True while a ledger transaction is open in this execution context. A
+      # continuation checkpoint inside would raise Interrupt and roll back
+      # committed-looking progress (spike finding #5) — AgentLoopJob asserts
+      # against this. Stored in IsolatedExecutionState (not Thread.current[],
+      # which is fiber-local) so the guard follows the app's configured
+      # isolation level, exactly like Silas.current_scope — under the default
+      # :thread isolation it survives into internally-created fibers
+      # (enumerators, streaming bodies) where a fiber-local flag would
+      # silently vanish.
+      def in_transaction? = ActiveSupport::IsolatedExecutionState[GUARD_KEY] == true
 
       def assert_no_checkpoint!
         return unless in_transaction?
@@ -50,9 +56,9 @@ module Silas
       end
 
       # Drive a SINGLE freshly-created invocation to a terminal state — the
-      # :agent_sdk MCP endpoint creates one invocation per tools/call and needs
-      # exactly the same exactly-once/effect-mode machinery as settle!. Returns
-      # :done or :parked; the invocation carries its .result.
+      # hosted MCP endpoint (Mcp::Handler) creates one invocation per tools/call
+      # and needs exactly the same exactly-once/effect-mode machinery as
+      # settle!. Returns :done or :parked; the invocation carries its .result.
       def execute_invocation!(invocation, resolver:)
         settle_invocation!(invocation, resolver)
       end
@@ -157,12 +163,18 @@ module Silas
         end
       end
 
+      # :once is scoped to tool name AND arguments. Name-only matching was a
+      # footgun: approving a £5 refund would silently auto-approve a £5,000
+      # refund later in the same session. Identical repeat calls still skip
+      # re-approval; anything else re-parks. Graded gates (thresholds, ranges)
+      # belong in an approval lambda, not :once. (Hash#== is order-independent,
+      # so jsonb key order can't produce false negatives.)
       def previously_approved?(invocation)
         ToolInvocation.joins(:turn)
                       .where(silas_turns: { session_id: invocation.turn.session_id },
                              tool_name: invocation.tool_name, approval_state: "approved")
                       .where.not(id: invocation.id)
-                      .exists?
+                      .any? { |prior| prior.arguments == invocation.arguments }
       end
 
       # Compare-and-swap claim: only one racing execution wins.
@@ -173,11 +185,15 @@ module Silas
         claimed
       end
 
+      # Save/restore, not set/clear: a nested guarded_transaction must not
+      # clobber the outer guard on exit (the old `ensure ... = false` opened a
+      # checkpoint-guard hole for the remainder of the outer transaction).
       def guarded_transaction
-        Thread.current[GUARD_KEY] = true
+        previous = ActiveSupport::IsolatedExecutionState[GUARD_KEY]
+        ActiveSupport::IsolatedExecutionState[GUARD_KEY] = true
         ApplicationRecord.transaction { yield }
       ensure
-        Thread.current[GUARD_KEY] = false
+        ActiveSupport::IsolatedExecutionState[GUARD_KEY] = previous
       end
 
       def wrap_result(result)

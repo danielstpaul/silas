@@ -53,23 +53,41 @@ module Silas
         end
       end
 
+      RESCUER_ENTRY = <<~YAML.freeze
+        # Silas: retries jobs failed by dead-worker reaping/pruning, sweeps
+        # expired approvals, and fails turns stranded by dead loop jobs. Part
+        # of the durability contract — do not remove.
+        silas_dead_job_rescuer:
+          class: Silas::DeadJobRescuerJob
+          queue: default
+          schedule: every 30 seconds
+      YAML
+
+      # Idempotent and environment-aware: the entry is injected directly under
+      # EVERY deployable top-level env key (production, staging, …) — never a
+      # blind append into whatever block happens to end the file, and never a
+      # duplicate key on a re-run. A staging worker needs the rescuer exactly
+      # as much as production does.
       def add_rescuer_recurring_task
         recurring = "config/recurring.yml"
-        entry = <<~YAML
+        path = File.expand_path(recurring, destination_root)
 
-          # Silas: retries jobs failed by dead-worker reaping/pruning and sweeps
-          # expired approvals. Part of the durability contract — do not remove.
-          silas_dead_job_rescuer:
-            class: Silas::DeadJobRescuerJob
-            queue: default
-            schedule: every 30 seconds
-        YAML
-
-        if File.exist?(File.expand_path(recurring, destination_root))
-          append_to_file recurring, entry.indent(2)
-        else
-          create_file recurring, "production:#{entry.indent(2)}"
+        unless File.exist?(path)
+          create_file recurring, "production:\n#{RESCUER_ENTRY.indent(2)}"
+          return
         end
+
+        if File.read(path).include?("silas_dead_job_rescuer")
+          say_status :skip, "#{recurring} already contains silas_dead_job_rescuer", :yellow
+          return
+        end
+
+        injected = false
+        gsub_file recurring, /^(?!development:|test:)([a-zA-Z_]+:)[ \t]*$/ do |header|
+          injected = true
+          "#{header}\n#{RESCUER_ENTRY.indent(2)}"
+        end
+        append_to_file recurring, "\nproduction:\n#{RESCUER_ENTRY.indent(2)}" unless injected
       end
 
       def install_migrations
@@ -91,8 +109,9 @@ module Silas
             7. Channels (optional): set credentials.silas.slack.{signing_secret,bot_token}
                for Slack; route inbound mail to Silas::AgentMailbox for email.
                Delete app/agent/channels/{slack,email}.rb to disable.
-            8. Inbox: live at /silas/inbox once you set config.inbox_auth
-               (deny-by-default until you do).
+            8. Inbox + web chat: /silas/inbox, deny-by-default — uncomment
+               config.inbox_auth in config/initializers/silas.rb to make it visible.
+            9. Restart your server if it was running (app/agent/ registers at boot).
         MSG
       end
     end

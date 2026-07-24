@@ -60,7 +60,7 @@ registry:
 env:
   secret:
     - RAILS_MASTER_KEY
-    - ANTHROPIC_API_KEY        # :ruby_llm and :agent_sdk both need it
+    - ANTHROPIC_API_KEY        # the :ruby_llm engine authenticates with this
   clear:
     SOLID_QUEUE_IN_PUMA: false # the job role runs the worker instead
 
@@ -85,7 +85,7 @@ crash ≈ `SolidQueue.process_alive_threshold` + the rescuer's 30s cadence.
 
 ## 4. Cost
 
-The whole thing runs on one VPS + your model spend. Both engines authenticate
-with an `ANTHROPIC_API_KEY` (the `:agent_sdk` engine runs `claude -p --bare` —
-API-key auth only, never subscription OAuth). Your data and the ledger never
-leave your own Postgres, and there is no Silas platform bill or per-run metering.
+The whole thing runs on one VPS + your model spend. The engine authenticates
+with an API key for whatever provider you configure through RubyLLM. Your data
+and the ledger never leave your own Postgres, and there is no Silas platform
+bill or per-run metering.

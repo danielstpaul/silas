@@ -110,13 +110,11 @@ not by production load — because there is no production load yet. "Chaos-gated
 as "battle-tested at scale," and if you need the latter today, a proven managed
 platform is the honest answer and you should buy that instead.
 
-The `:agent_sdk` engine (a `claude -p` subprocess that calls back into your
-tools over an in-worker MCP endpoint) is **API-key auth only** — there is no
-subscription-billing path, and the boot guard raises if you try to configure one.
-It's honestly weaker than the canonical `:ruby_llm` engine: exactly-once *within*
-a run, `approval :never` tools only, fail-closed on a mid-subprocess kill.
-`:ruby_llm` (API-key auth via RubyLLM, any provider it supports) is the
-production mode.
+There is one engine: `:ruby_llm` (API-key auth via RubyLLM, any provider it
+supports). An experimental `claude -p` subprocess engine existed through 0.1.x
+and was removed in 0.2 — it promised a subscription-billing path it structurally
+couldn't deliver, and carried weaker guarantees on every axis. One production
+path, honestly stated, beats two paths with an asterisk.
 
 We'd rather you find these limits here than in an incident.
 

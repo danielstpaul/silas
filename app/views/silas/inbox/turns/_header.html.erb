@@ -1,6 +1,13 @@
 <div class="turn-head">
   <span class="turn-input"><%= truncate(turn.input, length: 90) %></span>
   <%= status_pill(turn.status) %>
+  <% if turn.active? && !turn.cancel_requested_at %>
+    <%= form_with url: cancel_inbox_turn_path(turn), method: :post, class: "inline" do %>
+      <button class="btn-cancel" title="Honored at the next step boundary">Cancel</button>
+    <% end %>
+  <% elsif turn.cancel_requested_at && turn.active? %>
+    <span class="muted">cancel requested…</span>
+  <% end %>
 </div>
 <% if turn.failure_reason.present? %>
   <div class="muted">failed: <%= turn.failure_reason %></div>
