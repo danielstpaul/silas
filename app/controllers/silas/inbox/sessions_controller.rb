@@ -3,18 +3,31 @@ module Silas
     class SessionsController < BaseController
       before_action :authenticate_write!, only: :create
 
+      PER_PAGE = 50
+
       def index
-        @sessions = Silas::Session.order(created_at: :desc).limit(100)
-        @sessions = @sessions.where(agent_name: params[:agent]) if params[:agent].present?
+        # Keyset pagination on id (?before=<id> pages older), newest first.
+        scope = Silas::Session.order(id: :desc)
+        scope = scope.where(agent_name: params[:agent]) if params[:agent].present?
         if params[:pending].present? # the "N awaiting approval" badge drills into this
           # Subquery, not joins+distinct: DISTINCT over silas_sessions.* trips
           # on the json metadata column (PG json has no equality operator).
-          @sessions = @sessions.where(
+          scope = scope.where(
             id: Silas::Turn.joins(:tool_invocations)
                            .where(silas_tool_invocations: { approval_state: "required" })
                            .select(:session_id)
           )
         end
+        scope = scope.where(id: ...params[:before].to_i) if params[:before].present?
+
+        # One query for the rows + turns, one for the pending counts — the
+        # per-row active_turn/turns.last/counts pattern was ~4 queries a card.
+        @sessions = scope.limit(PER_PAGE).includes(:turns).to_a
+        @next_before = @sessions.last&.id if @sessions.size == PER_PAGE
+        @pending_counts = Silas::ToolInvocation.joins(:turn)
+                                               .where(approval_state: "required",
+                                                      silas_turns: { session_id: @sessions.map(&:id) })
+                                               .group("silas_turns.session_id").count
         @agent_names = Silas::Session.distinct.pluck(:agent_name).sort
         @pending_total = Silas::ToolInvocation.where(approval_state: "required").count
       end

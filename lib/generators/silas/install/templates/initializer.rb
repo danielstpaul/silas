@@ -4,11 +4,11 @@ Silas.configure do |config|
   config.engine = :ruby_llm
 
   # Any model your installed ruby_llm's registry resolves (newer models may
-  # need `RubyLLM.models.refresh!` first). "claude-sonnet-5" is the balanced
+  # need `RubyLLM.models.refresh!` first). "claude-sonnet-4-5" is the balanced
   # default; "claude-haiku-4-5" is fastest/cheapest; Opus models are the most
   # capable and the most expensive — set per-turn budgets in agent.yml before
   # reaching for one.
-  config.default_model = "claude-sonnet-5"
+  config.default_model = "claude-sonnet-4-5"
 
   # The operator inbox (mounted at /silas/inbox) is DENY-BY-DEFAULT — invisible
   # until you wire auth. The lambda DENIES by rendering (or head-ing) and
@@ -34,8 +34,9 @@ Silas.configure do |config|
   # disables memory entirely.
   # config.memory_approval = :always
 
-  # Cost accounting price overrides: cost-units per 1k tokens, where
-  # 1_000_000 units = $1 (so a $3/M-token rate is 3000).
+  # Cost accounting prices itself from RubyLLM's model registry. Override per
+  # model for fine-tunes / custom deployments / models newer than your
+  # installed registry (units per 1k tokens; 1e6 units = $1):
   # config.model_prices["your-fine-tune"] = { in: 3000, out: 15_000 }
 
   # Where eval scenarios live (bin/rails silas:eval).

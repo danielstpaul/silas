@@ -1,4 +1,23 @@
 Silas::Engine.routes.draw do
+  namespace :api do
+    namespace :v1 do
+      resources :sessions, only: %i[create show] do
+        resources :turns, only: :create
+        resources :approvals, only: :index
+        get :stream, on: :member, to: "streams#show"
+      end
+      resources :turns, only: [] do
+        member { post :cancel }
+      end
+      resources :approvals, only: [] do
+        member do
+          post :approve
+          post :decline
+        end
+      end
+    end
+  end
+
   namespace :channels do
     post "slack/events", to: "slack#events"
     post "slack/actions", to: "slack#actions"
@@ -12,7 +31,10 @@ Silas::Engine.routes.draw do
       resources :turns, only: :create
     end
     resources :turns, only: [] do
-      member { post :cancel }
+      member do
+        post :cancel
+        post :raise_budget
+      end
     end
     resources :invocations, only: [] do
       member do

@@ -18,6 +18,11 @@ module Silas
         Array(step.response_blocks).select { |b| b["type"] == "text" }.map { |b| b["text"] }.join.presence
       end
 
+      # The final_answer payload, when the agent declared a schema.
+      def step_structured(step)
+        Array(step.response_blocks).reverse.find { |b| b["type"] == "structured" }&.dig("data")
+      end
+
       def pretty_args(hash)
         JSON.pretty_generate(hash || {})
       end

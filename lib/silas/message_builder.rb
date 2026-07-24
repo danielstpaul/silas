@@ -50,9 +50,16 @@ module Silas
 
     # Text comes from the model's own blocks; tool_use blocks are rebuilt from
     # the settled invocations so the assistant message and the tool results that
-    # follow are always a matched set (same ids, same count).
+    # follow are always a matched set (same ids, same count). A structured
+    # (final_answer) block replays as its JSON text — deterministic (same rows
+    # -> same string), and providers need message content, not our block type.
     def assistant_blocks(step, settled)
-      text = Array(step.response_blocks).select { |b| b["type"] == "text" }
+      text = Array(step.response_blocks).filter_map do |b|
+        case b["type"]
+        when "text"       then b
+        when "structured" then { "type" => "text", "text" => JSON.generate(b["data"]) }
+        end
+      end
       tools = settled.map do |inv|
         { "type" => "tool_call", "id" => inv.tool_call_id,
           "name" => inv.tool_name, "arguments" => inv.arguments || {} }

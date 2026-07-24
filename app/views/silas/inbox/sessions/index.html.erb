@@ -37,15 +37,23 @@
     <%= link_to inbox_session_path(session), class: "card session-row" do %>
       <div class="row-top">
         <span class="name"><%= session.agent_name %></span>
-        <% if (turn = session.active_turn || session.turns.last) %><%= status_pill(turn.status) %><% end %>
-        <% pending = session.pending_approvals.count %>
+        <%# Loaded association — no per-row queries. %>
+        <% if (turn = session.turns.detect(&:active?) || session.turns.last) %><%= status_pill(turn.status) %><% end %>
+        <% pending = @pending_counts.fetch(session.id, 0) %>
         <% if pending.positive? %><span class="badge"><%= pending %> to approve</span><% end %>
       </div>
       <div class="muted">
-        <%= pluralize(session.turns.count, "turn") %> ·
+        <%= pluralize(session.turns.size, "turn") %> ·
         <%= session.channel.presence || "direct" %> ·
         <%= relative_time(session.updated_at) %>
       </div>
     <% end %>
+  <% end %>
+  <% if @next_before %>
+    <div class="pager">
+      <%= link_to "Older sessions →",
+            inbox_sessions_path(before: @next_before, agent: params[:agent].presence, pending: params[:pending].presence),
+            class: "chip" %>
+    </div>
   <% end %>
 <% end %>

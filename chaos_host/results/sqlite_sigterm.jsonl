@@ -18,3 +18,13 @@
 {"run":8,"store":"sqlite","mode":"sigterm","scenario":"default","completed":true,"transcript_identical":true,"duplicate_side_effects":0,"kill_at_ms":896,"total_ms":2592,"rescuer_retries":0}
 {"run":9,"store":"sqlite","mode":"sigterm","scenario":"default","completed":true,"transcript_identical":true,"duplicate_side_effects":0,"kill_at_ms":448,"total_ms":2444,"rescuer_retries":0}
 {"run":10,"store":"sqlite","mode":"sigterm","scenario":"default","completed":true,"transcript_identical":true,"duplicate_side_effects":0,"kill_at_ms":871,"total_ms":2564,"rescuer_retries":0}
+{"run":1,"store":"sqlite","mode":"sigterm","scenario":"default","completed":true,"transcript_identical":true,"duplicate_side_effects":0,"kill_at_ms":941,"total_ms":2668,"rescuer_retries":0}
+{"run":2,"store":"sqlite","mode":"sigterm","scenario":"default","completed":true,"transcript_identical":true,"duplicate_side_effects":0,"kill_at_ms":811,"total_ms":2737,"rescuer_retries":0}
+{"run":3,"store":"sqlite","mode":"sigterm","scenario":"default","completed":true,"transcript_identical":true,"duplicate_side_effects":0,"kill_at_ms":1449,"total_ms":2763,"rescuer_retries":0}
+{"run":4,"store":"sqlite","mode":"sigterm","scenario":"default","completed":true,"transcript_identical":true,"duplicate_side_effects":0,"kill_at_ms":1138,"total_ms":2866,"rescuer_retries":0}
+{"run":5,"store":"sqlite","mode":"sigterm","scenario":"default","completed":true,"transcript_identical":true,"duplicate_side_effects":0,"kill_at_ms":1220,"total_ms":2953,"rescuer_retries":0}
+{"run":6,"store":"sqlite","mode":"sigterm","scenario":"default","completed":true,"transcript_identical":true,"duplicate_side_effects":0,"kill_at_ms":1769,"total_ms":2556,"rescuer_retries":0}
+{"run":7,"store":"sqlite","mode":"sigterm","scenario":"default","completed":true,"transcript_identical":true,"duplicate_side_effects":0,"kill_at_ms":1577,"total_ms":2562,"rescuer_retries":0}
+{"run":8,"store":"sqlite","mode":"sigterm","scenario":"default","completed":true,"transcript_identical":true,"duplicate_side_effects":0,"kill_at_ms":1269,"total_ms":2893,"rescuer_retries":0}
+{"run":9,"store":"sqlite","mode":"sigterm","scenario":"default","completed":true,"transcript_identical":true,"duplicate_side_effects":0,"kill_at_ms":1650,"total_ms":2641,"rescuer_retries":0}
+{"run":10,"store":"sqlite","mode":"sigterm","scenario":"default","completed":true,"transcript_identical":true,"duplicate_side_effects":0,"kill_at_ms":1049,"total_ms":2674,"rescuer_retries":0}

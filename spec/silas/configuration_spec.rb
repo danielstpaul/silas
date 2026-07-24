@@ -48,18 +48,9 @@ RSpec.describe Silas::Configuration do
   end
 
   describe "removed :agent_sdk options" do
-    it "accepts writes as warning no-ops instead of crashing an existing initializer" do
-      allow(Rails.logger).to receive(:warn)
-      expect {
-        Silas.configure { |c| c.agent_sdk_claude_bin = "claude" }
-      }.not_to raise_error
-      expect(Rails.logger).to have_received(:warn).with(/config\.agent_sdk_claude_bin was removed/)
-    end
-
-    it "returns nil (with a warning) on reads" do
-      allow(Rails.logger).to receive(:warn)
-      expect(Silas.config.auth).to be_nil
-      expect(Rails.logger).to have_received(:warn).with(/config\.auth was removed/)
+    it "are hard-removed in 0.3 — no shims, no silent no-ops" do
+      expect { Silas.config.auth }.to raise_error(NoMethodError)
+      expect { Silas.config.agent_sdk_claude_bin = "claude" }.to raise_error(NoMethodError)
     end
   end
 end

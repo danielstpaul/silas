@@ -7,6 +7,9 @@
   <% else %>
     <div class="step-text step-live" id="silas-step-<%= step.id %>-text"></div>
   <% end %>
+  <% if (data = step_structured(step)) %>
+    <pre class="args"><%= pretty_args(data) %></pre>
+  <% end %>
   <div id="silas-step-<%= step.id %>-tools">
     <%= render partial: "silas/inbox/invocations/invocation", collection: step.tool_invocations, as: :invocation %>
   </div>

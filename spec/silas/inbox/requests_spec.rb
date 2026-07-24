@@ -5,7 +5,7 @@ RSpec.describe "the inbox", type: :request do
 
   let(:session) { Silas::Session.create!(agent_name: "refunds") }
   let!(:turn) { Silas::Turn.create!(session: session, index: 0, input: "refund order 42", status: "waiting") }
-  let!(:step) { Silas::Step.create!(turn: turn, index: 0, status: "completed", model: "claude-sonnet-5", input_tokens: 100, output_tokens: 50) }
+  let!(:step) { Silas::Step.create!(turn: turn, index: 0, status: "completed", model: "claude-sonnet-4-5", provider: "anthropic", input_tokens: 100, output_tokens: 50) }
   let!(:invocation) do
     Silas::ToolInvocation.create!(step: step, turn: turn, tool_call_id: "t0", tool_name: "issue_refund",
                                   effect_mode: "at_most_once", arguments: { "amount" => 120 },
@@ -207,6 +207,57 @@ RSpec.describe "the inbox", type: :request do
       expect(turn.reload.cancel_requested_at).to be_present
       expect(turn.status).to eq("running") # honored at the boundary, not aborted
       expect(flash[:notice]).to match(/next step boundary/)
+    end
+  end
+
+  describe "budget top-up card" do
+    it "is write-gated even in public-read mode" do
+      Silas.configure { |c| c.inbox_public_read = true }
+      post "/silas/inbox/turns/#{turn.id}/raise_budget", params: { value: "2.5" }
+      expect(response).to have_http_status(:not_found)
+    end
+
+    it "renders the card on a budget-parked turn, raises the limit, and resumes" do
+      allow_all!
+      turn.update!(status: "waiting", failure_reason: "max_cost")
+
+      get "/silas/inbox/sessions/#{session.id}"
+      expect(response.body).to include("Budget reached")
+
+      expect {
+        post "/silas/inbox/turns/#{turn.id}/raise_budget", params: { value: "2.5" }
+      }.to have_enqueued_job(Silas::AgentLoopJob)
+      expect(turn.reload).to have_attributes(status: "queued", failure_reason: nil)
+      expect(turn.budget_overrides).to eq("max_cost" => 2.5)
+      expect(flash[:notice]).to match(/raised/)
+    end
+
+    it "rejects a top-up on a turn that isn't budget-parked" do
+      allow_all!
+      turn.update!(status: "running", failure_reason: nil)
+      post "/silas/inbox/turns/#{turn.id}/raise_budget", params: { value: "5" }
+      expect(flash[:alert]).to match(/not budget-parked/)
+      expect(turn.reload.status).to eq("running")
+    end
+  end
+
+  describe "keyset pagination" do
+    before { allow_all! }
+
+    it "pages older sessions via ?before=<id> and hides the pager on the last page" do
+      stub_const("Silas::Inbox::SessionsController::PER_PAGE", 2)
+      s2 = Silas::Session.create!(agent_name: "refunds")
+      s3 = Silas::Session.create!(agent_name: "refunds")
+
+      get "/silas/inbox"
+      expect(response.body).to include("/silas/inbox/sessions/#{s3.id}")
+      expect(response.body).to include("/silas/inbox/sessions/#{s2.id}")
+      expect(response.body).not_to include("\"/silas/inbox/sessions/#{session.id}\"")
+      expect(response.body).to include("before=#{s2.id}")
+
+      get "/silas/inbox/sessions", params: { before: s2.id }
+      expect(response.body).to include("/silas/inbox/sessions/#{session.id}")
+      expect(response.body).not_to include("Older sessions")
     end
   end
 end

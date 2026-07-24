@@ -14,6 +14,7 @@ module Silas
       def completed? = @turn.completed?
       def parked?    = @turn.parked?
       def final_text = @turn.answer_text.to_s
+      def answer_data = @turn.answer_data
       def invocations = @turn.tool_invocations.order(:id).to_a
       def invocations_for(name) = invocations.select { |i| i.tool_name == name.to_s }
       def results = invocations.map(&:result).compact

@@ -5,6 +5,12 @@ module Silas
     has_many :turns, -> { order(:index) }, class_name: "Silas::Turn", foreign_key: :session_id,
              inverse_of: :session, dependent: :destroy
 
+    # Delegations and handoffs stamp parent_session_id; without associations
+    # they surfaced as unexplained orphans.
+    belongs_to :parent_session, class_name: "Silas::Session", optional: true
+    has_many :child_sessions, class_name: "Silas::Session",
+             foreign_key: :parent_session_id, inverse_of: :parent_session
+
     validates :status, inclusion: { in: STATUSES }
     validates :agent_name, presence: true
 

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_24_223056) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_24_233253) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -59,6 +59,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_24_223056) do
     t.integer "input_tokens"
     t.string "model"
     t.integer "output_tokens"
+    t.string "provider"
     t.json "response_blocks"
     t.string "status", default: "started", null: false
     t.string "stop_reason"
@@ -96,7 +97,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_24_223056) do
     t.datetime "answered_at"
     t.json "budget_overrides", default: {}, null: false
     t.datetime "cancel_requested_at"
-    t.integer "cost_microcents", default: 0, null: false
     t.datetime "created_at", null: false
     t.string "definitions_digest"
     t.string "failure_reason"

@@ -39,35 +39,29 @@ module Silas
     # tools as MCP" seam).
     attr_accessor :mcp_server_host
 
-    # Removed in 0.2 with the :agent_sdk engine. Accepted as warning no-ops for
-    # one release so an existing initializer doesn't crash at boot; hard removal
-    # in 0.3.
-    REMOVED_AGENT_SDK_OPTIONS = %i[
-      auth agent_sdk_claude_bin agent_sdk_model agent_sdk_mcp_host
-      agent_sdk_mcp_timeout_ms agent_sdk_cli_version_range
-    ].freeze
-
-    REMOVED_AGENT_SDK_OPTIONS.each do |option|
-      define_method("#{option}=") { |_value| warn_removed_agent_sdk_option(option) }
-      define_method(option) do
-        warn_removed_agent_sdk_option(option)
-        nil
-      end
-    end
-
-    def warn_removed_agent_sdk_option(option)
-      message = "[Silas] config.#{option} was removed in 0.2 with the :agent_sdk engine and " \
-                "is now a no-op — delete it from your initializer (hard removal in 0.3)."
-      (defined?(::Rails) && ::Rails.logger ? ::Rails.logger.warn(message) : nil) || Kernel.warn(message)
-    end
+    # config.auth and the agent_sdk_* options were removed with the :agent_sdk
+    # engine in 0.2 (warning no-ops for one release) and hard-removed in 0.3 —
+    # a leftover write now raises NoMethodError. Delete them from your
+    # initializer.
+    # JSON API (mounted under /silas/api/v1).
+    #   api_auth  — deny-by-default lambda, same contract as inbox_auth: the
+    #               host DENIES by rendering (or head-ing) and PASSES by not
+    #               rendering. Wire a token check, Devise, whatever you run.
+    #   api_actor — controller -> identity string recorded on approvals made
+    #               through the API (approved_by / declined by).
+    #   api_stream_poll_interval — seconds between SSE row polls.
+    #   api_stream_max_duration  — seconds before an SSE stream closes itself
+    #               (clients reconnect with Last-Event-ID); bounds thread hold.
+    attr_accessor :api_auth, :api_actor, :api_stream_poll_interval, :api_stream_max_duration
     # Inbox (mountable UI at /silas/inbox).
     #   inbox_auth        — deny-by-default lambda; the host renders/head-404s to
     #                       DENY and passes by NOT rendering (resilience pattern).
     #   inbox_public_read — reads render for anyone; approve/decline still gated.
     #   inbox_actor       — controller -> identity string (approved_by/decline by:).
-    #   model_prices      — model id -> {in:, out:} cost-units per 1k tokens,
-    #                       where 1_000_000 units = $1 (so a $3/M-token input rate
-    #                       is 3000 units/1k). Cost.format divides by 1e6.
+    #   model_prices      — OVERRIDE map: model id -> {in:, out:} cost-units per
+    #                       1k tokens, 1e6 units = $1 (a $3/M-token rate is
+    #                       3000). Beats the RubyLLM registry, which prices
+    #                       everything else per (model, provider).
     attr_accessor :inbox_auth, :inbox_public_read, :inbox_actor, :model_prices
     # Force-disable live broadcasting even when turbo-rails is present (nil = auto).
     attr_accessor :inbox_streaming
@@ -92,7 +86,9 @@ module Silas
       @engine = :ruby_llm
       # Must be resolvable by the installed ruby_llm's model registry — newer
       # Claude models may need `RubyLLM.models.refresh!` before they resolve.
-      @default_model = "claude-opus-4-8"
+      # (Sonnet 4.5 ships in every supported registry; never default a first
+      # run to the priciest model.)
+      @default_model = "claude-sonnet-4-5"
       @queue_name = :default
       @around_model_call = nil
       @approval_ttl = 7.days
@@ -125,18 +121,18 @@ module Silas
       @sandbox_workdir = "/workspace"
       @sandbox_docker_bin = "docker"
       @sandbox_timeout = 30
+      @api_auth = ->(controller) { controller.head :not_found } # deny by default
+      @api_actor = ->(_controller) { "api" }
+      @api_stream_poll_interval = 0.5
+      @api_stream_max_duration = 300
       @inbox_auth = ->(controller) { controller.head :not_found } # deny by default
       @inbox_public_read = false
       @inbox_actor = ->(controller) { controller.try(:current_user)&.try(:email) || "inbox" }
-      # Current Claude rates as cost-units per 1k tokens (1e6 units = $1):
-      # Opus 4.8 $5/$25, Sonnet $3/$15, Haiku $1/$5 per million tokens.
-      @model_prices = {
-        "claude-opus-4-8" => { in: 5000, out: 25_000 },
-        "claude-sonnet-5" => { in: 3000, out: 15_000 },
-        "claude-sonnet-4-6" => { in: 3000, out: 15_000 },
-        "claude-haiku-4-5" => { in: 1000, out: 5000 },
-        "claude-haiku-4-5-20251001" => { in: 1000, out: 5000 }
-      }
+      # OVERRIDE map only — pricing comes from RubyLLM's model registry
+      # (1,100+ models, refreshed upstream from models.dev). List a model here
+      # to beat the registry: fine-tunes, custom deployments, models newer
+      # than the installed registry. Units: per 1k tokens, 1e6 units = $1.
+      @model_prices = {}
     end
 
     def validate!

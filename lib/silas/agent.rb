@@ -16,6 +16,10 @@ module Silas
 
     def model       = @attrs["model"] || Silas.config.default_model
     def description = @attrs["description"].to_s
+    # Optional JSON schema for the turn's final answer (raw Hash, passed to
+    # RubyLLM's with_schema). Model-visible state: folded into the definitions
+    # digest when present, so a mid-turn change fails loudly.
+    def final_answer = @attrs["final_answer"]
     def limits      = @attrs["limits"] || {}
     def max_steps   = limits["max_steps"] || Silas.config.max_steps
     def max_input_tokens = limits["max_input_tokens"]  # cumulative input tokens per turn

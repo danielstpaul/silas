@@ -120,6 +120,8 @@ module Silas
       when "completed"
         if @last_streamed.present? && @last_streamed == turn.answer_text
           @out.puts # the streamed line IS the answer; just terminate it
+        elsif turn.answer_text.blank? && (data = turn.answer_data)
+          @out.puts "agent> #{JSON.generate(data)}" # final_answer schema: the payload IS the answer
         else
           @out.puts "agent> #{turn.answer_text}"
         end
