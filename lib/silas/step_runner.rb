@@ -64,7 +64,7 @@ module Silas
       }
 
       # Live deltas: the engine yields Events, the buffer coalesces them into
-      # "silas.delta" notifications. A replayed step never reaches this method
+      # "delta.silas" notifications. A replayed step never reaches this method
       # (the completed? guard above), so replay emits nothing. The emitter is
       # created HERE and closed over by the inner block, so around_model_call
       # hooks keep their existing one-argument contract and can't swallow it.
@@ -93,6 +93,9 @@ module Silas
       return if live == turn.definitions_digest
 
       turn.finish!(:failed, reason: "definitions_changed")
+      Silas.instrument(:nondeterminism, turn_id: turn.id,
+                                        was: turn.definitions_digest.to_s[0, 12],
+                                        now: live[0, 12])
       raise NondeterminismError,
             "Tool/skill definitions changed mid-turn (digest #{turn.definitions_digest[0, 12]}… → " \
             "#{live[0, 12]}…). The turn was failed rather than resumed against a different agent."

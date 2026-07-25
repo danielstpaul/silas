@@ -3,7 +3,7 @@ module Silas
   # set — consumers must ignore unknown types. Emitted today by Engines::RubyLLM:
   #   :message_start — once per model call (before_message)
   #   :text_delta    — { text: } chunks as the response streams
-  # StepRunner coalesces :text_delta into "silas.delta" notifications (see
+  # StepRunner coalesces :text_delta into "delta.silas" notifications (see
   # DeltaBuffer); everything else is available to custom engines/hooks.
   Event = Data.define(:type, :payload)
 

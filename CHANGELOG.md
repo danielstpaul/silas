@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+- **Instrumentation for the durable loop.** It emitted almost nothing before:
+  a turn could start, park for a human, get rescued after a `kill -9`, breach
+  a budget and finish without a single line. Now every notable moment is an
+  `ActiveSupport::Notifications` event — `turn`, `step`, `tool`, `park`,
+  `resume`, `approval`, `budget`, `rescue`, `nondeterminism`, `delta` — with
+  documented payloads that always carry `turn_id`/`session_id`.
+  **`tool.silas`** times the tool's own execution and reports how it settled
+  (the most useful span in the system); **`resume.silas`** carries
+  `parked_for`, i.e. how long the human actually took. A
+  `Silas::LogSubscriber` (modelled on Solid Queue's) turns them into log lines
+  at operator-filterable levels, and stays quiet when the rescuer did nothing.
+  Subscribe to everything with `ActiveSupport::Notifications.subscribe(/\.silas\z/)`.
+- **Notification names now follow the Rails convention** `<event>.silas`
+  (`sql.active_record`-style). The two pre-existing events were backwards:
+  `silas.step` -> `step.silas`, `silas.delta` -> `delta.silas`. Pre-1.0
+  breaking change for anyone who subscribed to the old names.
+
 - **Renamed the inference seam `Engines::` -> `Adapters::`** (and
   `config.engine` -> `config.adapter`). "Engine" meant two unrelated things in
   one namespace: the Rails engine at `Silas::Engine`, and the pluggable

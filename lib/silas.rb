@@ -5,6 +5,7 @@ require "active_record/railtie" if defined?(::Rails::Railtie)
 
 require "silas/version"
 require "silas/deprecator"
+require "silas/instrumentation"
 require "silas/errors"
 require "silas/configuration"
 require "silas/ledger"
@@ -45,6 +46,7 @@ require "silas/step_runner"
 require "silas/eval" # after adapters (ScriptedEngine < Adapters::Base)
 require "silas/chat"
 require "silas/doctor"
+require "silas/log_subscriber" if defined?(::ActiveSupport::LogSubscriber)
 
 module Silas
   class << self

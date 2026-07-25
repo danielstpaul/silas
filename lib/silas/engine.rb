@@ -44,8 +44,14 @@ module Silas
       Silas.config.boot_guard!
     end
 
+    # Turn the loop's notifications into log lines. Attaching here (rather than
+    # at require time) means a host that never boots Rails pays nothing.
+    initializer "silas.log_subscriber" do
+      Silas::LogSubscriber.attach_to :silas if defined?(Silas::LogSubscriber)
+    end
+
     # Live token streaming into the inbox trace: one process-wide subscriber on
-    # "silas.delta"; a no-op unless turbo-rails is present and streaming is on.
+    # "delta.silas"; a no-op unless turbo-rails is present and streaming is on.
     initializer "silas.delta_broadcaster" do
       Silas::Inbox::DeltaBroadcaster.subscribe!
     end

@@ -1,6 +1,6 @@
 require "rails_helper"
 
-# The token-streaming seam: engine Events -> DeltaBuffer -> "silas.delta"
+# The token-streaming seam: engine Events -> DeltaBuffer -> "delta.silas"
 # notifications. Deltas are decoration over the authoritative rows — never
 # persisted, never re-emitted on replay.
 RSpec.describe "token streaming" do
@@ -29,7 +29,7 @@ RSpec.describe "token streaming" do
 
   def capture_deltas
     events = []
-    subscription = ActiveSupport::Notifications.subscribe("silas.delta") { |*args| events << args.last }
+    subscription = ActiveSupport::Notifications.subscribe("delta.silas") { |*args| events << args.last }
     yield
     events
   ensure

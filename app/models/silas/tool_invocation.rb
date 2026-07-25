@@ -37,6 +37,8 @@ module Silas
       assert_parked!
       assert_turn_resumable!
       update!(status: "pending", approval_state: "approved", approved_by: by)
+      Silas.instrument(:approval, action: "approved", tool: tool_name, by: by,
+                                  invocation_id: id, turn_id: turn_id)
       resume_turn!
     end
 
@@ -49,6 +51,8 @@ module Silas
       assert_turn_resumable!
       update!(status: "failed", approval_state: "declined", approved_by: by,
               decline_reason: reason, result: { "denied" => reason })
+      Silas.instrument(:approval, action: "declined", tool: tool_name, by: by,
+                                  invocation_id: id, turn_id: turn_id)
       resume_turn!
     end
 
@@ -58,6 +62,8 @@ module Silas
       where(approval_state: "required").where(approval_expires_at: ..now).find_each do |inv|
         inv.update!(approval_state: "expired", status: "failed",
                     result: { "denied" => "approval expired" })
+        Silas.instrument(:approval, action: "expired", tool: inv.tool_name,
+                                    invocation_id: inv.id, turn_id: inv.turn_id)
         inv.turn.finish!(:failed, reason: "approval_expired")
       end
     end
@@ -90,7 +96,9 @@ module Silas
       # instantly re-park on "timeout" — pathological for a gate whose whole
       # point is waiting for a person. Cost/token budgets stay cumulative;
       # they measure real spend.
+      parked_for = turn.updated_at ? (Time.current - turn.updated_at).to_f : nil
       turn.update!(status: "queued", started_at: Time.current)
+      Silas.instrument(:resume, turn_id: turn.id, parked_for: parked_for)
       AgentLoopJob.perform_later(turn.id)
     end
   end

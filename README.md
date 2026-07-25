@@ -206,7 +206,7 @@ renders them live over Turbo (coalesced to ~10Hz). Deltas are decoration over
 the durable rows — never persisted, never fed back to the model, and a
 replayed step renders from its row with no deltas at all, so streaming adds
 zero risk to the durability contract. Custom sinks subscribe to the
-`"silas.delta"` notification (`{ session_id:, turn_id:, step_id:, step_index:,
+`"delta.silas"` notification (`{ session_id:, turn_id:, step_id:, step_index:,
 text: }`, where `text` is the accumulated string so far — filter by ids;
 notifications are process-global).
 

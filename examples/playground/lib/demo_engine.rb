@@ -4,7 +4,7 @@
 # It fakes ONLY the model's decisions. Everything else is real: the tools hit
 # the real tables, the Ledger enforces exactly-once, the £48 refund genuinely
 # parks for approval, and the answer streams token-by-token through the same
-# "silas.delta" pipeline a live model uses. (This is the same trick the eval
+# "delta.silas" pipeline a live model uses. (This is the same trick the eval
 # harness and the chaos suite use — the engine seam is one method.)
 #
 # A pure function of (turn input, step index), so crash-replay determinism

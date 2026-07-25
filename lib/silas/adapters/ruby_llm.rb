@@ -11,7 +11,7 @@ module Silas
       def execute_step(context, &on_event)
         chat = build_chat(context, &on_event)
 
-        response = ActiveSupport::Notifications.instrument("silas.step",
+        response = Silas.instrument(:step,
                                                            turn_id: context[:turn]&.id,
                                                            index: context[:index],
                                                            model: context[:model]) do

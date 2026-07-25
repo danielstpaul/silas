@@ -36,6 +36,24 @@ Both appear, by rule, not by accident (the same split RubyLLM uses):
 `module_function` publishes every method on the module, so it is the wrong
 tool wherever encapsulation matters. Don't "unify" these.
 
+### Instrumentation
+
+Every notable moment in the durable loop emits an `ActiveSupport::Notifications`
+event named `<event>.silas` — the Rails convention (`sql.active_record`), so
+`subscribe(/\.silas\z/)` catches everything. `Silas::LogSubscriber` turns them
+into log lines at levels an operator can filter on: parks and rescues INFO,
+budget breaches WARN, failed turns and nondeterminism ERROR, per-step and
+per-token chatter DEBUG.
+
+Payloads always carry `turn_id`/`session_id` where they exist, so a subscriber
+never has to join. The full event list lives in `lib/silas/instrumentation.rb`;
+`tool.silas` (duration + effect_mode + how it settled) is the single most
+useful span, and `resume.silas` carries `parked_for` — how long the human took.
+
+Event names and payload keys are a public contract: dashboards get built on
+them, so renaming one is a breaking change, and `spec/silas/instrumentation_spec.rb`
+pins them.
+
 ### Deprecations
 
 Everything removable goes through `Silas.deprecator`

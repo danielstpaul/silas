@@ -21,8 +21,14 @@ module Silas
     def active?    = ACTIVE_STATUSES.include?(status)
     def parked?    = status == "waiting" || status == "in_doubt"
 
+    # Duration on this event spans the WHOLE turn, parked time included — it
+    # answers "how long did the customer wait", not "how much compute".
     def finish!(new_status, reason: nil)
-      update!(status: new_status.to_s, failure_reason: reason, finished_at: Time.current)
+      Silas.instrument(:turn, status: new_status.to_s, reason: reason, turn_id: id,
+                              session_id: session_id, agent: session.agent_name,
+                              steps: steps.count) do
+        update!(status: new_status.to_s, failure_reason: reason, finished_at: Time.current)
+      end
     end
 
     def canceled? = status == "canceled"

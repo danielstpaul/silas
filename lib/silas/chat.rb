@@ -59,11 +59,11 @@ module Silas
     end
 
     # The REPL runs inline, in the same process as the loop — so it hears the
-    # "silas.delta" notifications and prints tokens as they arrive. Filtered by
+    # "delta.silas" notifications and prints tokens as they arrive. Filtered by
     # session id: notifications are process-global.
     def with_delta_stream
       @live = {}
-      subscription = ActiveSupport::Notifications.subscribe("silas.delta") do |*args|
+      subscription = ActiveSupport::Notifications.subscribe("delta.silas") do |*args|
         payload = args.last
         print_delta(payload) if @session && payload[:session_id] == @session.id
       end
