@@ -1,10 +1,13 @@
 <div class="approval">
   <h3>Approval needed — <%= invocation.tool_name %></h3>
   <pre><%= pretty_args(invocation.arguments) %></pre>
-  <%= form_with url: approve_inbox_invocation_path(invocation), method: :post, class: "inline" do %>
+  <%# silas_engine_path, not bare helpers: this partial is broadcast-rendered
+      through the HOST's renderer, where engine route helpers don't exist and
+      the mounted proxy has no routing scope to lean on. %>
+  <%= form_with url: silas_engine_path(:approve_inbox_invocation_path, invocation), method: :post, class: "inline" do %>
     <button class="btn approve">Approve</button>
   <% end %>
-  <%= form_with url: decline_inbox_invocation_path(invocation), method: :post, class: "decline-form" do %>
+  <%= form_with url: silas_engine_path(:decline_inbox_invocation_path, invocation), method: :post, class: "decline-form" do %>
     <textarea name="reason" rows="2" placeholder="Reason (optional — sent back to the agent as the tool result)"></textarea>
     <button class="btn decline">Decline</button>
   <% end %>

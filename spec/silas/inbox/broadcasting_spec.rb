@@ -1,5 +1,50 @@
 require "rails_helper"
 
+# The trace partials must render through the HOST's default renderer — that is
+# the context Turbo's broadcast jobs use, and it has neither the inbox
+# controllers' helper declaration nor the engine's bare route helpers. This
+# was silently broken (renders raised inside Turbo's job) until the playground
+# app hit it; the dispatch-seam stubs below never render, so only these
+# host-renderer specs guard the real path.
+RSpec.describe "trace partials under the host renderer" do
+  let(:session) { Silas::Session.create! }
+  let(:turn) { Silas::Turn.create!(session: session, index: 0, input: "probe", status: "running") }
+  let(:step) do
+    Silas::Step.create!(turn: turn, index: 0, status: "completed",
+                        response_blocks: [ { "type" => "text", "text" => "hello there" } ])
+  end
+
+  def host_render(partial, locals)
+    ActionController::Base.render(partial: partial, locals: locals)
+  end
+
+  it "renders a step (helper methods resolve outside the inbox controllers)" do
+    expect(host_render("silas/inbox/steps/step", { step: step })).to include("hello there")
+  end
+
+  it "renders a parked invocation's approval card (engine routes via the mount proxy)" do
+    invocation = Silas::ToolInvocation.create!(step: step, turn: turn, tool_call_id: "t0",
+                                               tool_name: "issue_refund", effect_mode: "at_most_once",
+                                               arguments: { "amount" => 120 }, approval_state: "required")
+    html = host_render("silas/inbox/invocations/invocation", { invocation: invocation })
+    expect(html).to include("Approval needed")
+    expect(html).to include("/silas/inbox/invocations/#{invocation.id}/approve")
+  end
+
+  it "renders a whole turn with its header (cancel form route resolves)" do
+    step
+    html = host_render("silas/inbox/turns/turn", { turn: turn })
+    expect(html).to include("/silas/inbox/turns/#{turn.id}/cancel")
+    expect(html).to include("hello there")
+  end
+
+  it "renders the budget top-up card for a budget-parked turn" do
+    turn.update!(status: "waiting", failure_reason: "max_cost")
+    html = host_render("silas/inbox/turns/header", { turn: turn })
+    expect(html).to include("/silas/inbox/turns/#{turn.id}/raise_budget")
+  end
+end
+
 # Hermetic: we don't load turbo-rails (that would contaminate the whole suite
 # with live broadcasts). Instead we force streaming? on and stub the single
 # turbo seam (silas_inbox_dispatch) to assert the DISPATCH logic — which event

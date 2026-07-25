@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.3.2
+
+- **The `timeout` budget no longer counts time spent parked for approval.**
+  The wall clock restarts when an approval resumes a turn, because any
+  approval slower than `limits.timeout` previously made the approved resume
+  *instantly* re-park on "timeout" — pathological for a gate whose whole point
+  is waiting for a person (found live in the playground: a 3-minute approval
+  against a 120s timeout). Timeout now bounds **active** stretches — hung
+  providers, runaway loops; crash-rescue resumes keep the original clock (the
+  turn was genuinely live), and cost/token budgets stay cumulative because
+  they measure real spend.
+- **Broadcast-rendered trace partials work in host apps.** The inbox's live
+  trace renders through Turbo's broadcast jobs — i.e. the HOST's default
+  renderer — where the engine-scoped `TraceHelper` and bare engine route
+  helpers didn't exist, so **every broadcast render raised and the live trace
+  silently never streamed in real host apps** (the gem's specs stubbed the
+  dispatch seam and never rendered). The helper is now registered host-wide,
+  partials build routes context-free via `silas_engine_path` (engine route
+  set + discovered mount point), and four host-renderer regression specs pin
+  the real path. `relative_time` is renamed `silas_relative_time` (it is now
+  host-visible, and the bare name is exactly what a host app would define).
+  Also new: `examples/playground` gets a customer-facing chat page that
+  renders and live-streams the engine's own trace partials with zero custom
+  streaming code, plus a scripted keyless demo mode (`bin/setup && bin/dev`
+  with no API key).
+
 ## 0.3.1
 
 - **Fixed: only the first scenario in a `silas:eval` run was really tested.**

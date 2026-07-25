@@ -43,6 +43,17 @@ module Silas
       Silas::Inbox::DeltaBroadcaster.subscribe!
     end
 
+    # The trace partials render in TWO contexts: the inbox controllers (which
+    # declare this helper) and Turbo's broadcast jobs, which render through the
+    # HOST's default renderer — where an engine-scoped helper doesn't exist and
+    # every broadcast died silently inside Turbo's job. Register it host-wide
+    # so broadcast renders — and host apps embedding the trace partials in
+    # their own pages — resolve it. (Routes inside those partials go through
+    # TraceHelper#silas_engine_path, which needs no routing scope at all.)
+    initializer "silas.trace_helper" do
+      ActiveSupport.on_load(:action_controller_base) { helper Silas::Inbox::TraceHelper }
+    end
+
     # Registry rebuilds on every code reload in development, once in production.
     initializer "silas.registry" do |app|
       next unless app.root.join("app/agent").exist? || app.root.join("app/agents").exist?

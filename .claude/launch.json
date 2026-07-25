@@ -1,0 +1,14 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "playground",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "cd examples/playground && export PATH=$HOME/.asdf/installs/ruby/3.4.10/bin:$PATH LANG=en_US.UTF-8 && bin/dev"
+      ],
+      "port": 3000
+    }
+  ]
+}

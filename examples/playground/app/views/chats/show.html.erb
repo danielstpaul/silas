@@ -1,0 +1,65 @@
+<%# Everything here renders from durable rows. Refresh mid-turn, or kill -9 the
+    worker mid-turn, and you come back to exactly this state.
+
+    The page subscribes to the SAME Turbo stream the operator inbox uses, and
+    each turn below carries the same dom ids the gem's after_commit broadcasts
+    target — so steps, tool calls, approval cards, and token deltas all arrive
+    live with no custom streaming code in this app at all.
+
+    (The outer container is deliberately NOT id="silas-turns": that is the
+    inbox's whole-turn append target, and this page renders new turns itself
+    on redirect.) %>
+<% if @agent_session && Silas::Inbox.streaming? %>
+  <%= turbo_stream_from Silas::Inbox.stream_name(@agent_session.id) %>
+<% end %>
+
+<div class="mx-auto max-w-2xl px-4 py-8">
+  <header class="mb-6 flex items-baseline justify-between">
+    <div>
+      <h1 class="text-xl font-semibold tracking-tight">Tinker &amp; Co</h1>
+      <p class="text-sm text-slate-500">Support — we can look up orders and issue refunds.</p>
+    </div>
+    <% if @agent_session %>
+      <%= button_to "New chat", reset_chat_path, method: :delete,
+            class: "text-xs text-slate-500 hover:text-slate-900 underline" %>
+    <% end %>
+  </header>
+
+  <% if flash[:alert] %>
+    <div class="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800"><%= flash[:alert] %></div>
+  <% end %>
+
+  <div id="chat-turns" class="space-y-6">
+    <% if @turns.blank? %>
+      <div class="rounded-xl border border-dashed border-slate-300 p-6 text-sm text-slate-500">
+        <p class="mb-3">Try one of these — they're real orders in this shop's database:</p>
+        <ul class="space-y-1.5 font-mono text-xs">
+          <li>“Hi, I'm ada@example.com — the walnut pen tray was scratched.”
+            <span class="font-sans text-slate-400">→ £15, applies immediately</span></li>
+          <li>“I'm ada@example.com and the brass desk lamp arrived cracked.”
+            <span class="font-sans text-slate-400">→ £48, parks for a human</span></li>
+        </ul>
+      </div>
+    <% else %>
+      <%= render partial: "chats/turn", collection: @turns, as: :turn %>
+    <% end %>
+  </div>
+
+  <%= form_with url: chat_path, class: "mt-6" do |f| %>
+    <div class="flex gap-2">
+      <%= f.text_field :message, autofocus: true, autocomplete: "off",
+            placeholder: "Ask about an order…",
+            class: "flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-900 focus:outline-none" %>
+      <%= f.submit "Send", class: "rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 cursor-pointer" %>
+    </div>
+  <% end %>
+
+  <footer class="mt-10 border-t border-slate-200 pt-4 text-xs text-slate-400">
+    Running on <a href="https://github.com/danielstpaul/silas" class="underline">Silas</a>.
+    Every message above is a durable row in this app's own database — kill the
+    worker mid-answer (<code>pkill -9 -f bin/jobs</code>) and the turn resumes
+    from its last completed step. Operators watch the same rows at
+    <a href="/silas/inbox" class="underline"><code>/silas/inbox</code></a>;
+    approving a parked refund there is what resumes it here.
+  </footer>
+</div>

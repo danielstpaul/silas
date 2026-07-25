@@ -4,4 +4,5 @@ description: Support agent for Tinker & Co — order lookups and refunds.
 limits:
   max_steps: 10        # a support answer never needs more; caps a runaway loop
   max_cost: 0.25       # dollars per turn — this is a public demo
-  timeout: 120         # wall-clock seconds per turn
+  timeout: 300         # seconds of ACTIVE running per stretch (approval waits
+                       # don't count — the clock restarts when a human approves)

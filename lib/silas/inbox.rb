@@ -19,5 +19,20 @@ module Silas
     def stream_name(session_id)
       "silas:inbox:session:#{session_id}"
     end
+
+    # Where the host mounted the engine ("/silas" by the installer's
+    # convention), discovered from the app's route set. Used to build paths
+    # that work in EVERY render context — including Turbo's bare broadcast
+    # renderer, which has no routing scope for the mounted proxy to lean on.
+    def mount_path
+      @mount_path ||= begin
+        route = Rails.application.routes.routes.find do |r|
+          r.app.respond_to?(:app) && r.app.app == Silas::Engine
+        end
+        route&.path&.spec.to_s.sub(/\(.*\z/, "").presence || "/silas"
+      end
+    end
+
+    def reset_mount_path! = (@mount_path = nil) # specs remount
   end
 end

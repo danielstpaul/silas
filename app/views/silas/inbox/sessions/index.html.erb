@@ -45,7 +45,7 @@
       <div class="muted">
         <%= pluralize(session.turns.size, "turn") %> ·
         <%= session.channel.presence || "direct" %> ·
-        <%= relative_time(session.updated_at) %>
+        <%= silas_relative_time(session.updated_at) %>
       </div>
     <% end %>
   <% end %>

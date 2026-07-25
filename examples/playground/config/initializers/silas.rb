@@ -1,44 +1,48 @@
 Silas.configure do |config|
-  # Inference engine: :ruby_llm (API key, any provider RubyLLM supports), or
-  # any object responding to #execute_step. See silas/README.
-  config.engine = :ruby_llm
-
-  # Any model your installed ruby_llm's registry resolves (newer models may
-  # need `RubyLLM.models.refresh!` first). "claude-sonnet-4-5" is the balanced
-  # default; "claude-haiku-4-5" is fastest/cheapest; Opus models are the most
-  # capable and the most expensive — set per-turn budgets in agent.yml before
-  # reaching for one.
+  # With a key: the real model via RubyLLM. Without one: a scripted stand-in
+  # (lib/demo_engine.rb) so `bin/setup && bin/dev` needs zero secrets — the
+  # tools, ledger, approvals, and streaming are all still real.
+  if ENV["ANTHROPIC_API_KEY"].present?
+    config.engine = :ruby_llm
+  else
+    require Rails.root.join("lib/demo_engine").to_s
+    config.engine = DemoEngine.new
+  end
   config.default_model = "claude-sonnet-4-5"
 
-  # The operator inbox (mounted at /silas/inbox) is DENY-BY-DEFAULT — invisible
-  # until you wire auth. The lambda DENIES by rendering (or head-ing) and
-  # PASSES by not rendering. Devise-style example:
-  # config.inbox_auth = ->(controller) { controller.head :not_found unless controller.current_user&.admin? }
-  # config.inbox_public_read = true   # read-only demo mode; writes stay gated
+  # THIS IS A DEMO. The operator inbox is readable by anyone so you can watch
+  # the trace, the cost, and the audit trail from the other side of the glass
+  # — but approve/decline still require the write lambda below, because a
+  # visitor must not be able to release someone else's £48 refund.
+  #
+  # In a real app you would delete `inbox_public_read` and gate reads too:
+  #   config.inbox_auth = ->(c) { c.head :not_found unless c.current_user&.admin? }
+  config.inbox_public_read = true
 
-  # Parked approvals expire after this long (the turn fails as approval_expired).
-  # config.approval_ttl = 7.days
+  # Write access (approve/decline, cancel, budget top-up) — off unless the
+  # operator password is set. `PLAYGROUND_OPERATOR_PASSWORD=... bin/dev` and
+  # the inbox will ask for it.
+  config.inbox_auth = lambda do |controller|
+    expected = ENV["PLAYGROUND_OPERATOR_PASSWORD"]
+    if expected.blank?
+      controller.head :forbidden
+    else
+      controller.request_http_basic_authentication("Tinker & Co operators") unless
+        controller.send(:authenticate_with_http_basic) { |_u, p| ActiveSupport::SecurityUtils.secure_compare(p.to_s, expected) }
+    end
+  end
 
-  # Hard cap on model calls per turn (agent.yml limits.max_steps overrides).
-  # config.max_steps = 25
+  config.inbox_actor = ->(_controller) { "operator" }
 
-  # Wrap every model call — e.g. ruby_llm-resilience:
-  # config.around_model_call = ->(ctx, &call) { RubyLLM::Resilience.chain(:anthropic) { call.() } }
-
-  # Sandbox for the run_code tool: :none (default, code exec off), :docker, or
-  # a hermetic backend (gem "hermetic"), e.g. Hermetic.gvisor(image: "python:3.12-slim").
-  # config.sandbox = :none
-
-  # Memory (the remember/recall tools): on by default, and every remember
-  # PARKS for human approval. :never auto-approves; config.memory = false
-  # disables memory entirely.
-  # config.memory_approval = :always
-
-  # Cost accounting prices itself from RubyLLM's model registry. Override per
-  # model for fine-tunes / custom deployments / models newer than your
-  # installed registry (units per 1k tokens; 1e6 units = $1):
-  # config.model_prices["your-fine-tune"] = { in: 3000, out: 15_000 }
-
-  # Where eval scenarios live (bin/rails silas:eval).
-  # config.eval_dir = "test/agent_evals"
+  # The JSON API stays fully closed on the public demo — it can start sessions
+  # and approve money movements. Set an API token to open it.
+  config.api_auth = lambda do |controller|
+    token = ENV["PLAYGROUND_API_TOKEN"]
+    if token.blank?
+      controller.head :not_found
+    else
+      presented = controller.request.headers["Authorization"].to_s.delete_prefix("Bearer ")
+      controller.head :unauthorized unless ActiveSupport::SecurityUtils.secure_compare(presented, token)
+    end
+  end
 end

@@ -84,7 +84,13 @@ module Silas
       return if turn.reload.canceled? || turn.failed? # settled turns never zombie-resume
       return if turn.tool_invocations.where(approval_state: "required").exists?
 
-      turn.update!(status: "queued")
+      # Restart the wall clock: `limits.timeout` bounds ACTIVE stretches (hung
+      # providers, runaway loops), not human deliberation. Without this, any
+      # approval that took longer than the timeout made the approved resume
+      # instantly re-park on "timeout" — pathological for a gate whose whole
+      # point is waiting for a person. Cost/token budgets stay cumulative;
+      # they measure real spend.
+      turn.update!(status: "queued", started_at: Time.current)
       AgentLoopJob.perform_later(turn.id)
     end
   end

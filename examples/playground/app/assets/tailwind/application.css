@@ -1,1 +1,47 @@
 @import "tailwindcss";
+
+/* ------------------------------------------------------------------------
+   The chat page renders the Silas ENGINE's own trace partials (steps, tool
+   cards, approval cards) and receives the same partials live over Turbo —
+   these rules restyle those engine classes to fit the chat. Plain CSS on
+   purpose: the class names come from the gem, not this app's markup.
+   ------------------------------------------------------------------------ */
+.step { position: relative; margin: 0.25rem 0 0.25rem 0; }
+.step-text { max-width: 85%; width: fit-content; border-radius: 1rem 1rem 1rem 0.125rem;
+  background: #f1f5f9; padding: 0.5rem 1rem; font-size: 0.875rem; color: #0f172a; }
+.step-text p { margin: 0 0 0.4rem; } .step-text p:last-child { margin: 0; }
+.step-live { white-space: pre-wrap; }
+.step-live:empty { display: none; }
+
+.tool { max-width: 85%; margin: 0.375rem 0; border: 1px solid #e2e8f0; border-radius: 0.6rem;
+  background: #f8fafc; padding: 0.4rem 0.7rem; font-size: 0.75rem; color: #475569; }
+.tool code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 600; }
+.tool pre { margin: 0.3rem 0 0; overflow-x: auto; font-size: 0.7rem; color: #64748b;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.tool pre.error { color: #be123c; }
+
+.pill { display: inline-block; margin-left: 0.35rem; border-radius: 999px; padding: 0.05rem 0.5rem;
+  font-size: 0.6rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
+.pill-grey { background: #f1f5f9; color: #64748b; }
+.pill-blue { background: #dbeafe; color: #1d4ed8; }
+.pill-amber { background: #fef3c7; color: #b45309; }
+.pill-green { background: #d1fae5; color: #047857; }
+.pill-red { background: #ffe4e6; color: #be123c; }
+.pill-pulse { animation: pill-pulse 1.4s ease-in-out infinite; }
+@keyframes pill-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+/* The approval card: on the customer side this reads as "a human is checking
+   this" — the buttons still work if you're also playing operator (they're
+   write-gated by the operator password either way). */
+.approval { max-width: 85%; margin: 0.375rem 0; border: 1px solid #fcd34d; border-radius: 0.6rem;
+  background: #fffbeb; padding: 0.6rem 0.8rem; font-size: 0.75rem; color: #92400e; }
+.approval h3 { margin: 0 0 0.3rem; font-size: 0.75rem; font-weight: 600; }
+.approval pre { margin: 0.2rem 0; font-size: 0.7rem; overflow-x: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.approval .btn { border: 0; border-radius: 0.5rem; padding: 0.35rem 0.8rem; font-size: 0.7rem;
+  font-weight: 600; cursor: pointer; }
+.approval .btn.approve { background: #047857; color: #fff; }
+.approval .btn.decline { background: transparent; color: #be123c; border: 1px solid #fda4af; }
+.approval textarea { width: 100%; margin: 0.4rem 0; border: 1px solid #fcd34d; border-radius: 0.5rem;
+  padding: 0.4rem; font: inherit; font-size: 0.7rem; }
+form.inline { display: inline; }

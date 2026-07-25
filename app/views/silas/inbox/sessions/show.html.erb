@@ -11,7 +11,7 @@
     <span class="name"><%= @session.agent_name %></span>
     <span class="muted">#<%= @session.id %></span>
   </div>
-  <div class="muted"><%= @session.channel.presence || "direct" %> · started <%= relative_time(@session.created_at) %></div>
+  <div class="muted"><%= @session.channel.presence || "direct" %> · started <%= silas_relative_time(@session.created_at) %></div>
   <div id="silas-session-<%= @session.id %>-cost"><%= render "silas/inbox/sessions/cost", session: @session %></div>
 </div>
 

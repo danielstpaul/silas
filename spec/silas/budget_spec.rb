@@ -1,5 +1,31 @@
 require "rails_helper"
 
+RSpec.describe "timeout across approval parks" do
+  # Regression (found live in examples/playground): the wall clock used to
+  # keep running while a turn sat parked for approval, so any approval slower
+  # than limits.timeout made the approved resume INSTANTLY re-park on
+  # "timeout" — pathological for a human gate. Approval resumes restart the
+  # clock; timeout bounds active stretches only.
+  it "an approval resume restarts the wall clock instead of inheriting park time" do
+    session = Silas::Session.create!
+    turn = Silas::Turn.create!(session: session, index: 0, input: "go",
+                               status: "waiting", started_at: 2.hours.ago)
+    step = Silas::Step.create!(turn: turn, index: 0, status: "completed")
+    invocation = Silas::ToolInvocation.create!(step: step, turn: turn, tool_call_id: "t0",
+                                               tool_name: "issue_refund", effect_mode: "at_most_once",
+                                               arguments: {}, approval_state: "required")
+
+    invocation.approve!(by: "operator")
+
+    turn.reload
+    expect(turn.status).to eq("queued")
+    expect(turn.started_at).to be_within(5.seconds).of(Time.current)
+    # The point: a 120s timeout no longer trips on the 2 hours spent parked.
+    agent = Silas::Agent.new("limits" => { "timeout" => 120 })
+    expect(Silas::Budget.exceeded_reason(turn, agent: agent)).to be_nil
+  end
+end
+
 RSpec.describe Silas::Budget do
   include ActiveJob::TestHelper
 
