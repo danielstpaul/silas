@@ -8,9 +8,9 @@ RSpec.describe "structured final output" do
   let(:payload) { { "verdict" => "approve", "amount_pence" => 1250 } }
 
   def structured_engine(data)
-    Class.new(Silas::Engines::Base) do
+    Class.new(Silas::Adapters::Base) do
       define_method(:execute_step) do |_context, &_on_event|
-        Silas::Engines::Result.new(blocks: [ { "type" => "structured", "data" => data } ],
+        Silas::Adapters::Result.new(blocks: [ { "type" => "structured", "data" => data } ],
                                    tool_calls: [], stop_reason: "end_turn", usage: {})
       end
     end.new
@@ -18,7 +18,7 @@ RSpec.describe "structured final output" do
 
   def configure!(engine)
     Silas.configure do |c|
-      c.engine = engine
+      c.adapter = engine
       c.isolate_steps = false
       c.tool_resolver = ->(_n) { raise "no tools here" }
     end
@@ -74,7 +74,7 @@ RSpec.describe "structured final output" do
       chat = fake_chat.new(payload)
       allow(::RubyLLM).to receive(:chat).and_return(chat)
 
-      result = Silas::Engines::RubyLLM.new.execute_step(
+      result = Silas::Adapters::RubyLLM.new.execute_step(
         turn: nil, index: 0, system: "sys", messages: [],
         tools: [], model: "claude-x", final_answer: schema, limits: {}
       )
@@ -88,7 +88,7 @@ RSpec.describe "structured final output" do
       chat = fake_chat.new("plain prose")
       allow(::RubyLLM).to receive(:chat).and_return(chat)
 
-      result = Silas::Engines::RubyLLM.new.execute_step(
+      result = Silas::Adapters::RubyLLM.new.execute_step(
         turn: nil, index: 0, system: nil, messages: [],
         tools: [], model: "claude-x", final_answer: nil, limits: {}
       )

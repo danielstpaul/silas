@@ -43,7 +43,7 @@ RSpec.describe "memory and handoffs" do
           EngineScripts.result(blocks: [ { "type" => "text", "text" => "done" } ])
         end
       end
-      Silas.configure { |c| c.engine = engine; c.isolate_steps = false }
+      Silas.configure { |c| c.adapter = engine; c.isolate_steps = false }
       Silas::Registry.install!(root: DummyApp.root)
 
       session = Silas::Session.create!
@@ -93,7 +93,7 @@ RSpec.describe "memory and handoffs" do
       engine = FakeEngine.new do |_context|
         EngineScripts.result(blocks: [ { "type" => "text", "text" => "brief handled" } ])
       end
-      Silas.configure { |c| c.engine = engine; c.isolate_steps = false }
+      Silas.configure { |c| c.adapter = engine; c.isolate_steps = false }
       Silas::Registry.install!(root: DummyApp.root)
     end
 

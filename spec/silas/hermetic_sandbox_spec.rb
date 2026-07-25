@@ -14,7 +14,7 @@ RSpec.describe "hermetic as the Silas sandbox" do
 
   def configure_sandbox!(sandbox)
     Silas.configure do |c|
-      c.engine = FakeEngine.new(&EngineScripts.n_tool_steps_then_done(0))
+      c.adapter = FakeEngine.new(&EngineScripts.n_tool_steps_then_done(0))
       c.sandbox = sandbox
     end
     Silas::Registry.install!(root: DummyApp.root)

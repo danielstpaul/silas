@@ -1,6 +1,6 @@
 module Silas
   # The Rails engine (not to be confused with inference adapters under
-  # Silas::Engines::*). Full engine: Silas is Rails-native by thesis.
+  # Silas::Adapters::*). Full engine: Silas is Rails-native by thesis.
   class Engine < ::Rails::Engine
     isolate_namespace Silas
 
@@ -31,6 +31,13 @@ module Silas
         app.autoloaders.main.push_dir(agents_dir, namespace: ::Agents)
         Dir[agents_dir.join("*/skills")].each { |d| app.autoloaders.main.ignore(d) }
       end
+    end
+
+    # Register with Rails so hosts control Silas's deprecations exactly as they
+    # control everyone else's: config.active_support.report_deprecations,
+    # or `config.silas.deprecator.behavior = :raise` in CI.
+    initializer "silas.deprecator" do |app|
+      app.deprecators[:silas] = Silas.deprecator if app.respond_to?(:deprecators)
     end
 
     initializer "silas.boot_guard", after: :load_config_initializers do

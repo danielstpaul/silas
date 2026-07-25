@@ -99,7 +99,7 @@ RSpec.describe Silas::Budget do
       # agent.yml with a token cap; needs Silas.agent to see it -> stub the agent.
       allow(Silas).to receive(:agent).and_return(Silas::Agent.new("limits" => { "max_input_tokens" => 8_000, "max_steps" => 25 }))
       Silas.configure do |c|
-        c.engine = engine
+        c.adapter = engine
         c.isolate_steps = false
         c.tool_resolver = ->(_n) { recording_tool }
       end
@@ -129,7 +129,7 @@ RSpec.describe Silas::Budget do
       end
       allow(Silas).to receive(:agent).and_return(Silas::Agent.new("limits" => { "max_input_tokens" => 8_000, "max_steps" => 25 }))
       Silas.configure do |c|
-        c.engine = engine
+        c.adapter = engine
         c.isolate_steps = false
         c.tool_resolver = ->(_n) { recording_tool }
       end

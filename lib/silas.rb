@@ -4,6 +4,7 @@ require "active_job/railtie" if defined?(::Rails::Railtie)
 require "active_record/railtie" if defined?(::Rails::Railtie)
 
 require "silas/version"
+require "silas/deprecator"
 require "silas/errors"
 require "silas/configuration"
 require "silas/ledger"
@@ -35,13 +36,13 @@ require "silas/tools/recall"
 require "silas/tools/handoff"
 require "silas/mcp/handler"
 require "silas/mcp/server"
-require "silas/engines/base"
+require "silas/adapters/base"
 require "ruby_llm"
-require "silas/engines/ruby_llm"
+require "silas/adapters/ruby_llm"
 require "silas/message_builder"
 require "silas/instructions"
 require "silas/step_runner"
-require "silas/eval" # after engines (ScriptedEngine < Engines::Base)
+require "silas/eval" # after adapters (ScriptedEngine < Adapters::Base)
 require "silas/chat"
 require "silas/doctor"
 
@@ -60,14 +61,14 @@ module Silas
     def configure
       yield config
       config.validate!
-      @resolved_engine = nil
+      @resolved_adapter = nil
       @resolved_sandbox = nil
       config
     end
 
     def reset_configuration! # for specs
       @config = nil
-      @resolved_engine = nil
+      @resolved_adapter = nil
       @resolved_sandbox = nil
       @agent = nil
     end
@@ -103,19 +104,27 @@ module Silas
 
     def reset_agent_memo! = (@agent = nil) # after Registry.install! swaps dirs
 
-    # The inference adapter instance. config.engine may be :ruby_llm or any
+    # The inference adapter instance. config.adapter may be :ruby_llm or any
     # object responding to #execute_step (specs, custom).
-    def resolved_engine
-      @resolved_engine ||=
-        case config.engine
-        when :ruby_llm then Engines::RubyLLM.new
+    def resolved_adapter
+      @resolved_adapter ||=
+        case config.adapter
+        when :ruby_llm then Adapters::RubyLLM.new
         when :agent_sdk
-          raise Error, "the :agent_sdk engine was removed in Silas 0.2 — the claude -p " \
+          raise Error, "the :agent_sdk adapter was removed in Silas 0.2 — the claude -p " \
                        "subprocess integration is gone (its subscription-auth rationale was " \
-                       "unreachable). Use engine :ruby_llm, the production path."
-        when Symbol then raise Error, "unknown engine #{config.engine.inspect}"
-        else config.engine
+                       "unreachable). Use adapter :ruby_llm, the production path."
+        when Symbol then raise Error, "unknown adapter #{config.adapter.inspect}"
+        else config.adapter
         end
+    end
+
+    # Renamed in 0.4: "engine" meant two unrelated things (the Rails engine at
+    # Silas::Engine, and the inference backend), which is exactly the collision
+    # ActiveJob avoids with QueueAdapters. Removed in 2.0.
+    def resolved_engine
+      Silas.deprecator.warn("Silas.resolved_engine is deprecated; use Silas.resolved_adapter")
+      resolved_adapter
     end
 
     # ---- scope-aware readers -------------------------------------------------

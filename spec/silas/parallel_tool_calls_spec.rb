@@ -39,7 +39,7 @@ RSpec.describe "parallel tool calls" do
     engine = FakeEngine.new(&two_parallel_then_done)
     tool = recording_tool
     Silas.configure do |c|
-      c.engine = engine
+      c.adapter = engine
       c.isolate_steps = false
       c.tool_resolver = ->(_name) { tool }
     end
@@ -71,7 +71,7 @@ RSpec.describe "parallel tool calls" do
     ungated = recording_tool(approval: :never)
     tools = { "gated" => gated, "ungated" => ungated }
     Silas.configure do |c|
-      c.engine = engine
+      c.adapter = engine
       c.isolate_steps = false
       c.tool_resolver = ->(name) { tools.fetch(name) }
     end
@@ -98,7 +98,7 @@ RSpec.describe "parallel tool calls" do
     engine = FakeEngine.new(&two_parallel_then_done)
     tool = recording_tool
     Silas.configure do |c|
-      c.engine = engine
+      c.adapter = engine
       c.isolate_steps = false
       c.tool_resolver = ->(_name) { tool }
     end

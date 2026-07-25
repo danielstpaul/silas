@@ -51,7 +51,7 @@ module Silas
 
     def execute_model_call(turn, index, step)
       assert_definitions_unchanged!(turn)
-      engine = Silas.resolved_engine
+      engine = Silas.resolved_adapter
       context = {
         turn: turn,
         index: index,

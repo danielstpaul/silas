@@ -41,7 +41,7 @@ RSpec.describe "named agents" do
         EngineScripts.result(blocks: [ { "type" => "text", "text" => "signed" } ])
       end
     end
-    Silas.configure { |c| c.engine = engine; c.isolate_steps = false }
+    Silas.configure { |c| c.adapter = engine; c.isolate_steps = false }
     Silas::Registry.install!(root: DummyApp.root)
 
     session = Silas.agent(:scribe).start(input: "sign the fox charter")
@@ -63,7 +63,7 @@ RSpec.describe "named agents" do
     engine = FakeEngine.new do |context|
       EngineScripts.result(blocks: [ { "type" => "text", "text" => "done" } ])
     end
-    Silas.configure { |c| c.engine = engine; c.isolate_steps = false }
+    Silas.configure { |c| c.adapter = engine; c.isolate_steps = false }
     Silas::Registry.install!(root: DummyApp.root)
 
     session = Silas.agent(:filer).start(input: "hello")

@@ -9,7 +9,7 @@
 #
 # A pure function of (turn input, step index), so crash-replay determinism
 # holds exactly as it would with a real model's persisted rows.
-class DemoEngine < Silas::Engines::Base
+class DemoEngine < Silas::Adapters::Base
   def execute_step(context, &on_event)
     input = context[:turn].input.to_s.downcase
     index = context[:index]
@@ -60,9 +60,9 @@ class DemoEngine < Silas::Engines::Base
     # replay. (The rows are durable either way: a refresh always shows
     # everything. This is presentation cadence, not correctness.)
     sleep 0.7
-    Silas::Engines::Result.new(
+    Silas::Adapters::Result.new(
       blocks: [],
-      tool_calls: [ Silas::Engines::ToolCall.new(id: "demo_#{name}", name: name, arguments: arguments) ],
+      tool_calls: [ Silas::Adapters::ToolCall.new(id: "demo_#{name}", name: name, arguments: arguments) ],
       stop_reason: "tool_use",
       usage: { input_tokens: 40, output_tokens: 15 }
     )
@@ -75,7 +75,7 @@ class DemoEngine < Silas::Engines::Base
       on_event&.call(Silas::Event.new(type: :text_delta, payload: { text: chunk.join }))
       sleep 0.025
     end
-    Silas::Engines::Result.new(
+    Silas::Adapters::Result.new(
       blocks: [ { "type" => "text", "text" => text } ],
       tool_calls: [], stop_reason: "end_turn",
       usage: { input_tokens: 60, output_tokens: text.length / 4 }

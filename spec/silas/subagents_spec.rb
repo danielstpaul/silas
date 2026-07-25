@@ -55,7 +55,7 @@ RSpec.describe "subagents" do
     end
 
     before do
-      Silas.configure { |c| c.engine = script_engine; c.isolate_steps = false }
+      Silas.configure { |c| c.adapter = script_engine; c.isolate_steps = false }
       Silas::Registry.install!(root: DummyApp.root)
     end
 

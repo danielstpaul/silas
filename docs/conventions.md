@@ -10,6 +10,40 @@ apps (`chaos_host/`, `examples/`, `spec/dummy/`). CI enforces RuboCop,
 Brakeman, bundler-audit, a Zeitwerk eager-load check, and a 90% line-coverage
 floor.
 
+## Naming and structure
+
+### `Adapters::`, not `Engines::`
+
+The pluggable inference backend lives at `Silas::Adapters::Base` /
+`Silas::Adapters::RubyLLM`, configured with `config.adapter`. It was called
+`Engines::` until 0.4, which collided with `Silas::Engine` — the Rails engine
+— in the same namespace. Every comparable seam disambiguates the same way:
+ActiveJob has `QueueAdapters::`, ActiveStorage has `Service::`, RubyLLM has
+`Provider`. The old constants and `config.engine` still work with a
+deprecation warning until 2.0.
+
+### `class << self` vs `module_function`
+
+Both appear, by rule, not by accident (the same split RubyLLM uses):
+
+- **`module_function`** for pure utility modules whose methods are all
+  legitimately callable — `Budget`, `MessageBuilder`, `Instructions`, `Inbox`,
+  `Slack`, `StepRunner`.
+- **`class << self` + `private`** where a module has real internals worth
+  hiding — `Ledger` (`execute!`, `claim!`, `guarded_transaction` are not
+  public API) — or holds state, like `Eval`'s scenario registry.
+
+`module_function` publishes every method on the module, so it is the wrong
+tool wherever encapsulation matters. Don't "unify" these.
+
+### Deprecations
+
+Everything removable goes through `Silas.deprecator`
+(`ActiveSupport::Deprecation`, registered in `app.deprecators[:silas]`), so a
+host silences or raises on Silas deprecations exactly as it does Rails'.
+Messages name the replacement *and* the removal version; a warning you can't
+act on is noise.
+
 ## Deliberate deviations
 
 ### Status columns are strings with constants, not Rails enums

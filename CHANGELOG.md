@@ -2,6 +2,25 @@
 
 ## Unreleased
 
+- **Renamed the inference seam `Engines::` -> `Adapters::`** (and
+  `config.engine` -> `config.adapter`). "Engine" meant two unrelated things in
+  one namespace: the Rails engine at `Silas::Engine`, and the pluggable
+  inference backend. Every comparable seam disambiguates — ActiveJob has
+  `QueueAdapters::`, ActiveStorage `Service::`, RubyLLM `Provider`. Done now
+  because 1.0 freezes the public API and host apps subclass this. **Nothing
+  breaks**: `Silas::Engines::Base`, `config.engine`, and
+  `Silas.resolved_engine` all still work, warn via the new deprecator, and
+  are removed in 2.0.
+- **`Silas.deprecator`** — an `ActiveSupport::Deprecation` registered in
+  `app.deprecators[:silas]`, so hosts silence or raise on Silas deprecations
+  exactly as they do Rails'. Every message names the replacement *and* the
+  removal version.
+- `docs/conventions.md` gains the naming/structure rules: why the seam is
+  `Adapters::`, and the deliberate `class << self` (has private internals or
+  state) vs `module_function` (pure utility) split — the same rule RubyLLM
+  uses. Recorded so nobody "unifies" them: `module_function` publishes every
+  method, so it is the wrong tool where encapsulation matters (`Ledger`).
+
 - **Fixed: the email approval channel had never worked.** Both the approval
   email template and the confirmation page called `approval_url`/
   `approval_path`, but the route is declared inside `namespace :channels`, so

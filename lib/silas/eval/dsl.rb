@@ -22,7 +22,7 @@ module Silas
       # on_step(0, text:, call: {name:, arguments:}, calls: [ {…}, … ])
       def on_step(index, text: nil, call: nil, calls: [])
         tcs = (calls + [ call ].compact).each_with_index.map do |c, n|
-          Silas::Engines::ToolCall.new(id: "eval_s#{index}_#{n}", name: c[:name].to_s,
+          Silas::Adapters::ToolCall.new(id: "eval_s#{index}_#{n}", name: c[:name].to_s,
                                        arguments: (c[:arguments] || {}).stringify_keys)
         end
         blocks = []

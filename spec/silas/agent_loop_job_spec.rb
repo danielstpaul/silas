@@ -20,7 +20,7 @@ RSpec.describe Silas::AgentLoopJob do
 
   def configure!(engine, tool)
     Silas.configure do |c|
-      c.engine = engine
+      c.adapter = engine
       c.isolate_steps = false # inline logic specs; isolation covered separately
       c.tool_resolver = ->(_name) { tool }
     end

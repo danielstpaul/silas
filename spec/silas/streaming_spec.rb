@@ -5,12 +5,12 @@ require "rails_helper"
 # persisted, never re-emitted on replay.
 RSpec.describe "token streaming" do
   # An engine that streams two text deltas before answering.
-  class StreamingEngine < Silas::Engines::Base
+  class StreamingEngine < Silas::Adapters::Base
     def execute_step(_context, &on_event)
       on_event&.call(Silas::Event.new(type: :message_start, payload: {}))
       on_event&.call(Silas::Event.new(type: :text_delta, payload: { text: "Hel" }))
       on_event&.call(Silas::Event.new(type: :text_delta, payload: { text: "lo!" }))
-      Silas::Engines::Result.new(blocks: [ { "type" => "text", "text" => "Hello!" } ],
+      Silas::Adapters::Result.new(blocks: [ { "type" => "text", "text" => "Hello!" } ],
                                  tool_calls: [], stop_reason: "end_turn",
                                  usage: { input_tokens: 1, output_tokens: 1 })
     end
@@ -21,7 +21,7 @@ RSpec.describe "token streaming" do
 
   def configure!(engine = StreamingEngine.new)
     Silas.configure do |c|
-      c.engine = engine
+      c.adapter = engine
       c.isolate_steps = false
       c.tool_resolver = ->(_name) { raise "no tools in this spec" }
     end
@@ -60,7 +60,7 @@ RSpec.describe "token streaming" do
   it "streams through an around_model_call hook without the hook seeing or swallowing the block" do
     seen_context = nil
     Silas.configure do |c|
-      c.engine = StreamingEngine.new
+      c.adapter = StreamingEngine.new
       c.isolate_steps = false
       c.tool_resolver = ->(_name) { raise "no tools in this spec" }
       c.around_model_call = ->(ctx, &call) { seen_context = ctx; call.call }
@@ -72,7 +72,7 @@ RSpec.describe "token streaming" do
   end
 
   it "flushes the tail even when the engine raises mid-stream" do
-    exploding = Class.new(Silas::Engines::Base) do
+    exploding = Class.new(Silas::Adapters::Base) do
       def execute_step(_context, &on_event)
         on_event&.call(Silas::Event.new(type: :text_delta, payload: { text: "par" }))
         on_event&.call(Silas::Event.new(type: :text_delta, payload: { text: "tial" }))

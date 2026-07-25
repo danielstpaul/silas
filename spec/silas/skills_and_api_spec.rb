@@ -8,7 +8,7 @@ RSpec.describe "skills, instructions, and the public API" do
   def configure_fake!(script)
     engine = FakeEngine.new(&script)
     Silas.configure do |c|
-      c.engine = engine
+      c.adapter = engine
       c.isolate_steps = false
     end
     Silas::Registry.install!(root: DummyApp.root) # configure reset the lambdas

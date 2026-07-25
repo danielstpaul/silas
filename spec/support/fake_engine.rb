@@ -1,6 +1,6 @@
 # Deterministic scripted engine (the gem-level equivalent of the spike's fake
 # model server): pure function of (turn index, step index), records every call.
-class FakeEngine < Silas::Engines::Base
+class FakeEngine < Silas::Adapters::Base
   attr_reader :calls
 
   def initialize(&script)
@@ -20,7 +20,7 @@ module EngineScripts
   module_function
 
   def result(blocks:, tool_calls: [], stop_reason: nil)
-    Silas::Engines::Result.new(
+    Silas::Adapters::Result.new(
       blocks: blocks,
       tool_calls: tool_calls,
       stop_reason: stop_reason || (tool_calls.empty? ? "end_turn" : "tool_use"),
@@ -29,7 +29,7 @@ module EngineScripts
   end
 
   def tool_call(id, name = "record", **arguments)
-    Silas::Engines::ToolCall.new(id: id, name: name, arguments: arguments.stringify_keys)
+    Silas::Adapters::ToolCall.new(id: id, name: name, arguments: arguments.stringify_keys)
   end
 
   # N steps with one tool call each, then a terminal text step.

@@ -69,7 +69,7 @@ RSpec.describe Silas::Inbox::Cost do
     it "stamps the provider RubyLLM resolves for the turn's model" do
       engine = FakeEngine.new(&EngineScripts.n_tool_steps_then_done(0))
       Silas.configure do |c|
-        c.engine = engine
+        c.adapter = engine
         c.isolate_steps = false
         c.tool_resolver = ->(_n) { raise "no tools" }
       end

@@ -1,5 +1,5 @@
 module Silas
-  module Engines
+  module Adapters
     # The :ruby_llm adapter: ONE model call per step, streamed, with tool
     # interception. Silas's Ledger owns tool execution, so tools are registered
     # as halt-proxies — RubyLLM sees the schemas, but the moment the model
