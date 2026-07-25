@@ -1,0 +1,11 @@
+{
+  "ignored_warnings": [
+    {
+      "warning_type": "Cross-Site Request Forgery",
+      "warning_code": 7,
+      "fingerprint": "64dd0725204c2cd5d6b2dba2fac6c278d20cebd07aaed38493f229193f44ed79",
+      "file": "app/controllers/silas/channels/base_controller.rb",
+      "note": "Deliberate: Silas::Channels::BaseController serves inbound WEBHOOKS, which no browser session originates, so a CSRF token cannot exist. Each route authenticates the request itself instead: Slack routes verify an HMAC-SHA256 request signature with a 300s replay window (Silas::Slack.verify_signature, covered by spec/silas/channels/slack_controller_spec.rb), and the email approve/decline routes require a purpose-scoped, expiring MessageVerifier token whose possession IS the credential — CSRF would add nothing an attacker holding the token could not already do (covered by spec/silas/channels/approvals_controller_spec.rb, including tampered/expired/wrong-purpose/replayed tokens and the GET-never-mutates property). The inbox controllers keep protect_from_forgery; the JSON API is ActionController::API and is token-authenticated."
+    }
+  ]
+}

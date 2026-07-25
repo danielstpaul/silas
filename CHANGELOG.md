@@ -1,5 +1,51 @@
 # Changelog
 
+## Unreleased
+
+- **Fixed: the email approval channel had never worked.** Both the approval
+  email template and the confirmation page called `approval_url`/
+  `approval_path`, but the route is declared inside `namespace :channels`, so
+  the real helpers are `channels_approval_url`/`_path`. Rendering raised —
+  meaning **`ChannelMailer#approval` blew up and the "your agent needs
+  approval" email was never delivered**, and the confirm page 500'd. Anyone
+  relying on email approvals was silently never notified. Found by writing
+  the first specs for these surfaces.
+- **Coverage for the four money-path surfaces that had none** (36 specs):
+  `Channels::SlackController` (unsigned / wrong-secret / stale-timestamp
+  requests are refused end to end; retries ignored; bot messages ignored;
+  buttons settle through the same `approve!`/`decline!`),
+  `Channels::ApprovalsController` (tampered, garbage, expired, and
+  wrong-purpose tokens refused; **GET never mutates** — a link preview or
+  scanner must not approve a refund; replayed link on a settled invocation
+  422s), `AgentMailbox` (References → In-Reply-To → Message-ID threading, so
+  replies continue rather than restart; multipart text extraction), and
+  `ChannelMailer` (renders, shows the arguments, embeds two distinct absolute
+  links whose tokens verify back to the invocation).
+- The spec harness now loads Action Mailer, Action Mailbox, and Solid Queue,
+  so these surfaces are testable at all.
+- **Engineering bar: quality tooling, all green.** `rubocop-rails-omakase`
+  (Rails' own style baseline) with CI enforcement — 169 files, no offenses.
+  SimpleCov with a **90% line-coverage floor that fails the build** (actual:
+  92.2%). Brakeman and bundler-audit in CI: no vulnerabilities, and the one
+  deliberate CSRF suppression (webhook controllers authenticate by signature
+  or signed token, not CSRF) is recorded with its full reasoning in
+  `config/brakeman.ignore`. A `rake zeitwerk:check` CI job eager-loads every
+  constant, catching naming violations that lazy-loading unit tests never see.
+- **Dependency contract specs** — Silas reaches into Solid Queue and RubyLLM
+  internals, where a rename breaks recovery *silently*. Ten specs now pin
+  them: the dead-process error class names the rescuer allowlists,
+  `FailedExecution#retry`/`:job`, the Solid Queue >= 1.2 continuations floor,
+  RubyLLM's `with_schema`/`before_message`/`Tool::Halt`/model-registry API and
+  the error classes `retry_on` names, and `resume_errors_after_advancing`
+  staying false. Plus an allowed-to-fail CI canary building against ruby_llm
+  edge, for early warning on the 2.0 horizon.
+- **`docs/conventions.md`** — records the deliberate deviations from Rails
+  defaults (string statuses over enums, CSRF-free webhook controllers) and
+  the audited posture: nothing is mass-assigned, no `raw`/`html_safe`
+  anywhere, `Time.current` throughout, and indexes cover query paths rather
+  than every foreign key.
+
+
 ## 0.3.2
 
 - **The `timeout` budget no longer counts time spent parked for approval.**

@@ -16,7 +16,7 @@ RSpec.describe "the JSON API", type: :request do
   end
 
   def allow_api!
-    Silas.configure { |c| c.api_auth = ->(_controller) {} } # pass = do not render
+    Silas.configure { |c| c.api_auth = ->(_controller) { } } # pass = do not render
   end
 
   def json = JSON.parse(response.body)

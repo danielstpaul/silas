@@ -10,3 +10,9 @@ if File.directory?(File.expand_path("../hermetic", __dir__))
 else
   gem "hermetic", "~> 0.1"
 end
+
+# Lint/quality (dev only). Omakase = Rails' own style baseline.
+gem "rubocop-rails-omakase", require: false
+gem "simplecov", require: false
+gem "brakeman", require: false
+gem "bundler-audit", require: false

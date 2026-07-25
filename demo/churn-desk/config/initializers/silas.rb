@@ -5,7 +5,7 @@ Silas.configure do |config|
   # DEMO ONLY — let anyone on this local server approve/decline. Deny-by-default
   # in production: gate on your own auth, e.g.
   #   config.inbox_auth = ->(ctrl) { ctrl.head :not_found unless ctrl.current_user&.admin? }
-  config.inbox_auth = ->(_controller) {}
+  config.inbox_auth = ->(_controller) { }
 
   # Demo: one execution per turn, no re-enqueue between steps. Pairs with the
   # :inline adapter set below. Production leaves this at its default (true).
