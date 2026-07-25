@@ -92,8 +92,15 @@ module Silas
           when Hash # {denied: "reason"} — eve's shape
             invocation.update!(status: "failed", result: { "denied" => verdict[:denied] })
             return :done
+          when :approved
+            # A gate ran and CLEARED it (a lambda under its threshold, or an
+            # :once rule already satisfied). Record that, so the audit trail
+            # can tell "gate evaluated, passed automatically" apart from "no
+            # gate at all" (which stays nil). approved_by is left nil — that
+            # absence is what marks it automatic rather than human.
+            invocation.update!(approval_state: "approved")
           end
-          # :not_applicable / :approved / :once-satisfied fall through
+          # :not_applicable falls through ungated
         end
 
         execute!(invocation, tool)

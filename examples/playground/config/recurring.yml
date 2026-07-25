@@ -1,0 +1,33 @@
+# examples:
+#   periodic_cleanup:
+#     class: CleanSoftDeletedRecordsJob
+#     queue: background
+#     args: [ 1000, { batch_size: 500 } ]
+#     schedule: every hour
+#   periodic_cleanup_with_command:
+#     command: "SoftDeletedRecord.due.delete_all"
+#     priority: 2
+#     schedule: at 5am every day
+
+# This app runs a real Solid Queue worker in development (bin/dev), so the
+# rescuer belongs here too — it's what recovers a turn after you kill -9 the
+# worker mid-run, which is a thing you're encouraged to try here. The
+# installer only writes deployable env blocks; this one is our own.
+development:
+  silas_dead_job_rescuer:
+    class: Silas::DeadJobRescuerJob
+    queue: default
+    schedule: every 30 seconds
+
+production:
+  # Silas: retries jobs failed by dead-worker reaping/pruning, sweeps
+  # expired approvals, and fails turns stranded by dead loop jobs. Part
+  # of the durability contract — do not remove.
+  silas_dead_job_rescuer:
+    class: Silas::DeadJobRescuerJob
+    queue: default
+    schedule: every 30 seconds
+
+  clear_solid_queue_finished_jobs:
+    command: "SolidQueue::Job.clear_finished_in_batches(sleep_between_batches: 0.3)"
+    schedule: every hour at minute 12

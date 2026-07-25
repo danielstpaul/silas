@@ -47,6 +47,33 @@ RSpec.describe Silas::Configuration do
     end
   end
 
+  describe "re-resolution on reconfigure" do
+    # Regression: the resolved engine used to be memoized for the process
+    # lifetime, so a SECOND Silas.configure with a different engine kept
+    # serving the first one. That silently broke multi-scenario silas:eval
+    # runs — every scenario after the first ran the first one's script and
+    # still reported pass/fail as though it hadn't.
+    it "re-resolves the engine when it is reconfigured" do
+      first = Class.new(Silas::Engines::Base).new
+      second = Class.new(Silas::Engines::Base).new
+
+      Silas.configure { |c| c.engine = first }
+      expect(Silas.resolved_engine).to be(first)
+
+      Silas.configure { |c| c.engine = second }
+      expect(Silas.resolved_engine).to be(second)
+    end
+
+    it "re-resolves the sandbox when it is reconfigured" do
+      Silas.configure { |c| c.sandbox = :none }
+      expect(Silas.resolved_sandbox).to be_a(Silas::Sandbox::Null)
+
+      custom = Object.new.tap { |o| o.define_singleton_method(:enabled?) { true } }
+      Silas.configure { |c| c.sandbox = custom }
+      expect(Silas.resolved_sandbox).to be(custom)
+    end
+  end
+
   describe "removed :agent_sdk options" do
     it "are hard-removed in 0.3 — no shims, no silent no-ops" do
       expect { Silas.config.auth }.to raise_error(NoMethodError)
