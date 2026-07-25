@@ -88,6 +88,8 @@ module Silas
           when :user_approval
             invocation.update!(approval_state: "required",
                                approval_expires_at: Silas.config.approval_ttl.from_now)
+            Silas.instrument(:park, reason: "approval", turn_id: invocation.turn_id,
+                                    detail: invocation.tool_name)
             return :parked
           when Hash # {denied: "reason"} — eve's shape
             invocation.update!(status: "failed", result: { "denied" => verdict[:denied] })
@@ -107,6 +109,16 @@ module Silas
       end
 
       def execute!(invocation, tool)
+        Silas.instrument(:tool, tool: invocation.tool_name, effect_mode: invocation.effect_mode,
+                                invocation_id: invocation.id, turn_id: invocation.turn_id) do |payload|
+          run_tool!(invocation, tool).tap do
+            payload[:status] = invocation.reload.status
+            payload[:approval_state] = invocation.approval_state
+          end
+        end
+      end
+
+      def run_tool!(invocation, tool)
         tool.session = invocation.turn.session if tool.respond_to?(:session=)
         args = invocation.arguments.symbolize_keys
 
@@ -149,6 +161,8 @@ module Silas
           # decline! = "it ran / abandon", operator supplies the outcome.
           invocation.update!(status: "in_doubt", approval_state: "required",
                              approval_expires_at: Silas.config.approval_ttl.from_now)
+          Silas.instrument(:park, reason: "in_doubt", turn_id: invocation.turn_id,
+                                  detail: invocation.tool_name)
           :parked
         end
       end

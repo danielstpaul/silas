@@ -1,5 +1,5 @@
 module Silas
-  # Coalesces model text deltas into ~10Hz "silas.delta" notifications carrying
+  # Coalesces model text deltas into ~10Hz "delta.silas" notifications carrying
   # the ACCUMULATED text so far — subscribers replace rather than append, which
   # is idempotent under a crash-restream (same step id, fresh stream overwrites
   # itself) and ordering-safe under Turbo. Deltas are decoration over the
@@ -38,8 +38,8 @@ module Silas
 
       @published = @text.length
       @last_publish = clock
-      ActiveSupport::Notifications.instrument(
-        "silas.delta",
+      Silas.instrument(
+        :delta,
         session_id: @turn.session_id, turn_id: @turn.id,
         step_id: @step.id, step_index: @step.index, text: @text.dup
       )

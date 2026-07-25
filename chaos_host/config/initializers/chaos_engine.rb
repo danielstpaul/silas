@@ -1,7 +1,7 @@
 # The deterministic in-process engine: pure function of (scenario, step index).
 # Same role as the spike's fake model server, but injected through Silas's engine
 # seam — no HTTP needed. MODEL_TURN_MS pads latency so kill windows are hittable.
-class ChaosEngine < Silas::Engines::Base
+class ChaosEngine < Silas::Adapters::Base
   STEPS = ENV.fetch("CHAOS_STEPS", "8").to_i
   APPROVAL_STEP = 3
 
@@ -13,10 +13,10 @@ class ChaosEngine < Silas::Engines::Base
 
     tool_calls =
       if scenario == "approval" && i == APPROVAL_STEP
-        [ Silas::Engines::ToolCall.new(id: "t#{i}_gate", name: "approve_gate", arguments: { "i" => i }) ]
+        [ Silas::Adapters::ToolCall.new(id: "t#{i}_gate", name: "approve_gate", arguments: { "i" => i }) ]
       elsif i < STEPS
         (0..1).map do |c|
-          Silas::Engines::ToolCall.new(id: "t#{i}_c#{c}", name: "record_row", arguments: { "i" => i, "c" => c })
+          Silas::Adapters::ToolCall.new(id: "t#{i}_c#{c}", name: "record_row", arguments: { "i" => i, "c" => c })
         end
       else
         []
@@ -27,7 +27,7 @@ class ChaosEngine < Silas::Engines::Base
       blocks << { "type" => "tool_call", "id" => tc.id, "name" => tc.name, "arguments" => tc.arguments }
     end
 
-    Silas::Engines::Result.new(
+    Silas::Adapters::Result.new(
       blocks: blocks,
       tool_calls: tool_calls,
       stop_reason: tool_calls.empty? ? "end_turn" : "tool_use",
@@ -38,7 +38,7 @@ end
 
 Rails.application.config.after_initialize do
   Silas.configure do |c|
-    c.engine = ChaosEngine.new
+    c.adapter = ChaosEngine.new
     c.isolate_steps = true # the production durability configuration under test
     c.max_steps = ChaosEngine::STEPS + 2
   end

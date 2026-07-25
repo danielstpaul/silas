@@ -3,10 +3,10 @@ Silas.configure do |config|
   # (lib/demo_engine.rb) so `bin/setup && bin/dev` needs zero secrets — the
   # tools, ledger, approvals, and streaming are all still real.
   if ENV["ANTHROPIC_API_KEY"].present?
-    config.engine = :ruby_llm
+    config.adapter = :ruby_llm
   else
     require Rails.root.join("lib/demo_engine").to_s
-    config.engine = DemoEngine.new
+    config.adapter = DemoEngine.new
   end
   config.default_model = "claude-sonnet-4-5"
 

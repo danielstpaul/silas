@@ -6,6 +6,29 @@ on:
   pull_request:
 
 jobs:
+  # Fast feedback: style, security, and a boot-time Zeitwerk check that no
+  # amount of unit testing would catch.
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4"
+          bundler-cache: true
+      - name: RuboCop (rails-omakase)
+        run: bundle exec rubocop --format github
+      - name: Brakeman
+        # chaos_host/examples are generated Rails skeletons, not gem code.
+        # config/brakeman.ignore documents the one deliberate suppression.
+        run: bundle exec brakeman --force --no-pager --quiet --skip-files chaos_host/,examples/ --exit-on-warn
+      - name: Bundler audit
+        run: bundle exec bundler-audit check --update
+      - name: Zeitwerk eager-load
+        # Naming violations only surface when every constant is loaded — a
+        # class of bug that ships silently otherwise.
+        run: bundle exec rake zeitwerk:check
+
   spec:
     runs-on: ubuntu-latest
     strategy:
@@ -36,3 +59,21 @@ jobs:
           STORE: pg
           PGUSER: postgres
           PGPASSWORD: postgres
+
+  # Early warning for RubyLLM 2.0: Silas rides on before_message, with_schema,
+  # and Tool::Halt, all of which 2.0 is expected to move. Allowed to fail —
+  # this is a canary, not a gate.
+  ruby_llm_canary:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4"
+      - name: Bundle against ruby_llm edge
+        run: |
+          echo 'gem "ruby_llm", github: "crmne/ruby_llm", branch: "main"' >> Gemfile
+          bundle install
+      - name: RSpec
+        run: bundle exec rspec

@@ -1,5 +1,5 @@
 module Silas
-  module Engines
+  module Adapters
     # The :ruby_llm adapter: ONE model call per step, streamed, with tool
     # interception. Silas's Ledger owns tool execution, so tools are registered
     # as halt-proxies — RubyLLM sees the schemas, but the moment the model
@@ -11,7 +11,7 @@ module Silas
       def execute_step(context, &on_event)
         chat = build_chat(context, &on_event)
 
-        response = ActiveSupport::Notifications.instrument("silas.step",
+        response = Silas.instrument(:step,
                                                            turn_id: context[:turn]&.id,
                                                            index: context[:index],
                                                            model: context[:model]) do

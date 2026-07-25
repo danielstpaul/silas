@@ -12,7 +12,7 @@ RSpec.describe "model-call resilience" do
 
   # Step 0: text + one tool call. Step 1: raises `error` fail_times times,
   # then completes the turn.
-  class FlakyEngine < Silas::Engines::Base
+  class FlakyEngine < Silas::Adapters::Base
     attr_reader :calls
 
     def initialize(fail_times:, error:)
@@ -28,8 +28,8 @@ RSpec.describe "model-call resilience" do
         raise @error
       end
 
-      tool_calls = context[:index].zero? ? [ Silas::Engines::ToolCall.new(id: "t0", name: "record", arguments: {}) ] : []
-      Silas::Engines::Result.new(
+      tool_calls = context[:index].zero? ? [ Silas::Adapters::ToolCall.new(id: "t0", name: "record", arguments: {}) ] : []
+      Silas::Adapters::Result.new(
         blocks: [ { "type" => "text", "text" => "step #{context[:index]}" } ],
         tool_calls: tool_calls,
         stop_reason: tool_calls.any? ? "tool_use" : "end_turn",
@@ -50,7 +50,7 @@ RSpec.describe "model-call resilience" do
 
   def configure!(engine, tool)
     Silas.configure do |c|
-      c.engine = engine
+      c.adapter = engine
       c.isolate_steps = false
       c.tool_resolver = ->(_name) { tool }
     end

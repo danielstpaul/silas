@@ -24,7 +24,7 @@ RSpec.describe Silas::Chat do
 
   def configure!(engine, tool)
     Silas.configure do |c|
-      c.engine = engine
+      c.adapter = engine
       c.isolate_steps = false
       c.tool_resolver = ->(_name) { tool }
     end
@@ -48,11 +48,11 @@ RSpec.describe Silas::Chat do
   end
 
   it "streams the answer as it arrives and never prints it twice" do
-    engine = Class.new(Silas::Engines::Base) do
+    engine = Class.new(Silas::Adapters::Base) do
       def execute_step(_context, &on_event)
         on_event&.call(Silas::Event.new(type: :text_delta, payload: { text: "Str" }))
         on_event&.call(Silas::Event.new(type: :text_delta, payload: { text: "eamed." }))
-        Silas::Engines::Result.new(blocks: [ { "type" => "text", "text" => "Streamed." } ],
+        Silas::Adapters::Result.new(blocks: [ { "type" => "text", "text" => "Streamed." } ],
                                    tool_calls: [], stop_reason: "end_turn", usage: {})
       end
     end.new

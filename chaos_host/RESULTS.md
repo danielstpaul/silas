@@ -1,15 +1,14 @@
-# Silas acceptance gate — chaos results (2026-07-25, v0.3.0)
+# Silas acceptance gate — chaos results (2026-07-25, v0.4.0)
 
 The Phase 0 spike bar, run against the gem itself (`bin/chaos`). Evidence in
 `results/*.jsonl`. Engine: deterministic in-process ChaosEngine (8 steps × 2
 transactional tool calls per turn, MODEL_TURN_MS=120); the production
 configuration under test: isolated continuation steps, `wait: 0`, ledger on.
 
-Re-run in full for **0.3.0**, which touched the step runner again (structured
-final_answer blocks, provider stamping for registry pricing) on top of 0.2's
-changes (error semantics via `resume_errors_after_advancing = false` +
-`retry_on`, the streaming delta buffer, the IsolatedExecutionState ledger
-guard).
+Re-run in full for **0.4.0**, which instrumented the ledger's tool-execution
+path and the loop's park/budget branches, and renamed the inference seam —
+i.e. it touched the exactly-once machinery itself, so the whole matrix ran
+rather than a spot check.
 
 | Mode | Store | Runs | Completed | Byte-identical | Duplicate side effects |
 |---|---|---|---|---|---|

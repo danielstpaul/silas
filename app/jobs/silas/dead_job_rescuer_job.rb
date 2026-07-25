@@ -15,7 +15,13 @@ module Silas
     queue_as { Silas.config.queue_name }
 
     def perform
+      Silas.instrument(:rescue) { |payload| sweep(payload) }
+    end
+
+    def sweep(payload)
       ToolInvocation.expire_stale!
+      payload[:rescued] = 0
+      payload[:stranded] = 0
       return 0 unless defined?(SolidQueue)
 
       rescued = 0
@@ -24,9 +30,10 @@ module Silas
           failed.retry
           rescued += 1
         elsif failed.job&.class_name == "Silas::AgentLoopJob"
-          fail_stranded_turn(failed)
+          payload[:stranded] += 1 if fail_stranded_turn(failed)
         end
       end
+      payload[:rescued] = rescued
       rescued
     end
 
@@ -40,13 +47,14 @@ module Silas
     # loudly with its approvals expired.
     def fail_stranded_turn(failed)
       turn = Turn.find_by(id: failed.job.arguments&.dig("arguments", 0))
-      return unless turn&.active?
+      return false unless turn&.active?
 
       exception = failed.error&.dig("exception_class")
       turn.expire_pending_approvals!("turn failed: #{exception}")
       turn.finish!(:failed, reason: "job_failed")
       Rails.logger&.error("[silas] turn #{turn.id} failed: its loop job died with " \
                           "#{exception} — #{failed.error&.dig('message')}")
+      true
     end
   end
 end

@@ -112,6 +112,8 @@ module Silas
         # replays completed steps from rows, resuming where it left off.
         if (reason = Budget.exceeded_reason(turn))
           turn.update!(status: "waiting", failure_reason: reason)
+          Silas.instrument(:budget, reason: reason, turn_id: turn.id)
+          Silas.instrument(:park, reason: "budget", turn_id: turn.id, detail: reason)
           return
         end
 

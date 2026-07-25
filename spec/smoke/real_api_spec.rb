@@ -9,7 +9,7 @@ RSpec.describe "real API smoke", :smoke do
     ::RubyLLM.configure { |c| c.anthropic_api_key = ENV["ANTHROPIC_API_KEY"] }
     Silas::Registry.install!(root: DummyApp.root)
     Silas.configure do |c|
-      c.engine = :ruby_llm
+      c.adapter = :ruby_llm
       c.default_model = "claude-haiku-4-5-20251001"
       c.isolate_steps = false
     end

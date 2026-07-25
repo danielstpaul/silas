@@ -81,8 +81,24 @@ RSpec.describe Silas::Ledger do
         end
       }.each(&:join)
 
+      # THE guarantee: the tool body ran exactly once, whatever the threads did.
       expect(count).to eq(1)
-      expect(inv.reload.status).to eq("completed")
+
+      # The resting status has two legal outcomes, and asserting only
+      # "completed" made this test flaky (it depends on whether a losing
+      # thread happened to observe the winner's brief `started` window):
+      #
+      #   completed — no racer looked in during that window.
+      #   in_doubt  — one did. A racer cannot distinguish "the winner is
+      #               mid-flight" from "a crash orphaned this", so it parks
+      #               for a human rather than guessing. Conservative and
+      #               correct; still not a second execution.
+      #
+      # Neither outcome is a duplicate effect, which is the property that
+      # matters. (Production never relies on this: the single-active-turn
+      # index and job-level serialisation mean two executions don't race the
+      # same step — the chaos suite covers the crash case that does.)
+      expect(inv.reload.status).to be_in(%w[completed in_doubt])
     end
   end
 

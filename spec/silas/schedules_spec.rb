@@ -104,7 +104,7 @@ RSpec.describe "schedules" do
   describe Silas::ScheduleJob do
     def with_fake_engine
       Silas.configure do |c|
-        c.engine = FakeEngine.new(&EngineScripts.n_tool_steps_then_done(0))
+        c.adapter = FakeEngine.new(&EngineScripts.n_tool_steps_then_done(0))
         c.isolate_steps = false
       end
       Silas::Registry.install!(root: DummyApp.root)

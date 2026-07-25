@@ -34,7 +34,7 @@ module Silas
         engine = scenario.real? ? nil : ScriptedEngine.new(scenario.steps)
         base_resolver = Silas.config.tool_resolver
         Silas.configure do |c|
-          c.engine = engine if engine
+          c.adapter = engine if engine
           c.isolate_steps = false
           c.max_steps = scenario.max_steps if scenario.max_steps
           if scenario.stubs.any?

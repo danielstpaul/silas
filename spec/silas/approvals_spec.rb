@@ -18,7 +18,7 @@ RSpec.describe "approvals end-to-end" do
 
   def configure!(engine, tool)
     Silas.configure do |c|
-      c.engine = engine
+      c.adapter = engine
       c.isolate_steps = false
       c.tool_resolver = ->(_name) { tool }
     end

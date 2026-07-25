@@ -104,15 +104,15 @@ hundreds of times per release (results in `chaos_host/results/`):
   deploy that changes tools/skills mid-turn fails the turn loudly
   (`NondeterminismError`) instead of resuming into a different agent.
 
-## Engine
+## Adapter
 
-Inference is one pluggable seam (`config.engine`): `:ruby_llm` — API-key auth
+Inference is one pluggable seam (`config.adapter`): `:ruby_llm` — API-key auth
 via [RubyLLM](https://rubyllm.com), any provider it supports — is the default
 and the production path. Compose resilience via `config.around_model_call`, or
 swap in any object responding to `#execute_step` (the eval harness and the
 chaos tests do exactly that).
 
-> The experimental `:agent_sdk` engine (a `claude -p` subprocess) was removed
+> The experimental `:agent_sdk` adapter (a `claude -p` subprocess) was removed
 > in 0.2: its subscription-auth rationale was structurally unreachable, and it
 > carried weaker guarantees than `:ruby_llm` on every axis. Its in-process MCP
 > server survives and returns as a first-class *mount your tools as MCP*
@@ -200,13 +200,13 @@ An agent is reached by more than a method call:
 
 ## Streaming
 
-Turns stream. The `:ruby_llm` engine emits text deltas as the model responds:
+Turns stream. The `:ruby_llm` adapter emits text deltas as the model responds:
 `bin/rails silas:chat` prints tokens as they arrive, and the inbox trace
 renders them live over Turbo (coalesced to ~10Hz). Deltas are decoration over
 the durable rows — never persisted, never fed back to the model, and a
 replayed step renders from its row with no deltas at all, so streaming adds
 zero risk to the durability contract. Custom sinks subscribe to the
-`"silas.delta"` notification (`{ session_id:, turn_id:, step_id:, step_index:,
+`"delta.silas"` notification (`{ session_id:, turn_id:, step_id:, step_index:,
 text: }`, where `text` is the accumulated string so far — filter by ids;
 notifications are process-global).
 

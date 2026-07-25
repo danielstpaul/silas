@@ -6,7 +6,7 @@ require "rails_helper"
 RSpec.describe "the SSE stream", type: :request do
   self.use_transactional_tests = false
 
-  before { Silas.configure { |c| c.api_auth = ->(_controller) {} } }
+  before { Silas.configure { |c| c.api_auth = ->(_controller) { } } }
 
   after do
     [ Silas::ToolInvocation, Silas::Step, Silas::Turn, Silas::Session ].each(&:delete_all)
@@ -75,7 +75,7 @@ RSpec.describe "the SSE stream", type: :request do
 
   it "closes itself with a timeout event at api_stream_max_duration (reconnect contract)" do
     Silas.configure do |c|
-      c.api_auth = ->(_controller) {}
+      c.api_auth = ->(_controller) { }
       c.api_stream_max_duration = 0 # first pass, then deadline
     end
 

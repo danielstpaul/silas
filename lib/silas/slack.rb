@@ -43,7 +43,7 @@ module Silas
 
     # Slack signs each request (v0 scheme) — HMAC-SHA256 over "v0:ts:body" plus a
     # 5-minute replay window. Returns true only for a genuine, fresh request.
-    def verify_signature(signing_secret:, timestamp:, body:, signature:, now: Time.now.to_i)
+    def verify_signature(signing_secret:, timestamp:, body:, signature:, now: Time.current.to_i)
       return false if signing_secret.blank? || signature.blank? || timestamp.blank?
       return false if (now - timestamp.to_i).abs > REPLAY_WINDOW
 

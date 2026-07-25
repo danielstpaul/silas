@@ -8,7 +8,7 @@ RSpec.describe "skills, instructions, and the public API" do
   def configure_fake!(script)
     engine = FakeEngine.new(&script)
     Silas.configure do |c|
-      c.engine = engine
+      c.adapter = engine
       c.isolate_steps = false
     end
     Silas::Registry.install!(root: DummyApp.root) # configure reset the lambdas
@@ -94,7 +94,7 @@ RSpec.describe "skills, instructions, and the public API" do
   end
 
   describe "DeadJobRescuerJob" do
-    it "sweeps expired approvals even without SolidQueue" do
+    it "sweeps expired approvals before (and independently of) any queue work" do
       configure_fake!(EngineScripts.n_tool_steps_then_done(0))
       session = Silas::Session.create!
       turn = Silas::Turn.create!(session: session, index: 0, input: "hi", status: "waiting")
@@ -102,6 +102,12 @@ RSpec.describe "skills, instructions, and the public API" do
       inv = Silas::ToolInvocation.create!(step: step, turn: turn, tool_call_id: "t0", tool_name: "x",
                                         effect_mode: "at_most_once", approval_state: "required",
                                         approval_expires_at: 1.hour.ago)
+
+      # Solid Queue is loaded in the harness (its internals are contract-tested)
+      # but its tables are not installed here — stub the scan so this spec keeps
+      # testing the approval sweep, which must happen regardless.
+      relation = double("relation", find_each: nil)
+      allow(SolidQueue::FailedExecution).to receive(:includes).and_return(relation)
 
       Silas::DeadJobRescuerJob.perform_now
 

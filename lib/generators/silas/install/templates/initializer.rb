@@ -1,7 +1,7 @@
 Silas.configure do |config|
   # Inference engine: :ruby_llm (API key, any provider RubyLLM supports), or
   # any object responding to #execute_step. See silas/README.
-  config.engine = :ruby_llm
+  config.adapter = :ruby_llm
 
   # Any model your installed ruby_llm's registry resolves (newer models may
   # need `RubyLLM.models.refresh!` first). "claude-sonnet-4-5" is the balanced

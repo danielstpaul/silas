@@ -13,7 +13,7 @@ RSpec.describe "the inbox", type: :request do
   end
 
   def allow_all!
-    Silas.configure { |c| c.inbox_auth = ->(_controller) {} } # pass = do not render
+    Silas.configure { |c| c.inbox_auth = ->(_controller) { } } # pass = do not render
   end
 
   describe "deny-by-default auth" do

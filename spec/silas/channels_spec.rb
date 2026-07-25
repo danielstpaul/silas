@@ -21,7 +21,7 @@ RSpec.describe "channels" do
 
   def configure!(tool)
     Silas.configure do |c|
-      c.engine = FakeEngine.new(&EngineScripts.n_tool_steps_then_done(1))
+      c.adapter = FakeEngine.new(&EngineScripts.n_tool_steps_then_done(1))
       c.isolate_steps = false
     end
     Silas::Registry.install!(root: DummyApp.root) # wires the real channel_resolver...

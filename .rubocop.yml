@@ -1,0 +1,13 @@
+# Rails' own baseline (github.com/rails/rubocop-rails-omakase): formatting the
+# way Rails writes Ruby, no bikeshedding. Overrides below are deliberate and
+# few — each states why.
+inherit_gem:
+  rubocop-rails-omakase: rubocop.yml
+
+AllCops:
+  TargetRubyVersion: 3.2
+  Exclude:
+    - "chaos_host/**/*"       # separate crash-test app, generated Rails skeleton
+    - "examples/**/*"         # example apps carry their own (generated) config
+    - "spec/dummy/**/*"       # inline fixture app
+    - "vendor/**/*"

@@ -64,7 +64,7 @@ RSpec.describe "connections" do
       end
     end
     Silas.configure do |c|
-      c.engine = engine
+      c.adapter = engine
       c.isolate_steps = false
       c.mcp_client_factory = ->(_conn) { fake_client(calls: @calls) }
     end

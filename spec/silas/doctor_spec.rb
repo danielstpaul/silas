@@ -37,8 +37,8 @@ RSpec.describe Silas::Doctor do
     expect(check("api auth").status).to eq(:warn)
 
     Silas.configure do |c|
-      c.inbox_auth = ->(_controller) {}
-      c.api_auth = ->(_controller) {}
+      c.inbox_auth = ->(_controller) { }
+      c.api_auth = ->(_controller) { }
     end
     expect(check("inbox auth").status).to eq(:pass)
     expect(check("api auth").status).to eq(:pass)

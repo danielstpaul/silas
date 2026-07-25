@@ -12,7 +12,7 @@ module Silas
     # the whole step partial (dom_id target) and supersedes anything streamed
     # into the inner text container.
     module DeltaBroadcaster
-      EVENT = "silas.delta".freeze
+      EVENT = "delta.silas".freeze
 
       class << self
         def subscribe!

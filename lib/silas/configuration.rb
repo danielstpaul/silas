@@ -1,7 +1,9 @@
 module Silas
   class Configuration
-    # Inference engine seam: :ruby_llm, or any object responding to #execute_step.
-    attr_accessor :engine
+    # Inference adapter seam: :ruby_llm, or any object responding to
+    # #execute_step. (Named `engine` before 0.4 — see the deprecated alias
+    # below; "engine" already meant the Rails engine at Silas::Engine.)
+    attr_accessor :adapter
     # Default model when agent.yml doesn't specify one.
     attr_accessor :default_model
     # Active Job queue for agent turns.
@@ -39,8 +41,21 @@ module Silas
     # tools as MCP" seam).
     attr_accessor :mcp_server_host
 
+    # Renamed in 0.4, removed in 2.0. "engine" meant two unrelated things —
+    # the Rails engine (Silas::Engine) and the inference backend — the exact
+    # collision ActiveJob avoids by calling its seam QueueAdapters.
+    def engine
+      Silas.deprecator.warn("config.engine is deprecated; use config.adapter")
+      adapter
+    end
+
+    def engine=(value)
+      Silas.deprecator.warn("config.engine= is deprecated; use config.adapter=")
+      self.adapter = value
+    end
+
     # config.auth and the agent_sdk_* options were removed with the :agent_sdk
-    # engine in 0.2 (warning no-ops for one release) and hard-removed in 0.3 —
+    # adapter in 0.2 (warning no-ops for one release) and hard-removed in 0.3 —
     # a leftover write now raises NoMethodError. Delete them from your
     # initializer.
     # JSON API (mounted under /silas/api/v1).
@@ -83,7 +98,7 @@ module Silas
     end
 
     def initialize
-      @engine = :ruby_llm
+      @adapter = :ruby_llm
       # Must be resolvable by the installed ruby_llm's model registry — newer
       # Claude models may need `RubyLLM.models.refresh!` before they resolve.
       # (Sonnet 4.5 ships in every supported registry; never default a first
@@ -142,11 +157,11 @@ module Silas
 
     # Fail-loud misconfiguration checks, run from Silas.configure and at boot.
     def boot_guard!
-      if engine == :agent_sdk
+      if adapter == :agent_sdk
         raise BootGuardError,
-              "the :agent_sdk engine was removed in Silas 0.2 — the claude -p subprocess " \
+              "the :agent_sdk adapter was removed in Silas 0.2 — the claude -p subprocess " \
               "integration is gone (its subscription-auth rationale was unreachable). " \
-              "Use engine :ruby_llm, the production path."
+              "Use adapter :ruby_llm, the production path."
       end
 
       check_provider_credentials!
@@ -159,7 +174,7 @@ module Silas
     # always a misconfiguration); warns in development so a fresh app can
     # still boot and browse the inbox before a key exists.
     def check_provider_credentials!
-      return unless engine == :ruby_llm && defined?(::RubyLLM)
+      return unless adapter == :ruby_llm && defined?(::RubyLLM)
 
       providers = ::RubyLLM::Provider.providers.values
       configured = providers.any? do |provider|
@@ -168,7 +183,7 @@ module Silas
       end
       return if configured
 
-      message = "[Silas] engine :ruby_llm has no configured provider — no API key is set on " \
+      message = "[Silas] adapter :ruby_llm has no configured provider — no API key is set on " \
                 "RubyLLM.config. Set one in config/initializers/ruby_llm.rb, e.g. " \
                 "RubyLLM.configure { |c| c.anthropic_api_key = ENV[\"ANTHROPIC_API_KEY\"] } " \
                 "— the first agent turn will fail without it."

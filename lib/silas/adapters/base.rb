@@ -3,11 +3,11 @@ module Silas
   # set — consumers must ignore unknown types. Emitted today by Engines::RubyLLM:
   #   :message_start — once per model call (before_message)
   #   :text_delta    — { text: } chunks as the response streams
-  # StepRunner coalesces :text_delta into "silas.delta" notifications (see
+  # StepRunner coalesces :text_delta into "delta.silas" notifications (see
   # DeltaBuffer); everything else is available to custom engines/hooks.
   Event = Data.define(:type, :payload)
 
-  module Engines
+  module Adapters
     # The inference seam. An engine executes exactly ONE model call for a step
     # and reports what came back; the framework owns the loop, the ledger owns
     # tool execution.
@@ -24,5 +24,15 @@ module Silas
     end
 
     ToolCall = Data.define(:id, :name, :arguments)
+  end
+
+  # Renamed Engines:: -> Adapters:: in 0.4, removed in 2.0. Host apps subclass
+  # Adapters::Base for custom inference backends, so the old constant keeps
+  # resolving (with a warning) rather than blowing up on upgrade.
+  module Engines
+    def self.const_missing(name)
+      Silas.deprecator.warn("Silas::Engines::#{name} is deprecated; use Silas::Adapters::#{name}")
+      Silas::Adapters.const_get(name)
+    end
   end
 end

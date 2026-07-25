@@ -1,6 +1,6 @@
 module Silas
   # The Rails engine (not to be confused with inference adapters under
-  # Silas::Engines::*). Full engine: Silas is Rails-native by thesis.
+  # Silas::Adapters::*). Full engine: Silas is Rails-native by thesis.
   class Engine < ::Rails::Engine
     isolate_namespace Silas
 
@@ -33,12 +33,25 @@ module Silas
       end
     end
 
+    # Register with Rails so hosts control Silas's deprecations exactly as they
+    # control everyone else's: config.active_support.report_deprecations,
+    # or `config.silas.deprecator.behavior = :raise` in CI.
+    initializer "silas.deprecator" do |app|
+      app.deprecators[:silas] = Silas.deprecator if app.respond_to?(:deprecators)
+    end
+
     initializer "silas.boot_guard", after: :load_config_initializers do
       Silas.config.boot_guard!
     end
 
+    # Turn the loop's notifications into log lines. Attaching here (rather than
+    # at require time) means a host that never boots Rails pays nothing.
+    initializer "silas.log_subscriber" do
+      Silas::LogSubscriber.attach_to :silas if defined?(Silas::LogSubscriber)
+    end
+
     # Live token streaming into the inbox trace: one process-wide subscriber on
-    # "silas.delta"; a no-op unless turbo-rails is present and streaming is on.
+    # "delta.silas"; a no-op unless turbo-rails is present and streaming is on.
     initializer "silas.delta_broadcaster" do
       Silas::Inbox::DeltaBroadcaster.subscribe!
     end

@@ -9,7 +9,7 @@ Silas.configure do |config|
   # gate is deny-by-default: the lambda DENIES by rendering (head :not_found)
   # and ALLOWS by returning without rendering. In production, gate on your auth:
   #   config.inbox_auth = ->(ctrl) { ctrl.head :not_found unless ctrl.current_user&.admin? }
-  config.inbox_auth = ->(_controller) {}
+  config.inbox_auth = ->(_controller) { }
 
   # Demo: run every step in one execution (no re-enqueue between steps). Pairs
   # with the :inline adapter set below. Production leaves this at its default
@@ -25,4 +25,3 @@ end
 # enqueues via ActiveJob. Production uses Solid Queue (see silas/DEPLOY.md).
 # Set on the class directly so it wins regardless of initializer load order.
 ActiveJob::Base.queue_adapter = :inline
-
