@@ -51,9 +51,17 @@ module Silas
       @config ||= Configuration.new
     end
 
+    # Reconfiguring re-resolves the engine and sandbox. Without this the
+    # memos below outlive the config that produced them: a second
+    # `Silas.configure { |c| c.engine = ... }` in one process kept serving the
+    # FIRST engine. That silently broke multi-scenario `silas:eval` runs —
+    # every scenario after the first ran the first one's script and still
+    # reported pass/fail as if it hadn't. Re-resolution is cheap (one `.new`).
     def configure
       yield config
       config.validate!
+      @resolved_engine = nil
+      @resolved_sandbox = nil
       config
     end
 

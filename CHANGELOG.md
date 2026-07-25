@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.3.1
+
+- **Fixed: only the first scenario in a `silas:eval` run was really tested.**
+  `Silas.configure` never invalidated the memoized resolved engine, so a
+  second `configure` in the same process kept serving the first one — every
+  eval scenario after the first silently ran the *first* scenario's script
+  while still reporting pass/fail as though it hadn't. Reconfiguring now
+  re-resolves both the engine and the sandbox. The gem's own specs missed this
+  because the spec helper resets config between examples; a real multi-scenario
+  eval suite — the production path — does not. Found by building
+  `examples/playground`.
+- **Automatic approvals are now recorded.** A graded gate that clears a call
+  (a lambda under its threshold, an `:once` rule already satisfied) sets
+  `approval_state: "approved"` with **no** `approved_by` — so the audit trail
+  distinguishes "gate ran and passed automatically" (which the inbox now
+  renders as *auto-approved by policy*) from "no gate at all", which stays
+  `nil`. Previously both were indistinguishable on a money-moving tool.
+- The generated `ruby_llm.rb` initializer opts into `use_new_acts_as`, silencing
+  RubyLLM's legacy-API deprecation warning on every boot — Silas never uses
+  `acts_as_*`, so the warning was pure noise. Existing initializers are still
+  never touched.
+
 ## 0.3.0
 
 - **`bin/rails silas:doctor`** — every known first-run failure mode as one

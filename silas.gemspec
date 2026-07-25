@@ -4,7 +4,7 @@ Gem::Specification.new do |spec|
   spec.name        = "silas"
   spec.version     = Silas::VERSION
   spec.authors     = [ "Daniel St Paul" ]
-  spec.email       = [ "daniel@zerogravity.co.uk" ]
+  spec.email       = [ "danielstpaul@hotmail.com" ]
 
   spec.summary     = "Durable AI agents on the Rails you already run."
   spec.description = "An agent framework where your Rails app is the chassis: " \

@@ -3,8 +3,8 @@
     <code><%= invocation.tool_name %></code>
     <%= status_pill(invocation.awaiting_approval? ? "required" : invocation.status) %>
     <%# The audit line — who held the lever, and why it moved. %>
-    <% if invocation.approval_state == "approved" && invocation.approved_by.present? %>
-      <span class="muted">approved by <%= invocation.approved_by %></span>
+    <% if invocation.approval_state == "approved" %>
+      <span class="muted"><%= invocation.approved_by.present? ? "approved by #{invocation.approved_by}" : "auto-approved by policy" %></span>
     <% elsif invocation.approval_state == "declined" %>
       <span class="muted">declined<%= " by #{invocation.approved_by}" if invocation.approved_by.present? %><%= " — “#{invocation.decline_reason}”" if invocation.decline_reason.present? %></span>
     <% elsif invocation.approval_state == "expired" %>

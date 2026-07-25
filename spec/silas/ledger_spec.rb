@@ -131,6 +131,24 @@ RSpec.describe Silas::Ledger do
       expect(described_class.settle!(step, resolver: resolver_for(tool))).to eq(:parked)
     end
 
+    it "records an automatic approval so the audit trail can tell it from an ungated call" do
+      tool = tool_double(approval: ->(session:, input:) { :approved })
+      inv = invocation!
+      expect(described_class.settle!(step, resolver: resolver_for(tool))).to eq(:completed)
+
+      # A gate ran and cleared it: state "approved", but no approver — that
+      # absence is what marks it automatic rather than human.
+      expect(inv.reload).to have_attributes(status: "completed",
+                                            approval_state: "approved", approved_by: nil)
+    end
+
+    it "leaves an ungated tool's approval_state nil (no gate ever ran)" do
+      tool = tool_double(approval: :never)
+      inv = invocation!
+      described_class.settle!(step, resolver: resolver_for(tool))
+      expect(inv.reload.approval_state).to be_nil
+    end
+
     it "lambda returning {denied:} fails the invocation with the denial as result" do
       tool = tool_double(approval: ->(session:, input:) { { denied: "amount too large" } })
       inv = invocation!

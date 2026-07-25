@@ -1,0 +1,21 @@
+# solid_cable in development too, deliberately: Silas emits token deltas from
+# the Solid Queue WORKER process, and the async adapter is single-process — the
+# browser would never see them. `bin/rails silas:doctor` flags this.
+development:
+  adapter: solid_cable
+  connects_to:
+    database:
+      writing: cable
+  polling_interval: 0.1.seconds
+  message_retention: 1.day
+
+test:
+  adapter: test
+
+production:
+  adapter: solid_cable
+  connects_to:
+    database:
+      writing: cable
+  polling_interval: 0.1.seconds
+  message_retention: 1.day
