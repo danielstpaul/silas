@@ -1,0 +1,20 @@
+<%# One exchange. The steps container and its contents use the ENGINE's own
+    partials and dom ids — the same ones Silas's after_commit broadcasts
+    target — so live updates (new steps, token deltas, tool cards, approval
+    cards) land here for free. The CSS in app/assets/tailwind/application.css
+    restyles those engine classes to fit the chat. %>
+<div class="turn" id="<%= dom_id(turn) %>">
+  <div class="mb-3 flex justify-end">
+    <div class="max-w-[85%] rounded-2xl rounded-br-sm bg-slate-900 px-4 py-2 text-sm text-white">
+      <%= turn.input %>
+    </div>
+  </div>
+
+  <div id="silas-turn-<%= turn.id %>-steps" class="space-y-2">
+    <%= render partial: "silas/inbox/steps/step", collection: turn.steps, as: :step %>
+  </div>
+
+  <% if turn.failed? %>
+    <div class="mt-2 text-xs text-rose-600">Something went wrong on our side (<%= turn.failure_reason %>).</div>
+  <% end %>
+</div>

@@ -37,10 +37,20 @@ module Silas
         end
       end
 
-      def relative_time(time)
+      # Prefixed: this helper is registered host-wide (broadcast renders need
+      # it), and "relative_time" is exactly the name a host app would define.
+      def silas_relative_time(time)
         return "" unless time
 
         "#{time_ago_in_words(time)} ago"
+      end
+
+      # Engine paths that resolve in EVERY render context. The mounted proxy
+      # (`silas.`) leans on the rendering scope's url_options, which Turbo's
+      # bare broadcast renderer doesn't have — so broadcast-rendered partials
+      # build paths from the engine's own route set + the discovered mount.
+      def silas_engine_path(helper, *args)
+        Silas::Engine.routes.url_helpers.public_send(helper, *args, script_name: Silas::Inbox.mount_path)
       end
     end
   end

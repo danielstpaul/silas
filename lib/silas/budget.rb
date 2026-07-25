@@ -7,9 +7,11 @@ module Silas
   #
   # Token/cost checks are deterministic (persisted step data). The timeout check
   # reads the wall clock — benign non-determinism: a cap firing later on resume
-  # is correct (the turn genuinely ran too long across the crash). Note the
-  # timeout clock includes time spent parked, so a timeout top-up should be
-  # sized from Time.current - started_at, not from the original limit.
+  # is correct (the turn genuinely ran too long across the crash). The clock
+  # RESTARTS when an approval resumes the turn (resume_turn! resets
+  # started_at): timeout bounds active stretches, never the hours a human
+  # spends deciding. Crash-rescue resumes keep the original clock — the turn
+  # was live the whole time.
   module Budget
     REASONS = %w[max_input_tokens max_cost timeout].freeze
 
