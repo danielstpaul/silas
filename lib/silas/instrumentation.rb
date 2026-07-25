@@ -26,11 +26,15 @@ module Silas
   #                    useful span in the system.
   #   delta.silas      session_id:, turn_id:, step_id:, step_index:, text:
   #                    Streamed text so far (see DeltaBuffer). High frequency.
-  #   park.silas       reason: (approval | in_doubt | budget), turn_id:, detail:
+  #   park.silas       reason: (approval | question | in_doubt | budget),
+  #                    turn_id:, detail:
   #   resume.silas     turn_id:, parked_for: (seconds a human took)
-  #   approval.silas   action: (approved | declined | expired), tool:, by:,
-  #                    invocation_id:, turn_id:
+  #   approval.silas   action: (approved | answered | declined | expired),
+  #                    tool:, by:, invocation_id:, turn_id:
   #   budget.silas     reason: (max_cost | max_input_tokens | timeout), turn_id:
+  #   compact.silas    session_id:, turn_id:, up_to_turn_index:, tokens_before:,
+  #                    input_tokens:, output_tokens:, model:
+  #                    Duration = the summarisation model call.
   #   rescue.silas     rescued: (jobs retried), stranded: (turns failed)
   #   nondeterminism.silas  turn_id:, was:, now:  (digest changed mid-turn)
   module Instrumentation

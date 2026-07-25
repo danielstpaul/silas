@@ -48,31 +48,49 @@ RSpec.describe "structured final output" do
     end
   end
 
-  describe "the :ruby_llm engine" do
-    fake_message = Struct.new(:role, :content, :tool_calls, :tokens)
+  describe "the :ruby_llm adapter" do
+    # Chat is the builder; Provider#complete is the executor. Both are faked so
+    # these assert the handoff between them, which is the actual contract.
+    fake_message = Struct.new(:role, :content, :tool_calls, :tokens) do
+      def tool_call? = !tool_calls.nil? && !tool_calls.empty?
+    end
 
     let(:fake_chat) do
       Class.new do
-        attr_reader :schema, :messages
+        attr_reader :schema, :messages, :tools, :tool_prefs, :model
 
-        def initialize(content) = (@content = content; @messages = [])
+        def initialize(model) = (@model = model; @messages = []; @tools = {}; @tool_prefs = {})
         def with_instructions(*) = self
         def with_schema(schema) = (@schema = schema; self)
         def with_tool(*) = self
-        def before_message(&) = self
         def add_message(**) = self
-
-        def complete(&)
-          @messages << self.class.const_get(:MSG).new("assistant", @content, nil, nil)
-          @messages.last
-        end
-      end.tap { |k| k.const_set(:MSG, fake_message) }
+      end
     end
 
-    it "passes the schema through with_schema and persists the Hash as a structured block" do
-      schema = { "type" => "object" }
-      chat = fake_chat.new(payload)
+    # Returns the kwargs the adapter handed the provider, so a test can assert
+    # on them.
+    def stub_chat_and_provider(chat, content)
       allow(::RubyLLM).to receive(:chat).and_return(chat)
+      seen = {}
+      provider = Object.new
+      provider.define_singleton_method(:complete) do |messages, **kwargs, &_block|
+        seen.merge!(kwargs.merge(messages: messages))
+        Struct.new(:role, :content, :tool_calls, :tokens) do
+          def tool_call? = !tool_calls.nil? && !tool_calls.empty?
+        end.new("assistant", content, nil, nil)
+      end
+      klass = Class.new
+      klass.define_singleton_method(:new) { |_config| provider }
+      allow(::RubyLLM::Provider).to receive(:resolve).and_return(klass)
+      seen
+    end
+
+    let(:model) { Struct.new(:provider).new("anthropic") }
+
+    it "builds the schema on the chat and hands it to the provider" do
+      schema = { "type" => "object" }
+      chat = fake_chat.new(model)
+      seen = stub_chat_and_provider(chat, payload)
 
       result = Silas::Adapters::RubyLLM.new.execute_step(
         turn: nil, index: 0, system: "sys", messages: [],
@@ -80,13 +98,44 @@ RSpec.describe "structured final output" do
       )
 
       expect(chat.schema).to eq(schema)
+      expect(seen[:schema]).to eq(schema)          # builder -> executor
+      expect(seen[:model]).to eq(model)            # the model Chat resolved, not a re-resolve
       expect(result.blocks).to eq([ { "type" => "structured", "data" => payload } ])
       expect(result.terminal?).to be(true)
     end
 
+    # Chat#complete would have JSON-parsed this for us; calling the provider
+    # directly means the adapter does. This is the real shape of a schema
+    # response on the wire.
+    it "parses a schema response that arrives as a JSON string" do
+      chat = fake_chat.new(model)
+      stub_chat_and_provider(chat, JSON.generate(payload))
+
+      result = Silas::Adapters::RubyLLM.new.execute_step(
+        turn: nil, index: 0, system: nil, messages: [],
+        tools: [], model: "claude-x", final_answer: { "type" => "object" }, limits: {}
+      )
+
+      expect(result.blocks).to eq([ { "type" => "structured", "data" => payload } ])
+    end
+
+    # A model that ignores its schema must not crash the turn — the bad payload
+    # belongs in the transcript where an operator can see it.
+    it "keeps an unparseable schema response as text rather than raising" do
+      chat = fake_chat.new(model)
+      stub_chat_and_provider(chat, "sorry, I can't do that")
+
+      result = Silas::Adapters::RubyLLM.new.execute_step(
+        turn: nil, index: 0, system: nil, messages: [],
+        tools: [], model: "claude-x", final_answer: { "type" => "object" }, limits: {}
+      )
+
+      expect(result.blocks).to eq([ { "type" => "text", "text" => "sorry, I can't do that" } ])
+    end
+
     it "does not call with_schema when the agent has no final_answer" do
-      chat = fake_chat.new("plain prose")
-      allow(::RubyLLM).to receive(:chat).and_return(chat)
+      chat = fake_chat.new(model)
+      seen = stub_chat_and_provider(chat, "plain prose")
 
       result = Silas::Adapters::RubyLLM.new.execute_step(
         turn: nil, index: 0, system: nil, messages: [],
@@ -94,6 +143,7 @@ RSpec.describe "structured final output" do
       )
 
       expect(chat.schema).to be_nil
+      expect(seen[:schema]).to be_nil
       expect(result.blocks).to eq([ { "type" => "text", "text" => "plain prose" } ])
     end
   end

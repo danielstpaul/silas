@@ -13,6 +13,7 @@ Silas::Engine.routes.draw do
         member do
           post :approve
           post :decline
+          post :answer
         end
       end
     end
@@ -40,6 +41,7 @@ Silas::Engine.routes.draw do
       member do
         post :approve
         post :decline
+        post :answer
       end
     end
   end

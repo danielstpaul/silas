@@ -83,9 +83,9 @@ opt-in to automatic re-runs).
 
 The proof is measured, not asserted. The in-repo chaos harness `kill -9`s a live
 agent 100 times per gate: **100/100 completions, zero duplicate side effects,
-byte-identical replay**, on both SQLite and Postgres. The refund-desk demo shows the
+byte-identical replay**, on both SQLite and Postgres. The playground app shows the
 same guarantee end to end — crash an agent mid-refund and you're left with **exactly
-two refund rows, never three, never one.**
+one refund row, never two, never zero.**
 
 ---
 
@@ -144,7 +144,7 @@ place.** For that specific buyer, this is un-buyable from eve at any price — n
 because eve is worse, but because eve's entire value is the managed cloud this buyer
 can't touch.
 
-The working refund-desk demo (`demo/refund-desk/`) shows it literally.
+The playground app (`examples/playground/`) shows it literally.
 
 ---
 
@@ -175,7 +175,7 @@ The working refund-desk demo (`demo/refund-desk/`) shows it literally.
 
 ---
 
-*Silas is v0.1: one maintainer, zero external users, honestly narrow. This page
-claims nothing beyond the current 0.1.1 codebase and the working refund-desk demo. If
+*Silas is v0.4: one maintainer, zero external users, honestly narrow. This page
+claims nothing beyond the current 0.4.0 codebase and the working playground app. If
 that scope doesn't match you, eve is the right call — and this document is happy to
 say so.*

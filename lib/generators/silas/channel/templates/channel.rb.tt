@@ -1,0 +1,48 @@
+# <%= class_name %> channel — OUTBOUND delivery for sessions that started in
+# <%= human_name %>. Inbound lives in
+# app/controllers/agent/channels/<%= file_name %>_controller.rb.
+#
+# Identity is this filename: <%= file_name %>.rb -> Agent::Channels::<%= class_name %>,
+# and the controller starts sessions with channel: "<%= file_name %>", which is how
+# Silas finds this class again at delivery time. Delete this file to disable
+# the channel.
+#
+# Both methods run OFF the durable loop, in ChannelDeliveryJob — so a transport
+# outage retries the delivery without re-running a single tool or touching the
+# ledger. Raising here is safe; it costs a retry, not a duplicate side effect.
+class Agent::Channels::<%= class_name %> < Silas::Channel
+  # The agent's final answer for a turn.
+  def deliver_answer(session:, text:)
+    thread = session.metadata["<%= file_name %>"] || {}
+
+    # TODO: post `text` back to the conversation. `thread` is whatever the
+    # controller stashed in metadata (chat id, phone number, message id).
+    raise NotImplementedError,
+          "Agent::Channels::<%= class_name %>#deliver_answer: post #{text.inspect} to #{thread.inspect}"
+  end
+
+  # A tool has parked for human approval; the turn is holding zero compute
+  # until someone answers. `approval_url` mints a signed, expiring one-click
+  # link that works in any transport.
+  def deliver_approval(session:, invocation:)
+    approve = Silas::Channel.approval_url(invocation, :approve)
+    decline = Silas::Channel.approval_url(invocation, :decline)
+
+    # SECURITY: an approval must reach an OPERATOR, never whoever started the
+    # session — mailing the approve link to the customer who asked for the
+    # refund lets them approve it themselves. Deliver to your ops destination
+    # (a staff channel, an on-call number), and FAIL CLOSED when it isn't
+    # configured: no destination means no approval, not a silent one.
+    operator = Rails.application.credentials.dig(:silas, :<%= file_name %>, :operator)
+    if operator.blank?
+      Rails.logger.warn("[Silas] no credentials.silas.<%= file_name %>.operator — approval for " \
+                        "invocation #{invocation.id} not delivered (won't send it to the requester).")
+      return
+    end
+
+    # TODO: send `approve` / `decline` to `operator`, with enough context to
+    # decide: invocation.tool_name and invocation.arguments.
+    raise NotImplementedError,
+          "Agent::Channels::<%= class_name %>#deliver_approval: send #{approve} / #{decline} to #{operator}"
+  end
+end

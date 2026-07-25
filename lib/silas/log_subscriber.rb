@@ -48,6 +48,11 @@ class Silas::LogSubscriber < ActiveSupport::LogSubscriber
                          **event.payload.slice(:turn_id).compact)
   end
 
+  def compact(event)
+    info formatted_event(event, action: "Compacted through turn #{event.payload[:up_to_turn_index]}",
+                         **event.payload.slice(:session_id, :turn_id, :tokens_before, :output_tokens).compact)
+  end
+
   def nondeterminism(event)
     error formatted_event(event, action: "Definitions changed mid-turn",
                           **event.payload.slice(:turn_id, :was, :now).compact)

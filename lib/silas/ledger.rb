@@ -88,8 +88,8 @@ module Silas
           when :user_approval
             invocation.update!(approval_state: "required",
                                approval_expires_at: Silas.config.approval_ttl.from_now)
-            Silas.instrument(:park, reason: "approval", turn_id: invocation.turn_id,
-                                    detail: invocation.tool_name)
+            Silas.instrument(:park, reason: invocation.question? ? "question" : "approval",
+                                    turn_id: invocation.turn_id, detail: invocation.tool_name)
             return :parked
           when Hash # {denied: "reason"} — eve's shape
             invocation.update!(status: "failed", result: { "denied" => verdict[:denied] })

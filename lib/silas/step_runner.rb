@@ -51,6 +51,11 @@ module Silas
 
     def execute_model_call(turn, index, step)
       assert_definitions_unchanged!(turn)
+      # Compact BEFORE building messages, inside the isolated step: a crash
+      # anywhere in this step re-runs it, and the compaction claim is
+      # idempotent — a re-executed step sees the identical (compacted) history
+      # its first attempt saw. MessageBuilder reads the row this ensures.
+      Compactor.ensure!(turn)
       engine = Silas.resolved_adapter
       context = {
         turn: turn,

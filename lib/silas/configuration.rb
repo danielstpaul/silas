@@ -16,6 +16,14 @@ module Silas
     attr_accessor :approval_ttl
     # Hard cap on model calls per turn (agent.yml can lower it per-agent).
     attr_accessor :max_steps
+    # Context compaction trigger. A Float in (0, 1] compacts when the measured
+    # context passes that fraction of the model's registry context window
+    # (models the registry doesn't know are never compacted). An Integer is an
+    # absolute token threshold — the form custom adapters need, since they
+    # have no registry entry. nil/false disables. Compaction summarises PRIOR
+    # turns into a persisted row (exactly-once, replay-deterministic); the
+    # current turn is never compacted.
+    attr_accessor :compact_at
     # Continuation isolation for loop steps. true in production (persistence
     # per step — the durability contract); specs may disable for inline runs.
     attr_accessor :isolate_steps
@@ -33,6 +41,12 @@ module Silas
     # Memory (silas_memories): memory=false disables entirely; memory_approval
     # :always parks every remember for a human (default), :never auto-approves.
     attr_accessor :memory, :memory_approval, :memory_injection_limit
+    # The ask_question builtin (agent parks to ask the operator something;
+    # answered from the inbox/API). false removes it from the toolset — note
+    # that adding/removing a builtin changes the definitions digest, so turns
+    # PARKED across that change fail loudly on resume (the nondeterminism
+    # guard working as designed). Settle parked turns before flipping this.
+    attr_accessor :ask_question
     # Channels: name -> Channel subclass (wired by the Registry). Slack creds
     # default to credentials.dig(:silas, :slack, ...); nil disables Slack.
     attr_accessor :channel_resolver
@@ -108,6 +122,7 @@ module Silas
       @around_model_call = nil
       @approval_ttl = 7.days
       @max_steps = 25
+      @compact_at = 0.9
       @isolate_steps = true
       @tool_resolver = nil
       @tool_definitions = nil
@@ -128,6 +143,7 @@ module Silas
       @memory = true
       @memory_approval = :always
       @memory_injection_limit = 8
+      @ask_question = true
       @sandbox_image = nil
       @sandbox_network = "none"
       @sandbox_memory = "512m"

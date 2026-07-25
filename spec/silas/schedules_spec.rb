@@ -9,7 +9,7 @@ RSpec.describe "schedules" do
   describe Silas::Registry do
     it "discovers schedules by filesystem identity (subdirs included), sorted" do
       names = Silas.schedules.map(&:name)
-      expect(names).to eq(%w[billing/sweep daily_digest])
+      expect(names).to eq(%w[billing/sweep daily_digest agents/filer/nightly_filing agents/scribe/weekly_scroll])
     end
 
     it "keeps schedules out of the definitions digest" do
@@ -81,7 +81,8 @@ RSpec.describe "schedules" do
 
         doc = YAML.safe_load(recurring.read).fetch("production")
         expect(doc.keys).to contain_exactly(
-          "silas_dead_job_rescuer", "silas_schedule_daily_digest", "silas_schedule_billing_sweep"
+          "silas_dead_job_rescuer", "silas_schedule_daily_digest", "silas_schedule_billing_sweep",
+          "silas_schedule_agents_filer_nightly_filing", "silas_schedule_agents_scribe_weekly_scroll"
         )
         expect(doc["silas_dead_job_rescuer"]["class"]).to eq("Silas::DeadJobRescuerJob")
       end
@@ -95,7 +96,8 @@ RSpec.describe "schedules" do
           "production" => { "silas_schedule_ghost" => { "class" => "Silas::ScheduleJob" } }
         ))
         drift = described_class.drift(schedules, root: root)
-        expect(drift[:uncompiled]).to contain_exactly("daily_digest", "billing/sweep")
+        expect(drift[:uncompiled]).to contain_exactly("daily_digest", "billing/sweep",
+                                                     "agents/filer/nightly_filing", "agents/scribe/weekly_scroll")
         expect(drift[:orphaned]).to eq([ "silas_schedule_ghost" ])
       end
     end
@@ -135,6 +137,45 @@ RSpec.describe "schedules" do
       with_fake_engine
       expect { Silas::ScheduleJob.perform_now("deleted_schedule") }
         .not_to change(Silas::Session, :count)
+    end
+  end
+
+  describe "named-agent schedules (each agent owns its own cron)" do
+    let(:by_name) { Silas.schedules.index_by(&:name) }
+
+    it "parses a named agent's .md task with its owner and a collision-free key" do
+      s = by_name.fetch("agents/scribe/weekly_scroll")
+      expect(s).to have_attributes(kind: :task, agent_name: "scribe", cron: "0 9 * * 1")
+      expect(s.payload).to include("weekly scroll")
+      expect(s.recurring_key).to eq("silas_schedule_agents_scribe_weekly_scroll")
+    end
+
+    it "resolves a named agent's .rb handler under the Agents:: namespace" do
+      s = by_name.fetch("agents/filer/nightly_filing")
+      expect(s).to have_attributes(kind: :handler, agent_name: "filer")
+      expect(s.payload).to eq(Agents::Filer::Schedules::NightlyFiling)
+    end
+
+    it "root schedules stay ownerless" do
+      expect(by_name.fetch("daily_digest").agent_name).to be_nil
+    end
+
+    it "task mode starts THE NAMED AGENT, not the root agent" do
+      Silas.configure do |c|
+        c.adapter = FakeEngine.new(&EngineScripts.n_tool_steps_then_done(0))
+        c.isolate_steps = false
+      end
+      Silas::Registry.install!(root: DummyApp.root)
+
+      Silas::ScheduleJob.perform_now("agents/scribe/weekly_scroll")
+
+      session = Silas::Session.last
+      # The session is stamped with the agent, so every turn — including any
+      # rescue-resumed one — runs under the scribe's own scope.
+      expect(session.agent_name).to eq("scribe")
+      expect(session.metadata).to eq("trigger" => "schedule",
+                                     "schedule" => "agents/scribe/weekly_scroll")
+      expect(session.turns.sole.input).to include("weekly scroll")
     end
   end
 end

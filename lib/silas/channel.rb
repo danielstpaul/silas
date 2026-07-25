@@ -57,6 +57,34 @@ module Silas
       Rails.application.message_verifier(TOKEN_PURPOSE)
     end
 
+    # A full one-click approve/decline URL for ANY transport — the signed token
+    # is the credential, so the link works in a WhatsApp message, a Discord
+    # embed, or an SMS exactly as it does in email.
+    #
+    # Built from the engine's own route set plus the discovered mount point,
+    # because a channel runs in a delivery job with no routing scope. The host
+    # is required and never guessed: a hostless approval link is a dead link,
+    # so this raises with the fix rather than shipping one.
+    def self.approval_url(invocation, action, host: nil)
+      options = default_url_options.merge(host: host || default_url_options[:host])
+      if options[:host].blank?
+        raise Error, "Silas::Channel.approval_url needs a host. Set " \
+                     "config.action_mailer.default_url_options = { host: \"example.com\" } " \
+                     "(or Rails.application.routes.default_url_options), or pass host:."
+      end
+
+      Silas::Engine.routes.url_helpers.channels_approval_url(
+        token: token_for(invocation, action),
+        script_name: Silas::Inbox.mount_path, **options
+      )
+    end
+
+    def self.default_url_options
+      mailer = Rails.application.config.action_mailer.default_url_options || {}
+      Rails.application.routes.default_url_options.merge(mailer)
+    end
+    private_class_method :default_url_options
+
     # --- outbound interface (subclasses implement) ---
     def deliver_answer(session:, text:)
       raise NotImplementedError, "#{self.class}#deliver_answer"
@@ -65,5 +93,12 @@ module Silas
     def deliver_approval(session:, invocation:)
       raise NotImplementedError, "#{self.class}#deliver_approval"
     end
+
+    # OPTIONAL: ask_question parks ping this instead of deliver_approval —
+    # define it on transports that can collect free text (the question is
+    # invocation.arguments["question"]; settle with invocation.answer!).
+    # Channels without it are simply not pinged; the question waits in the
+    # inbox. Deliberately NOT declared here raising NotImplementedError:
+    # respond_to? is the capability check.
   end
 end

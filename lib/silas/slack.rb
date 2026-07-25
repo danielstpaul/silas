@@ -43,13 +43,16 @@ module Silas
 
     # Slack signs each request (v0 scheme) — HMAC-SHA256 over "v0:ts:body" plus a
     # 5-minute replay window. Returns true only for a genuine, fresh request.
+    # Slack ALWAYS sends a timestamp, so a missing one is refused here rather
+    # than falling through to Webhook's "no timestamp, no window" default.
     def verify_signature(signing_secret:, timestamp:, body:, signature:, now: Time.current.to_i)
-      return false if signing_secret.blank? || signature.blank? || timestamp.blank?
-      return false if (now - timestamp.to_i).abs > REPLAY_WINDOW
+      return false if timestamp.blank?
 
-      basestring = "v0:#{timestamp}:#{body}"
-      expected = "v0=" + OpenSSL::HMAC.hexdigest("SHA256", signing_secret, basestring)
-      ActiveSupport::SecurityUtils.secure_compare(expected, signature)
+      Silas::Webhook.verify_hmac(
+        secret: signing_secret, signature: signature,
+        payload: "v0:#{timestamp}:#{body}", timestamp: timestamp,
+        window: REPLAY_WINDOW, prefix: "v0=", now: now
+      )
     end
   end
 end

@@ -2,7 +2,7 @@ module Silas
   class ToolInvocation < ApplicationRecord
     STATUSES = %w[pending started completed failed in_doubt].freeze
     EFFECT_MODES = %w[transactional at_most_once idempotent].freeze
-    APPROVAL_STATES = [ nil, "required", "approved", "declined", "expired" ].freeze
+    APPROVAL_STATES = [ nil, "required", "approved", "answered", "declined", "expired" ].freeze
 
     include Silas::Inbox::Broadcastable
 
@@ -17,6 +17,10 @@ module Silas
     def completed? = status == "completed"
     def in_doubt?  = status == "in_doubt"
     def awaiting_approval? = approval_state == "required"
+
+    # A parked ask_question — same park, different verdict: it is ANSWERED
+    # (free text becomes the tool result), never approved into execution.
+    def question? = tool_name == "ask_question"
 
     # Outbound: when a channel-bound invocation parks for approval, ping the
     # channel off-loop (covers both approval-gate and in-doubt parking).
@@ -34,10 +38,31 @@ module Silas
     # parked job exited normally; its continuation is consumed). For an
     # in-doubt invocation, approval means "it did not run — re-execute".
     def approve!(by: nil)
+      if question?
+        raise Error, "invocation #{id} is a question — settle it with answer!, not approve! " \
+                     "(approving would try to EXECUTE ask_question, which has no execution)"
+      end
       assert_parked!
       assert_turn_resumable!
       update!(status: "pending", approval_state: "approved", approved_by: by)
       Silas.instrument(:approval, action: "approved", tool: tool_name, by: by,
+                                  invocation_id: id, turn_id: turn_id)
+      resume_turn!
+    end
+
+    # Answer a parked question. The text IS the tool result — the model resumes
+    # with {"answer" => text}, persisted like any other settled invocation, so
+    # replay determinism costs nothing. (decline! also works on a question: a
+    # refusal to answer, delivered as {"denied" => reason}.)
+    def answer!(text:, by: nil)
+      raise Error, "invocation #{id} (#{tool_name}) is not a question — answer! settles ask_question only" unless question?
+      raise Error, "an answer cannot be blank — decline! is the way to refuse a question" if text.blank?
+
+      assert_parked!
+      assert_turn_resumable!
+      update!(status: "completed", approval_state: "answered", approved_by: by,
+              result: { "answer" => text })
+      Silas.instrument(:approval, action: "answered", tool: tool_name, by: by,
                                   invocation_id: id, turn_id: turn_id)
       resume_turn!
     end
@@ -60,8 +85,9 @@ module Silas
     # their turns (parked-forever ghosts are a bug, not a feature).
     def self.expire_stale!(now: Time.current)
       where(approval_state: "required").where(approval_expires_at: ..now).find_each do |inv|
-        inv.update!(approval_state: "expired", status: "failed",
-                    result: { "denied" => "approval expired" })
+        result = inv.question? ? { "answer" => nil, "note" => "question expired unanswered" }
+                               : { "denied" => "approval expired" }
+        inv.update!(approval_state: "expired", status: "failed", result: result)
         Silas.instrument(:approval, action: "expired", tool: inv.tool_name,
                                     invocation_id: inv.id, turn_id: inv.turn_id)
         inv.turn.finish!(:failed, reason: "approval_expired")

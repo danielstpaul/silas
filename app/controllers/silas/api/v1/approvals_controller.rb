@@ -29,6 +29,16 @@ module Silas
         rescue Silas::Error => e
           render json: { error: e.message }, status: :conflict
         end
+
+        # POST /silas/api/v1/approvals/:id/answer  { text: "..." }
+        # ask_question's verdict: the text becomes the tool result.
+        def answer
+          invocation = Silas::ToolInvocation.find(params[:id])
+          invocation.answer!(text: params[:text].to_s.strip, by: current_actor)
+          render json: invocation_json(invocation.reload)
+        rescue Silas::Error => e
+          render json: { error: e.message }, status: :conflict
+        end
       end
     end
   end

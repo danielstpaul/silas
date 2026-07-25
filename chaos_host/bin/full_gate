@@ -1,0 +1,23 @@
+#!/bin/bash
+# The 0.5.0 acceptance matrix: the standard gate (MessageBuilder + step path
+# changed) plus the new compact mode on both stores. Writes a combined log;
+# each mode also persists its jsonl under results/.
+set -uo pipefail
+cd "$(dirname "$0")/.."
+
+run() {
+  echo ""
+  echo "############ $* ############"
+  "$@" 2>&1 | tail -6
+}
+
+run bin/chaos --runs=100 --mode=worker
+run env STORE=pg bin/chaos --runs=100 --mode=worker
+run bin/chaos --runs=10 --mode=supervisor
+run bin/chaos --runs=10 --mode=sigterm
+run bin/chaos --runs=5  --mode=parked
+run bin/chaos --runs=25 --mode=compact
+run env STORE=pg bin/chaos --runs=25 --mode=compact
+
+echo ""
+echo "############ matrix complete ############"

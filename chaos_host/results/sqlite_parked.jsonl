@@ -18,3 +18,8 @@
 {"run":3,"store":"sqlite","mode":"parked","scenario":"approval","parked_ok":true,"completed":true,"transcript_identical":true,"duplicate_side_effects":0,"rescuer_retries":0}
 {"run":4,"store":"sqlite","mode":"parked","scenario":"approval","parked_ok":true,"completed":true,"transcript_identical":true,"duplicate_side_effects":0,"rescuer_retries":0}
 {"run":5,"store":"sqlite","mode":"parked","scenario":"approval","parked_ok":true,"completed":true,"transcript_identical":true,"duplicate_side_effects":0,"rescuer_retries":0}
+{"run":1,"store":"sqlite","mode":"parked","scenario":"approval","parked_ok":true,"completed":true,"transcript_identical":true,"duplicate_side_effects":0,"rescuer_retries":0}
+{"run":2,"store":"sqlite","mode":"parked","scenario":"approval","parked_ok":true,"completed":true,"transcript_identical":true,"duplicate_side_effects":0,"rescuer_retries":0}
+{"run":3,"store":"sqlite","mode":"parked","scenario":"approval","parked_ok":true,"completed":true,"transcript_identical":true,"duplicate_side_effects":0,"rescuer_retries":0}
+{"run":4,"store":"sqlite","mode":"parked","scenario":"approval","parked_ok":true,"completed":true,"transcript_identical":true,"duplicate_side_effects":0,"rescuer_retries":0}
+{"run":5,"store":"sqlite","mode":"parked","scenario":"approval","parked_ok":true,"completed":true,"transcript_identical":true,"duplicate_side_effects":0,"rescuer_retries":0}

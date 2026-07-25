@@ -192,11 +192,17 @@ An agent is reached by more than a method call:
 
 - **`schedules/`** — `app/agent/schedules/*.md` (cron frontmatter, body = the turn
   input) or `*.rb` handlers. `bin/rails silas:schedules` compiles them into
-  Solid Queue recurring tasks. A scheduled run is a normal durable turn.
+  Solid Queue recurring tasks. A scheduled run is a normal durable turn. Named
+  agents own their cron the same way they own tools:
+  `app/agents/analyst/schedules/monday_kpis.md` ticks start the analyst, not
+  the root agent.
 - **`channels/`** — `app/agent/channels/*.rb` bind email (Action Mailbox) and
   Slack to the loop. A new thread starts a session, a reply continues it, and
   approvals render as Slack buttons / signed email links that call the same
   `approve!`/`decline!`. Outbound delivery is idempotent and off the durable loop.
+  `bin/rails g silas:channel whatsapp` scaffolds any other transport — a
+  signature-verifying webhook and the outbound half, wired together. See
+  [docs/channels.md](https://github.com/danielstpaul/silas/blob/main/docs/channels.md).
 
 ## Streaming
 

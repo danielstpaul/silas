@@ -38,19 +38,71 @@ RSpec.describe "dependency contracts" do
     end
   end
 
-  describe "RubyLLM (the :ruby_llm engine depends on these)" do
-    it "still exposes the chat seams the engine drives" do
-      chat_methods = ::RubyLLM::Chat.instance_methods
-      # with_schema -> structured final answers; before_message -> :message_start
-      # (on_new_message is deprecated and removed in 2.0); complete(&block) is
-      # how streaming is requested.
-      expect(chat_methods).to include(:with_tool, :with_instructions, :with_schema,
-                                      :before_message, :complete, :add_message)
+  describe "RubyLLM (the :ruby_llm adapter depends on these)" do
+    # The adapter uses Chat as a BUILDER and Provider#complete as the executor.
+    # Both halves are pinned here because a change to either is silent: the
+    # builder half would still construct, and the executor half would still run
+    # — just against a different contract than the one the ledger assumes.
+
+    it "still exposes the chat seams the adapter builds with" do
+      expect(::RubyLLM::Chat.instance_methods)
+        .to include(:with_tools, :with_instructions, :with_schema, :add_message)
     end
 
-    it "still provides Tool::Halt, which is how the engine intercepts tool calls" do
-      expect(defined?(::RubyLLM::Tool::Halt)).to eq("constant")
-      expect(::RubyLLM::Tool::Halt.new("x")).to respond_to(:content)
+    it "still reads back everything the adapter hands to the provider" do
+      # These attr_readers ARE the handoff from builder to executor. Without
+      # them the adapter would have to reach for ivars.
+      expect(::RubyLLM::Chat.instance_methods)
+        .to include(:model, :messages, :tools, :schema, :tool_prefs)
+    end
+
+    it "still lets a caller run one turn without executing tools" do
+      # The seam the whole design rests on: Chat#complete runs the agentic loop,
+      # Provider#complete runs exactly one move and hands the tool calls back.
+      expect(::RubyLLM::Provider.instance_methods).to include(:complete)
+
+      keywords = ::RubyLLM::Provider.instance_method(:complete).parameters
+                                    .select { |type, _| type == :key || type == :keyreq }
+                                    .map(&:last)
+      expect(keywords).to include(:tools, :temperature, :model, :schema, :tool_prefs)
+    end
+
+    it "still resolves a provider from a model's provider slug" do
+      # Provider.resolve(slug).new(config) is how the adapter gets an executor
+      # for the model Chat already resolved.
+      info = ::RubyLLM.models.find("claude-sonnet-4-5", "anthropic")
+      klass = ::RubyLLM::Provider.resolve(info.provider)
+      expect(klass).to be_a(Class)
+      expect(klass.instance_methods).to include(:complete)
+    end
+
+    it "still reads tool schemas off the interface SchemaProxy inherits" do
+      # Providers render tools by calling these; SchemaProxy subclasses
+      # RubyLLM::Tool so it satisfies the list without Silas tracking it.
+      #
+      # When this fires, the answer is already known — 2.0 renames the trio:
+      #   params_schema   -> parameters_schema  (SchemaProxy answers to both)
+      #   parameters      -> declared_parameters (inherited, not overridden)
+      #   provider_params -> provider_options    (inherited, not overridden)
+      # so only the first needed action, and it is already taken.
+      expect(::RubyLLM::Tool.instance_methods)
+        .to include(:name, :description, :params_schema, :parameters, :provider_params)
+    end
+
+    it "advertises the tool schema under whichever name the installed RubyLLM reads" do
+      proxy = Silas::Adapters::RubyLLM::SchemaProxy.new(
+        "name" => "issue_refund", "description" => "d", "input_schema" => { "type" => "object" }
+      )
+      expect(proxy.name).to eq("issue_refund")
+      expect(proxy.params_schema).to eq({ "type" => "object" })      # 1.x
+      expect(proxy.parameters_schema).to eq({ "type" => "object" })  # 2.0
+    end
+
+    it "still raises from Tool#execute, so an unexpected call fails loudly" do
+      # SchemaProxy deliberately does not implement #execute. If a future
+      # RubyLLM ever routed through it, this must be an exception rather than a
+      # silent value fed back to the model.
+      expect { ::RubyLLM::Tool.new.execute }.to raise_error(NotImplementedError)
     end
 
     it "still exposes the model registry API cost accounting prices against" do

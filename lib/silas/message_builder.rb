@@ -16,7 +16,19 @@ module Silas
     def call(turn, upto_index:)
       messages = []
 
+      # A completed Compaction row replaces turns 0..up_to_turn_index with its
+      # persisted summary. Reading the ROW keeps this deterministic: the
+      # summary was generated once (Compactor's CAS claim) and never
+      # recomputed, so same rows -> same array, compacted or not.
+      compaction = Compaction.latest_for(turn)
+      floor = -1
+      if compaction
+        messages << { role: "user", content: compaction_preamble(compaction) }
+        floor = compaction.up_to_turn_index
+      end
+
       Turn.where(session_id: turn.session_id).order(:index).each do |prior|
+        next if prior.index <= floor
         break if prior.index >= turn.index
 
         messages << { role: "user", content: prior.input }
@@ -26,6 +38,13 @@ module Silas
       messages << { role: "user", content: turn.input }
       messages.concat(step_messages(turn, upto_index: upto_index))
       messages
+    end
+
+    # Pure function of the row — no clock, no counts of anything mutable.
+    def compaction_preamble(compaction)
+      "[The earlier part of this conversation was summarised to stay within " \
+        "the context window. Summary of everything before this point:]\n\n" \
+        "#{compaction.summary}"
     end
 
     def step_messages(turn, upto_index:)

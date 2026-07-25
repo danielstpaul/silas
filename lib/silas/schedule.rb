@@ -10,33 +10,59 @@ module Silas
   #
   # Identity is the filesystem path under app/agent/schedules (subdirs included):
   # schedules/billing/sweep.rb -> "billing/sweep" -> Agent::Schedules::Billing::Sweep.
-  # Schedules are NOT model-visible capabilities, so they never enter the
-  # definitions digest — adding or removing one cannot diverge an in-flight turn.
+  # Named agents own their schedules the same way they own tools and skills:
+  # app/agents/analyst/schedules/monday_kpis.md -> "agents/analyst/monday_kpis",
+  # and its ticks start THAT agent — a staff member's cron never wakes the root
+  # agent. Schedules are NOT model-visible capabilities, so they never enter
+  # the definitions digest — adding or removing one cannot diverge an
+  # in-flight turn.
   class Schedule
     KINDS = %i[task handler].freeze
 
-    attr_reader :name, :cron, :queue, :kind, :payload
+    attr_reader :name, :cron, :queue, :kind, :payload, :agent_name
 
-    def initialize(name:, cron:, queue:, kind:, payload:)
+    def initialize(name:, cron:, queue:, kind:, payload:, agent_name: nil)
       @name = name
       @cron = cron
       @queue = queue
       @kind = kind
       @payload = payload
+      @agent_name = agent_name
     end
 
     def self.parse(path, root:)
-      rel = path.relative_path_from(root.join("app/agent/schedules"))
-      name = rel.sub_ext("").to_s
-      case path.extname
-      when ".md" then from_markdown(name, path)
-      when ".rb"
-        const = "Agent::Schedules::" + name.split("/").map(&:camelize).join("::")
-        from_handler(name, const.constantize)
+      agents_dir = root.join("app/agents")
+      if path.to_s.start_with?("#{agents_dir}#{File::SEPARATOR}")
+        parse_named(path, agents_dir: agents_dir)
+      else
+        rel = path.relative_path_from(root.join("app/agent/schedules"))
+        name = rel.sub_ext("").to_s
+        case path.extname
+        when ".md" then from_markdown(name, path)
+        when ".rb"
+          const = "Agent::Schedules::" + name.split("/").map(&:camelize).join("::")
+          from_handler(name, const.constantize)
+        end
       end
     end
 
-    def self.from_markdown(name, path)
+    # app/agents/<agent>/schedules/<rel> — the "agents/" name prefix keeps
+    # names (and therefore recurring keys) collision-free against a root
+    # schedule that happens to share the path shape.
+    def self.parse_named(path, agents_dir:)
+      rel = path.relative_path_from(agents_dir)          # analyst/schedules/monday_kpis.md
+      agent = rel.each_filename.first
+      sched = rel.relative_path_from(Pathname(agent).join("schedules")).sub_ext("").to_s
+      name = "agents/#{agent}/#{sched}"
+      case path.extname
+      when ".md" then from_markdown(name, path, agent_name: agent)
+      when ".rb"
+        const = "Agents::#{agent.camelize}::Schedules::" + sched.split("/").map(&:camelize).join("::")
+        from_handler(name, const.constantize, agent_name: agent)
+      end
+    end
+
+    def self.from_markdown(name, path, agent_name: nil)
       content = File.read(path)
       # Tolerate leading whitespace/blank lines (e.g. an ERB comment in a
       # generator template renders to an empty first line).
@@ -51,10 +77,10 @@ module Silas
       raise Error, "schedule #{name}: missing `cron:` frontmatter" if cron.nil?
 
       new(name: name, cron: cron.to_s, queue: (frontmatter["queue"] || Silas.config.queue_name).to_s,
-          kind: :task, payload: body.strip)
+          kind: :task, payload: body.strip, agent_name: agent_name)
     end
 
-    def self.from_handler(name, klass)
+    def self.from_handler(name, klass, agent_name: nil)
       unless klass.ancestors.include?(Schedule::Handler)
         raise Error, "#{klass} (schedule #{name}) must inherit Silas::Schedule::Handler"
       end
@@ -62,14 +88,17 @@ module Silas
       raise Error, "schedule #{name}: handler must declare `cron` or `every`" if cron.nil?
 
       new(name: name, cron: cron, queue: (klass.queue || Silas.config.queue_name).to_s,
-          kind: :handler, payload: klass)
+          kind: :handler, payload: klass, agent_name: agent_name)
     end
 
-    # The only behavioural difference between the two forms.
+    # The only behavioural difference between the two forms. A named agent's
+    # task starts THAT agent (its tools, instructions, digest — the loop swaps
+    # the scope in for every turn of the session it creates).
     def trigger!
       case kind
       when :task
-        Silas.agent.start(input: payload, metadata: { "trigger" => "schedule", "schedule" => name })
+        owner = agent_name ? Silas.agent(agent_name) : Silas.agent
+        owner.start(input: payload, metadata: { "trigger" => "schedule", "schedule" => name })
       when :handler
         payload.new(schedule: self).call
       end
