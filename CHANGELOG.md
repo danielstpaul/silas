@@ -1,5 +1,115 @@
 # Changelog
 
+## 0.5.0 (2026-07-26)
+
+Two new loop primitives (replay-safe compaction, ask_question), a whole-channel
+generator, the adapter rebound onto RubyLLM's public single-turn seam, and
+per-agent schedules. Chaos-gated: **295 kill/deploy cycles across both stores —
+zero duplicate side effects, byte-identical replay** — including a new compact
+mode that kills mid-summarisation and asserts the compaction claim is
+exactly-once and the rebuilt provider messages are byte-identical
+(`chaos_host/RESULTS.md`).
+
+### Added
+
+- **Per-agent schedules.** Named agents own their cron the way they own tools
+  and skills: `app/agents/analyst/schedules/monday_kpis.md` is discovered as
+  `agents/analyst/monday_kpis`, compiled by `silas:schedules` under a
+  collision-free recurring key, and its ticks start **the analyst** — a staff
+  member's schedule never wakes the root agent. `.rb` handlers resolve under
+  the agent's namespace (`Agents::Analyst::Schedules::MondayKpis`).
+
+- **`ask_question` — the agent can park to ask a human something.**
+  Information, not permission: the model calls the new builtin with a
+  question, the turn parks at zero compute through the same machinery as
+  approvals (TTL, channel ping, resume gate), and the operator's free-text
+  reply becomes the tool result the model resumes with
+  (`{"answer" => "..."}`). Answer from the inbox (a question card with a text
+  box replaces approve/decline) or the API
+  (`POST /silas/api/v1/approvals/:id/answer {text:}`); `decline!` remains the
+  refusal path, and an unanswered question expires as
+  `{"answer" => nil, "note" => "question expired unanswered"}`. Channels are
+  pinged only if they implement `deliver_question` — buttons are the wrong UI
+  for free text, so transports without it simply leave the question in the
+  inbox. Disable with `config.ask_question = false`.
+
+  **Upgrade note:** adding a builtin changes the definitions digest, so turns
+  parked across the upgrade fail loudly on resume (the nondeterminism guard
+  working as designed). Settle parked turns before upgrading, or set
+  `config.ask_question = false` to keep the old digest.
+
+- **Context compaction that survives replay.** Long sessions used to grow
+  until the provider rejected the prompt and the turn failed. Now, when the
+  measured context passes `config.compact_at` (default 0.9 of the model's
+  registry context window; set an Integer for an absolute token threshold, or
+  nil to disable), Silas summarises all prior turns into a `silas_compactions`
+  row and the conversation continues — the current turn is never compacted.
+
+  The design constraint is the durability contract: replayed executions must
+  see byte-identical message arrays, so a summary can never be computed at
+  build time. Compaction is an *effect*, made exactly-once the way tool
+  effects are — claimed compare-and-swap (unique index per session + span),
+  generated once, then read deterministically from the row forever. A crash
+  mid-summary leaves a pending row the resume finishes; a crash mid-step
+  replays against the identical compacted history. New `compact.silas`
+  instrumentation event (duration = the summarisation call). Chaos-gated with
+  a dedicated mode: kill -9 during the compacting turn, including
+  mid-summarisation.
+
+### Changed
+
+- **The `:ruby_llm` adapter no longer fights the library.** `Chat#complete`
+  runs RubyLLM's whole agentic loop — model, execute tools, feed results back,
+  model again — but Silas needs a single move, because the step boundary *is*
+  the durability boundary. It used to get one by registering tool proxies that
+  threw `RubyLLM::Tool::Halt` to abort the loop from the inside.
+
+  Chat is now used as the builder it is (it owns model resolution, schema
+  normalisation, system instructions and message construction) and execution
+  drops one layer to `RubyLLM::Provider#complete` — the same call Chat makes
+  internally for a single turn. Entirely public API, and the adapter got
+  smaller: no `Tool::Halt`, no hunting back through `chat.messages` for the
+  assistant reply, and the `before_message` streaming-timing oddity is gone in
+  favour of an event Silas emits itself.
+
+  **This removes Silas's exposure to the largest RubyLLM 2.0 breaking change.**
+  2.0 deletes `Tool::Halt` precisely because the loop became caller-controlled;
+  Silas no longer needs it either way. The adapter also now calls `with_tools`
+  (2.0 drops the singular `with_tool`) and its schema proxy answers to both
+  `params_schema` and `parameters_schema` (2.0 renames it), so the tool path is
+  version-agnostic today. No behaviour change for users.
+
+### Added
+
+- **`rails g silas:channel <name>`** — scaffolds a whole channel, not half of
+  one. Channels were reachable before (`Channel.dispatch` is a ~50-line seam)
+  but the engine ships webhook routes for Slack only, so any other transport
+  meant hand-rolling a controller, a route, and signature verification with no
+  documented contract. The generator writes the outbound `Channel` subclass,
+  a signature-verifying inbound controller, and the route that joins them —
+  with the security decisions already made: verify before anything else, sign
+  over the raw body, fail closed on a missing secret, and send approvals to an
+  operator rather than to whoever started the session.
+- **`Silas::Webhook.verify_hmac`** — the parts of webhook verification that are
+  identical for every vendor (constant-time comparison, replay window,
+  fail-closed on a missing secret), with the vendor's shape (`payload`,
+  `prefix`, `digest`) supplied by the caller. `Silas::Slack.verify_signature`
+  now delegates to it and keeps its exact v0 scheme.
+- **`Silas::Channel.approval_url(invocation, action)`** — a signed, expiring
+  one-click approve/decline link for *any* transport, built from the engine's
+  route set and the discovered mount point, so it works from a delivery job
+  with no routing scope. Raises with the fix when no host is configured rather
+  than minting a dead link.
+- `docs/channels.md`: the inbound/outbound contract, a per-vendor signature
+  table, and a worked WhatsApp Cloud API example.
+
+### Removed
+
+- `demo/refund-desk` and `demo/churn-desk`. Both were copy-paste kits whose
+  READMEs instructed deleting a file the generated eval still asserted on —
+  broken on arrival. `examples/playground` is the example; `docs/why-silas.md`
+  and `docs/vs-eve.md` now point at it.
+
 ## 0.4.0
 
 The architecture-and-hardening release: one shipped feature that had never

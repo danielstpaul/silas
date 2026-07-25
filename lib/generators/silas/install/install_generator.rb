@@ -109,7 +109,8 @@ module Silas
             6. Schedules: edit app/agent/schedules/*, then `bin/rails silas:schedules`
             7. Channels (optional): set credentials.silas.slack.{signing_secret,bot_token}
                for Slack; route inbound mail to Silas::AgentMailbox for email.
-               Delete app/agent/channels/{slack,email}.rb to disable.
+               Delete app/agent/channels/{slack,email}.rb to disable. Any other
+               transport: `bin/rails g silas:channel whatsapp`.
             8. Inbox + web chat: /silas/inbox, deny-by-default — uncomment
                config.inbox_auth in config/initializers/silas.rb to make it visible.
             9. Restart your server if it was running (app/agent/ registers at boot).

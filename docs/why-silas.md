@@ -187,11 +187,11 @@ the money movement as a row in your own ledger (as most serious Rails money apps
 already do) and you get the full guarantee; reach out to an un-keyed external API
 and you get at-most-once-plus-park.
 
-The working refund-desk demo shows the full-guarantee case literally. Two
-customers message the desk; a £120 refund is over the £50 gate, so it **parks
-for a manager** at zero compute while a £38 refund completes automatically.
+The playground app shows the full-guarantee case literally. Ask the support
+desk for a refund; anything over £20 is past the gate, so it **parks for an
+operator** at zero compute while smaller ones complete automatically.
 Approve the parked one in the inbox, `kill -9` the worker mid-refund, restart —
-and the store ends with **exactly two refund rows. Never three, never one.**
+and the store ends with **exactly one refund row. Never two, never zero.**
 That's what "exactly once" means when the effect is a row inside your
 transaction boundary.
 
@@ -209,5 +209,5 @@ that database, running trusted code — Silas is **un-buyable from a managed clo
 at any price**, because the guarantee only exists inside a transaction boundary
 the cloud doesn't own and an app the compliance team is allowed to run.
 
-If that's you, clone the [refund-desk demo](../demo/refund-desk), kill the
+If that's you, run the [playground app](../examples/playground), kill the
 worker mid-refund, and count the rows.

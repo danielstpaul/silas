@@ -54,6 +54,28 @@ Event names and payload keys are a public contract: dashboards get built on
 them, so renaming one is a breaking change, and `spec/silas/instrumentation_spec.rb`
 pins them.
 
+### Generator templates are `.rb.tt`
+
+Rails' own convention. A template containing ERB is not valid Ruby, so a bare
+`.rb` extension puts it in front of RuboCop's parser and Zeitwerk's loader —
+both of which are right to complain. `.tt` keeps them out of each. The install
+generator's templates predate this and are plain `.rb` because none of them
+interpolate; new templates use `.tt`.
+
+### Channels ship a generator, not a catalogue
+
+The engine serves webhook routes for Slack alone, because Slack is the only
+transport whose whole dialect Silas ships (signature scheme, Block Kit
+approvals, the interactive-actions endpoint). Every other transport is scaffolded
+into the *host* app by `rails g silas:channel`, since only the host knows the
+vendor's signature scheme and payload shape — and a framework promising to keep
+six drifting vendor APIs working is a framework that breaks.
+
+What that seam does own, because getting it wrong is a security bug rather than
+a preference: `Silas::Webhook.verify_hmac` (constant-time compare, replay
+window, fail-closed on a missing secret) and `Silas::Channel.approval_url` (a
+signed expiring link, host required and never guessed). See `docs/channels.md`.
+
 ### Deprecations
 
 Everything removable goes through `Silas.deprecator`

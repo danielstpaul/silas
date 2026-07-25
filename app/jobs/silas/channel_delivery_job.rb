@@ -24,6 +24,21 @@ module Silas
       channel = Channel.for_session(invocation.turn.session)
       return release!(ToolInvocation, invocation.id, :notified_at) unless channel
 
+      # Questions want free text, and approve/decline buttons are the wrong UI
+      # for that — so a question pings only channels that implement
+      # deliver_question. Without it the claim is KEPT (no retries): the
+      # question waits in the inbox, which every install has.
+      if invocation.question?
+        unless channel.respond_to?(:deliver_question)
+          Rails.logger&.info("[Silas] #{channel.class} has no deliver_question — " \
+                             "question ##{invocation.id} awaits its answer in the inbox")
+          return
+        end
+        return with_release(ToolInvocation, invocation.id, :notified_at) do
+          channel.deliver_question(session: invocation.turn.session, invocation: invocation)
+        end
+      end
+
       with_release(ToolInvocation, invocation.id, :notified_at) do
         channel.deliver_approval(session: invocation.turn.session, invocation: invocation)
       end

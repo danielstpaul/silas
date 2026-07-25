@@ -24,6 +24,14 @@ module Silas
         respond_error(e)
       end
 
+      # ask_question's verdict: the operator's text becomes the tool result.
+      def answer
+        @invocation.answer!(text: params[:text].to_s.strip, by: current_actor)
+        respond_resolved
+      rescue Silas::Error => e
+        respond_error(e)
+      end
+
       private
 
       def set_invocation

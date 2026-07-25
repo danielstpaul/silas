@@ -46,9 +46,12 @@ end
 
 DummyApp.initialize!
 
-# Mount the engine so inbox request specs can hit /silas/inbox.
+# Mount the engine so inbox request specs can hit /silas/inbox. The pigeon
+# route is what `rails g silas:channel` injects into a host's routes.rb — a
+# generated channel's webhook is served by the HOST, not the engine.
 Rails.application.routes.draw do
   mount Silas::Engine => "/silas"
+  post "/agent/channels/pigeon", to: "agent/channels/pigeon#create"
 end
 
 # STORE=pg selects Postgres via spec/dummy/config/database.yml (spike-matrix parity).

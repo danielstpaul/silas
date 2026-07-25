@@ -50,8 +50,10 @@ module Silas
     # and compile order are deterministic. Deliberately NOT in #definitions or
     # #digest — a schedule is a trigger, not a model-visible capability.
     def schedules
-      @schedules ||= Dir[@root.join("app/agent/schedules/**/*.{md,rb}")].sort
-                         .map { |f| Schedule.parse(Pathname(f), root: @root) }
+      @schedules ||= (
+        Dir[@root.join("app/agent/schedules/**/*.{md,rb}")].sort +
+        Dir[@root.join("app/agents/*/schedules/**/*.{md,rb}")].sort
+      ).map { |f| Schedule.parse(Pathname(f), root: @root) }
     end
 
     # name => Channel subclass. Filename identity, like tools. Also not in the
@@ -70,6 +72,7 @@ module Silas
     # subagents exist (root only — subagents never get delegate: depth-1).
     def builtins
       b = {}
+      b["ask_question"] = Silas::Tools::AskQuestion if Silas.config.ask_question
       b["load_skill"] = Silas::Tools::LoadSkill if skills.any?
       b["delegate"] = Silas::Tools::Delegate if subagent_dirs.any?
       b["run_code"] = Silas::Tools::RunCode if Silas.sandbox_enabled?

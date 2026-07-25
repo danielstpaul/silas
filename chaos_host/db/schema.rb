@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_24_233253) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_25_221908) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -21,6 +21,21 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_24_233253) do
     t.bigint "session_id", null: false
     t.datetime "updated_at", null: false
     t.index ["session_id", "key"], name: "index_side_effect_rows_on_session_id_and_key"
+  end
+
+  create_table "silas_compactions", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.integer "input_tokens"
+    t.string "model"
+    t.integer "output_tokens"
+    t.bigint "session_id", null: false
+    t.string "status", default: "pending", null: false
+    t.text "summary"
+    t.integer "tokens_before"
+    t.bigint "up_to_turn_id", null: false
+    t.integer "up_to_turn_index", null: false
+    t.datetime "updated_at", null: false
+    t.index ["session_id", "up_to_turn_index"], name: "index_silas_compactions_on_session_id_and_up_to_turn_index", unique: true
   end
 
   create_table "silas_memories", force: :cascade do |t|

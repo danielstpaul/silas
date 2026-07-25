@@ -1,0 +1,66 @@
+# <%= class_name %> channel — INBOUND webhook. Outbound delivery lives in
+# app/agent/channels/<%= file_name %>.rb.
+#
+# Inbound is pure trigger reuse: verify the request is genuine, derive a stable
+# thread key, and hand it to Channel.dispatch — which starts a session for a new
+# thread and continues the existing one for a reply. Nothing here touches the
+# durable loop.
+class Agent::Channels::<%= class_name %>Controller < ActionController::Base
+  # A webhook carries no browser session, so no CSRF token can exist. The
+  # signature below IS the authentication — do not remove one without the other.
+  skip_forgery_protection
+
+  before_action :verify_webhook!
+
+  def create
+    # TODO: derive a STABLE thread key — the same conversation must produce the
+    # same key every time, or every message starts a new session. Use the
+    # vendor's conversation/thread id, never a per-message id.
+    thread_key = params[:conversation_id].to_s
+    text       = params[:text].to_s
+
+    return head(:ok) if thread_key.blank? || text.blank?
+
+    Agent::Channels::<%= class_name %>.dispatch(
+      thread_key: thread_key,
+      input: text,
+      # Whatever deliver_answer needs to reply. Stored on the session, so keep
+      # it small and free of secrets — it is visible in the inbox.
+      metadata: { "<%= file_name %>" => { "conversation_id" => thread_key } }
+    )
+    head :ok
+  rescue Silas::TurnInProgressError
+    # One active turn per session is an invariant, not a queue: a reply that
+    # arrives mid-turn is dropped. Tell the user, or buffer it, if that matters
+    # for your transport.
+    head :ok
+  end
+
+  private
+
+  # Rejects anything not genuinely signed. Silas::Webhook.verify_hmac handles
+  # the parts that are identical everywhere — constant-time comparison, the
+  # replay window, and failing closed when no secret is configured; you supply
+  # the vendor's shape.
+  #
+  # TODO: match your vendor's scheme. The three that vary:
+  #   payload    what they sign. Slack signs "v0:#{timestamp}:#{body}"; GitHub
+  #              and Shopify sign the raw body. It must be request.raw_post,
+  #              never re-serialized params — different bytes, different HMAC.
+  #   prefix     what they put before the digest ("v0=", "sha256=", or "").
+  #   digest     :hex (nearly everyone) or :base64 (Shopify, Twilio).
+  def verify_webhook!
+    ok = Silas::Webhook.verify_hmac(
+      secret: Rails.application.credentials.dig(:silas, :<%= file_name %>, :signing_secret),
+      signature: request.headers["X-Signature"],
+      payload: request.raw_post,
+      # Omitting a timestamp disables replay protection: a captured request can
+      # then be re-sent forever. Pass the vendor's timestamp header if it sends
+      # one, and treat its absence as a reason to check the vendor's docs.
+      timestamp: request.headers["X-Signature-Timestamp"],
+      prefix: "sha256="
+    )
+    head(:unauthorized) unless ok
+    ok
+  end
+end

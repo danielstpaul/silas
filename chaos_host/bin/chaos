@@ -8,8 +8,13 @@ require "optparse"
 options = { runs: 5, mode: "worker" }
 OptionParser.new do |o|
   o.on("--runs N", Integer) { |v| options[:runs] = v }
-  o.on("--mode MODE", %w[worker supervisor sigterm parked]) { |v| options[:mode] = v }
+  o.on("--mode MODE", %w[worker supervisor sigterm parked compact]) { |v| options[:mode] = v }
 end.parse!
+
+# compact mode: two-turn sessions where turn 1 must summarise turn 0 before its
+# first step (ChaosEngine reports 1000 input tokens per step). Set BEFORE the
+# environment loads so the initializer and the spawned worker both see it.
+ENV["CHAOS_COMPACT_AT"] ||= "500" if options[:mode] == "compact"
 
 ENV["RAILS_ENV"] ||= "development"
 require_relative "../config/environment"
