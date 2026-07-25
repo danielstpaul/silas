@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.2
 
 - **The `timeout` budget no longer counts time spent parked for approval.**
   The wall clock restarts when an approval resumes a turn, because any
