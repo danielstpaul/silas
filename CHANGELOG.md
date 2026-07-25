@@ -1,86 +1,87 @@
 # Changelog
 
-## Unreleased
+## 0.4.0
 
-- **Instrumentation for the durable loop.** It emitted almost nothing before:
-  a turn could start, park for a human, get rescued after a `kill -9`, breach
-  a budget and finish without a single line. Now every notable moment is an
-  `ActiveSupport::Notifications` event — `turn`, `step`, `tool`, `park`,
-  `resume`, `approval`, `budget`, `rescue`, `nondeterminism`, `delta` — with
-  documented payloads that always carry `turn_id`/`session_id`.
-  **`tool.silas`** times the tool's own execution and reports how it settled
-  (the most useful span in the system); **`resume.silas`** carries
-  `parked_for`, i.e. how long the human actually took. A
-  `Silas::LogSubscriber` (modelled on Solid Queue's) turns them into log lines
-  at operator-filterable levels, and stays quiet when the rescuer did nothing.
-  Subscribe to everything with `ActiveSupport::Notifications.subscribe(/\.silas\z/)`.
-- **Notification names now follow the Rails convention** `<event>.silas`
-  (`sql.active_record`-style). The two pre-existing events were backwards:
-  `silas.step` -> `step.silas`, `silas.delta` -> `delta.silas`. Pre-1.0
-  breaking change for anyone who subscribed to the old names.
+The architecture-and-hardening release: one shipped feature that had never
+worked, the naming locked down before 1.0 freezes it, and the durable loop
+finally observable.
 
-- **Renamed the inference seam `Engines::` -> `Adapters::`** (and
-  `config.engine` -> `config.adapter`). "Engine" meant two unrelated things in
-  one namespace: the Rails engine at `Silas::Engine`, and the pluggable
+### Fixed
+
+- **The email approval channel had never worked.** Both the approval email
+  template and the confirmation page called `approval_url`/`approval_path`,
+  but the route is declared inside `namespace :channels`, so the real helpers
+  are `channels_approval_url`/`_path`. Rendering raised — meaning
+  **`ChannelMailer#approval` blew up and the "your agent needs approval" email
+  was never delivered**, and the confirmation page 500'd. If you relied on
+  email approvals, you were silently never notified that a money-moving call
+  was parked. Found by writing the first specs for these surfaces.
+
+### Changed (breaking, pre-1.0)
+
+- **The inference seam is now `Adapters::`, not `Engines::`** — and
+  `config.adapter`, not `config.engine`. "Engine" meant two unrelated things
+  in one namespace: the Rails engine at `Silas::Engine`, and the pluggable
   inference backend. Every comparable seam disambiguates — ActiveJob has
   `QueueAdapters::`, ActiveStorage `Service::`, RubyLLM `Provider`. Done now
-  because 1.0 freezes the public API and host apps subclass this. **Nothing
-  breaks**: `Silas::Engines::Base`, `config.engine`, and
-  `Silas.resolved_engine` all still work, warn via the new deprecator, and
-  are removed in 2.0.
+  because 1.0 freezes the public API and host apps subclass this seam.
+  **Nothing breaks today**: `Silas::Engines::Base`, `config.engine`, and
+  `Silas.resolved_engine` all still resolve, warn through the new deprecator,
+  and are removed in 2.0.
+- **Notification names follow the Rails convention** `<event>.silas` (like
+  `sql.active_record`). The two pre-existing events were backwards:
+  `silas.step` → `step.silas`, `silas.delta` → `delta.silas`. Update any
+  subscriber; `subscribe(/\.silas\z/)` now catches everything.
+
+### Added
+
+- **Instrumentation for the durable loop.** It emitted almost nothing before:
+  a turn could start, park for a human, be rescued after a `kill -9`, breach a
+  budget and finish without a single line. Ten events now — `turn`, `step`,
+  `tool`, `park`, `resume`, `approval`, `budget`, `rescue`, `nondeterminism`,
+  `delta` — with documented payloads that always carry `turn_id`/`session_id`,
+  so a subscriber never has to join. **`tool.silas`** times the tool's own
+  execution and reports how it settled (the most useful span in the system);
+  **`resume.silas`** carries `parked_for` — how long the human actually took.
+  `Silas::LogSubscriber` (modelled on Solid Queue's) turns them into log lines
+  at operator-filterable levels: parks and rescues INFO, budget WARN, failed
+  turns and nondeterminism ERROR, per-token chatter DEBUG — and stays silent
+  when the rescuer did nothing.
 - **`Silas.deprecator`** — an `ActiveSupport::Deprecation` registered in
   `app.deprecators[:silas]`, so hosts silence or raise on Silas deprecations
   exactly as they do Rails'. Every message names the replacement *and* the
   removal version.
-- `docs/conventions.md` gains the naming/structure rules: why the seam is
-  `Adapters::`, and the deliberate `class << self` (has private internals or
-  state) vs `module_function` (pure utility) split — the same rule RubyLLM
-  uses. Recorded so nobody "unifies" them: `module_function` publishes every
-  method, so it is the wrong tool where encapsulation matters (`Ledger`).
-
-- **Fixed: the email approval channel had never worked.** Both the approval
-  email template and the confirmation page called `approval_url`/
-  `approval_path`, but the route is declared inside `namespace :channels`, so
-  the real helpers are `channels_approval_url`/`_path`. Rendering raised —
-  meaning **`ChannelMailer#approval` blew up and the "your agent needs
-  approval" email was never delivered**, and the confirm page 500'd. Anyone
-  relying on email approvals was silently never notified. Found by writing
-  the first specs for these surfaces.
 - **Coverage for the four money-path surfaces that had none** (36 specs):
   `Channels::SlackController` (unsigned / wrong-secret / stale-timestamp
-  requests are refused end to end; retries ignored; bot messages ignored;
-  buttons settle through the same `approve!`/`decline!`),
-  `Channels::ApprovalsController` (tampered, garbage, expired, and
-  wrong-purpose tokens refused; **GET never mutates** — a link preview or
-  scanner must not approve a refund; replayed link on a settled invocation
+  requests refused end to end; retries and bot messages ignored; buttons
+  settle through the same `approve!`/`decline!`),
+  `Channels::ApprovalsController` (tampered, garbage, expired and
+  wrong-purpose tokens refused; **GET never mutates**, so a link preview or
+  scanner cannot approve a refund; a replayed link on a settled invocation
   422s), `AgentMailbox` (References → In-Reply-To → Message-ID threading, so
-  replies continue rather than restart; multipart text extraction), and
-  `ChannelMailer` (renders, shows the arguments, embeds two distinct absolute
-  links whose tokens verify back to the invocation).
-- The spec harness now loads Action Mailer, Action Mailbox, and Solid Queue,
-  so these surfaces are testable at all.
-- **Engineering bar: quality tooling, all green.** `rubocop-rails-omakase`
-  (Rails' own style baseline) with CI enforcement — 169 files, no offenses.
-  SimpleCov with a **90% line-coverage floor that fails the build** (actual:
-  92.2%). Brakeman and bundler-audit in CI: no vulnerabilities, and the one
-  deliberate CSRF suppression (webhook controllers authenticate by signature
-  or signed token, not CSRF) is recorded with its full reasoning in
-  `config/brakeman.ignore`. A `rake zeitwerk:check` CI job eager-loads every
-  constant, catching naming violations that lazy-loading unit tests never see.
-- **Dependency contract specs** — Silas reaches into Solid Queue and RubyLLM
-  internals, where a rename breaks recovery *silently*. Ten specs now pin
-  them: the dead-process error class names the rescuer allowlists,
-  `FailedExecution#retry`/`:job`, the Solid Queue >= 1.2 continuations floor,
-  RubyLLM's `with_schema`/`before_message`/`Tool::Halt`/model-registry API and
-  the error classes `retry_on` names, and `resume_errors_after_advancing`
-  staying false. Plus an allowed-to-fail CI canary building against ruby_llm
-  edge, for early warning on the 2.0 horizon.
-- **`docs/conventions.md`** — records the deliberate deviations from Rails
-  defaults (string statuses over enums, CSRF-free webhook controllers) and
-  the audited posture: nothing is mass-assigned, no `raw`/`html_safe`
-  anywhere, `Time.current` throughout, and indexes cover query paths rather
-  than every foreign key.
+  replies continue rather than restart), and `ChannelMailer` (renders, shows
+  the arguments, embeds two distinct absolute links whose tokens verify back).
+- **Quality tooling, enforced in CI**: `rubocop-rails-omakase` (Rails' own
+  style baseline, zero offenses), SimpleCov with a **90% line-coverage floor
+  that fails the build** (actual: 92.5%), Brakeman and bundler-audit (clean —
+  the single deliberate CSRF suppression is documented with its reasoning in
+  `config/brakeman.ignore`), and a `rake zeitwerk:check` job that eager-loads
+  every constant to catch naming violations lazy tests never see.
+- **Dependency contract specs.** Silas reaches into Solid Queue and RubyLLM
+  internals, where a rename breaks *recovery* silently. Ten specs pin them:
+  the dead-process error classes the rescuer allowlists,
+  `FailedExecution#retry`, the Solid Queue >= 1.2 continuations floor,
+  RubyLLM's `with_schema`/`before_message`/`Tool::Halt`/model registry and the
+  error classes `retry_on` names, and `resume_errors_after_advancing` staying
+  false. Plus an allowed-to-fail CI canary against ruby_llm edge, for early
+  warning on the 2.0 horizon.
+- **`docs/conventions.md`** — the naming and structure rules (why the seam is
+  `Adapters::`; the deliberate `class << self` vs `module_function` split) and
+  the audited posture: nothing mass-assigned, no `raw`/`html_safe` anywhere,
+  `Time.current` throughout, indexes on query paths rather than every foreign
+  key. Written down so nobody "fixes" something load-bearing.
 
+No migration. 336 specs green on SQLite and Postgres.
 
 ## 0.3.2
 
