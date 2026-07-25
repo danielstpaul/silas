@@ -84,6 +84,15 @@ module Silas
       Array(step.response_blocks).select { |b| b["type"] == "text" }.map { |b| b["text"] }.join
     end
 
+    # The structured payload when the agent declares a final_answer schema in
+    # agent.yml (nil otherwise) — the parsed Hash, not a string to re-parse.
+    def answer_data
+      step = steps.where(status: "completed").order(:index).last
+      return nil unless step
+
+      Array(step.response_blocks).reverse.find { |b| b["type"] == "structured" }&.dig("data")
+    end
+
     # Outbound: when a channel-bound turn reaches an answer, deliver it off-loop.
     after_update_commit :notify_channel_answer, if: :should_notify_answer?
 

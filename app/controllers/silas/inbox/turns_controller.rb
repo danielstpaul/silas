@@ -27,6 +27,25 @@ module Silas
         notice = outcome == :cancel_requested ? "Cancel requested — honored at the next step boundary." : "Turn canceled."
         redirect_to inbox_session_path(turn.session_id), notice: notice
       end
+
+      # Top up a budget-parked turn and resume it — the CHANGELOG promised
+      # this card in 0.1.5; completed steps replay from rows, same as approvals.
+      def raise_budget
+        turn = Silas::Turn.find(params[:id])
+        unless turn.budget_parked?
+          return redirect_to inbox_session_path(turn.session_id),
+                             alert: "Turn ##{turn.index} is not budget-parked."
+        end
+
+        reason = turn.failure_reason.to_s
+        value = params[:value].to_s
+        numeric = reason == "max_cost" ? value.to_f : value.to_i
+
+        turn.raise_budget!(**{ reason.to_sym => numeric })
+        redirect_to inbox_session_path(turn.session_id), notice: "#{reason} raised — resuming."
+      rescue Silas::Error, ArgumentError => e
+        redirect_to inbox_session_path(turn.session_id), alert: e.message
+      end
     end
   end
 end

@@ -33,6 +33,7 @@ app/agent/
 bundle add silas
 bin/rails generate silas:install
 bin/rails db:migrate
+bin/rails silas:doctor   # key · queue adapter · model · migrations · tools · rescuer · cable · auth
 ```
 
 ```ruby
@@ -208,6 +209,49 @@ zero risk to the durability contract. Custom sinks subscribe to the
 `"silas.delta"` notification (`{ session_id:, turn_id:, step_id:, step_index:,
 text: }`, where `text` is the accumulated string so far — filter by ids;
 notifications are process-global).
+
+## Structured answers
+
+Give the turn's final answer a schema in agent.yml and read it back as a Hash:
+
+```yaml
+final_answer:
+  type: object
+  properties:
+    verdict: { type: string }
+    amount_pence: { type: integer }
+  required: [verdict]
+```
+
+`Turn#answer_data` returns the parsed payload (`answer_text` stays for prose
+agents); the HTTP API carries it as `answer_data`, evals get
+`assert_answer_data(key: :verdict, value: "approve")`. Rendered through
+RubyLLM's `with_schema`, so each provider's native structured-output mode is
+used. The schema is model-visible state — changing it mid-turn fails the turn
+loudly rather than resuming into a different contract.
+
+## The HTTP API
+
+Everything the operator surface can do, over JSON — mounted with the engine at
+`/silas/api/v1`, **deny-by-default** like the inbox (wire `config.api_auth`;
+`config.api_actor` names the identity recorded on approvals):
+
+```sh
+curl -X POST .../silas/api/v1/sessions -d "input=Refund order 42, £12.50"
+curl .../silas/api/v1/sessions/1?trace=1                # turns + steps + tool calls
+curl .../silas/api/v1/sessions/1/approvals              # what's parked
+curl -X POST .../silas/api/v1/approvals/7/approve       # the same approve! as the inbox
+curl -X POST .../silas/api/v1/sessions/1/turns -d "input=Now email them"   # 409 if busy
+curl -X POST .../silas/api/v1/turns/9/cancel
+curl -N .../silas/api/v1/sessions/1/stream              # server-sent events
+```
+
+The stream is SSE at **row granularity** — turn / completed-step / invocation
+changes, at-least-once with `Last-Event-ID` resume (ids are epoch-ms
+watermarks; `?poll=1` returns the backlog and closes, curl-friendly; streams
+close themselves after `api_stream_max_duration` and clients reconnect).
+Per-token streaming is deliberately the browser/Turbo feature — deltas live in
+the worker process, and the gem requires no cross-process bus.
 
 ## The inbox
 

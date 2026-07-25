@@ -43,6 +43,10 @@ module Silas
                 "or pick a registry-known model in config.default_model / agent.yml."
         end
         chat.with_instructions(context[:system]) if context[:system].present?
+        # agent.yml's final_answer schema: RubyLLM renders the provider's
+        # structured-output dialect and JSON-parses the response back to a
+        # Hash — which to_result persists as a "structured" block.
+        chat.with_schema(context[:final_answer]) if context[:final_answer].present?
         context[:tools].each { |definition| chat.with_tool(HaltProxy.new(definition)) }
 
         replay_history(chat, context[:messages])
@@ -117,8 +121,15 @@ module Silas
         assistant = chat.messages.reverse.find { |m| m.role.to_s == "assistant" } || response
 
         blocks = []
-        text = assistant.content.to_s
-        blocks << { "type" => "text", "text" => text } if text.present?
+        content = assistant.content
+        if content.is_a?(Hash)
+          # with_schema active: RubyLLM parsed the response to a Hash. Persist
+          # it as its own block type — content.to_s here would write Ruby's
+          # Hash#inspect string into the transcript as "text".
+          blocks << { "type" => "structured", "data" => content }
+        elsif content.to_s.present?
+          blocks << { "type" => "text", "text" => content.to_s }
+        end
 
         tool_calls = (assistant.tool_calls || {}).values.map do |tc|
           blocks << { "type" => "tool_call", "id" => tc.id, "name" => tc.name,

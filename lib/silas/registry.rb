@@ -100,13 +100,20 @@ module Silas
     end
 
     # Stable across boots for the same agent definition; changes when any tool
-    # schema (incl. the delegate roster + remote connection tools), or skill
-    # description, changes.
+    # schema (incl. the delegate roster + remote connection tools), skill
+    # description, or final_answer schema changes.
+    #
+    # final_answer is appended ONLY when present: schema-less agents keep a
+    # byte-identical digest across upgrades, so turns parked over a deploy
+    # never fail NondeterminismError for a key they don't use.
     def digest
-      Digest::SHA256.hexdigest(JSON.generate({
-        tools: definitions,
-        skills: skills.map { |s| [ s.name, s.description ] }
-      }))
+      payload = { tools: definitions, skills: skills.map { |s| [ s.name, s.description ] } }
+      payload[:final_answer] = root_agent.final_answer if root_agent.final_answer.present?
+      Digest::SHA256.hexdigest(JSON.generate(payload))
+    end
+
+    def root_agent
+      @root_agent ||= Silas::Agent.load(root: @root)
     end
 
     # --- named agents (app/agents/<name>/ — the staff pattern) ---------------
@@ -192,9 +199,12 @@ module Silas
       builtins["handoff"] = Silas::Tools::Handoff if named && named_agent_dirs.size > 1
       resolver = ->(n) { (tools[n] || builtins.fetch(n)).new }
       definitions = (tools.values + builtins.values).map(&:schema)
-      digest = Digest::SHA256.hexdigest(JSON.generate(tools: definitions, skills: skills.map { |s| [ s.name, s.description ] }))
+      loaded_agent = agent || Silas::Agent.load(dir: dir)
+      payload = { tools: definitions, skills: skills.map { |s| [ s.name, s.description ] } }
+      payload[:final_answer] = loaded_agent.final_answer if loaded_agent.final_answer.present?
+      digest = Digest::SHA256.hexdigest(JSON.generate(payload))
 
-      Silas::AgentScope.new(name: name, dir: dir, agent: agent || Silas::Agent.load(dir: dir),
+      Silas::AgentScope.new(name: name, dir: dir, agent: loaded_agent,
                             resolver: resolver, definitions: definitions, digest: digest, skills: skills)
     end
   end

@@ -102,6 +102,7 @@ module Silas
           Silas installed. Next:
             1. bin/rails db:migrate
             2. export ANTHROPIC_API_KEY=sk-ant-...  (config/initializers/ruby_llm.rb reads it)
+               then `bin/rails silas:doctor` to verify the whole setup
             3. Edit app/agent/instructions.md (your agent's persona)
             4. Write tools in app/agent/tools/ (keyword signature = schema)
             5. Talk to it: bin/rails silas:chat  (or Silas.agent.start(input: "hello"))

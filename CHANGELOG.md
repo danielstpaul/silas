@@ -1,6 +1,66 @@
 # Changelog
 
-## 0.2.0 (unreleased)
+## 0.3.0
+
+- **`bin/rails silas:doctor`** — every known first-run failure mode as one
+  command: provider key, queue adapter (async = red), model resolution with
+  prices, migrations, tool validation, the rescuer recurring entry, the cable
+  adapter for live streaming (async cable can't carry worker deltas), and
+  whether the deny-by-default inbox/API auth has been wired. Exits non-zero
+  on failures, so it slots into CI.
+- **Hard-removed the 0.2 `:agent_sdk` config shims** — `config.auth` and
+  `config.agent_sdk_*` now raise `NoMethodError` (they were warning no-ops
+  for the 0.2 cycle). `config.engine = :agent_sdk` still raises the
+  explanatory `BootGuardError`. Workflows now use `actions/checkout@v5`
+  (Node 20 deprecation).
+- **Inbox at scale + the promised top-up card.** Budget-parked turns now
+  render a **"Budget reached — raise & resume"** card (the UI the 0.1.5
+  changelog promised): one field, one click, `raise_budget!`, completed work
+  replays from rows. The session list pages by keyset (`?before=<id>`, 50 per
+  page — the old hard `limit(100)` made session 101 unreachable forever), and
+  the index renders in **2 queries** instead of ~4 per card.
+- **Cost accounting prices itself from RubyLLM's model registry** (1,100+
+  models, refreshed upstream from models.dev) instead of a five-entry
+  hand-maintained map. Steps stamp the **provider** RubyLLM resolves at
+  persist time, and lookups use the two-arg `find(model, provider)` — 85/1081
+  registry ids exist under multiple providers at different prices, so the
+  bare lookup could silently price the wrong one. `config.model_prices` is
+  now an **override map** (default `{}`) for fine-tunes, custom deployments,
+  and models newer than the installed registry; unknown models stay
+  `unpriced`, never a lying $0.00. Dropped the write-only
+  `silas_turns.cost_microcents` column (declared since 0.1.0, never
+  populated). Default model is now `claude-sonnet-4-5` — in every supported
+  registry, unlike `claude-sonnet-5` (absent from ruby_llm 1.16's shipped
+  registry, which would have broken first runs), and never the priciest
+  model. New migration: `bin/rails silas:install:migrations db:migrate`.
+- **Structured final answers.** Declare a JSON schema under `final_answer:` in
+  agent.yml and the turn's answer comes back as a parsed Hash —
+  `Turn#answer_data` (alongside `answer_text` for prose agents), in the API
+  (`answer_data` on turns, `structured` on steps), the inbox trace, the REPL,
+  and a new `assert_answer_data` eval assertion. Implemented on RubyLLM's
+  `with_schema` (each provider's native structured-output dialect). The schema
+  is model-visible state: it folds into the definitions digest **only when
+  present** — schema-less agents keep a byte-identical digest, so turns parked
+  across the upgrade never trip `NondeterminismError` (pinned by spec); a
+  mid-turn schema change fails loudly by design. Structured answers replay
+  into later turns' history as their JSON text (deterministic).
+
+- **A public HTTP + SSE session API** at `/silas/api/v1` — sessions
+  (create/show, `?trace=1` for the full transcript), turns (create — **409**
+  while one is active — and cancel), and approvals (list / approve / decline,
+  the exact same `approve!`/`decline!` as every other surface, stamped with
+  `config.api_actor`). Deny-by-default via `config.api_auth`, the inbox's
+  contract. `GET .../sessions/:id/stream` is server-sent events at row
+  granularity (turn / completed-step / invocation changes) with
+  `Last-Event-ID` resume — at-least-once, epoch-ms watermark ids, `?poll=1`
+  for a curl-friendly backlog-and-close, self-closing after
+  `api_stream_max_duration` with a `timeout` reconnect event. The AR
+  connection is released between polls; per-token streaming remains the
+  Turbo/browser feature (deltas live in the worker process; the gem takes no
+  cross-process bus dependency). `Session` gains `parent_session` /
+  `child_sessions` associations, and session JSON carries the lineage.
+
+## 0.2.0
 
 - **Token streaming, end to end.** The engine seam's `&on_event` block — dead
   code since 0.1.0 — is live: the `:ruby_llm` engine streams the model

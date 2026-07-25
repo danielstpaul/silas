@@ -23,6 +23,7 @@ module Silas
     # Definition readers delegate to the scope's parsed agent.yml.
     def model       = scope.agent.model
     def description = scope.agent.description
+    def final_answer = scope.agent.final_answer
     def limits      = scope.agent.limits
     def max_steps   = scope.agent.max_steps
     def max_input_tokens = scope.agent.max_input_tokens

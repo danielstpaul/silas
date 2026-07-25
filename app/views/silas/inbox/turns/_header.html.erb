@@ -9,6 +9,17 @@
     <span class="muted">cancel requested…</span>
   <% end %>
 </div>
-<% if turn.failure_reason.present? %>
+<% if turn.budget_parked? %>
+  <div class="approval">
+    <h3>Budget reached — <%= turn.failure_reason %></h3>
+    <div class="muted">Parked at zero compute. Raise the limit and the turn resumes
+      by replaying completed work from rows — no re-calls, no re-effects.</div>
+    <%= form_with url: raise_budget_inbox_turn_path(turn), method: :post, class: "topup-form" do %>
+      <input name="value" type="number" step="any" min="0" required class="topup-input"
+             placeholder="<%= turn.failure_reason == "max_cost" ? "new limit in dollars, e.g. 2.50" : "new limit, e.g. 200000" %>">
+      <button class="btn approve">Raise &amp; resume</button>
+    <% end %>
+  </div>
+<% elsif turn.failure_reason.present? %>
   <div class="muted">failed: <%= turn.failure_reason %></div>
 <% end %>

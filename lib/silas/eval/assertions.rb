@@ -39,6 +39,24 @@ module Silas
           check(matcher === @t.final_text, "final answer #{@t.final_text.inspect} does not match #{matcher.inspect}")
         end
 
+        # Structured (final_answer) assertions. With a Hash, expects the whole
+        # payload; with key/value, one field; with a block, a predicate over
+        # the payload. String keys — the payload is stored jsonb.
+        def assert_answer_data(expected = :__unset, key: nil, value: :__unset, &pred)
+          data = @t.answer_data
+          return check(false, "no structured answer (final_answer schema not set, or turn unfinished)") if data.nil?
+
+          if pred
+            check(pred.call(data), "answer_data predicate failed for #{data.inspect}")
+          elsif key
+            check(data[key.to_s] == value, "answer_data.#{key} expected #{value.inspect}, got #{data[key.to_s].inspect}")
+          elsif expected != :__unset
+            check(data == expected, "answer_data expected #{expected.inspect}, got #{data.inspect}")
+          else
+            check(true, nil) # presence alone
+          end
+        end
+
         # No-hallucinated-price guard: every money amount in the final answer must
         # trace to a number the agent actually saw (tool results or the user input),
         # allowing pence<->pounds scaling.

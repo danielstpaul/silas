@@ -1,9 +1,18 @@
 # Data-only agent config. Model defaults to Silas.config.default_model.
-# model: claude-sonnet-5
+# model: claude-sonnet-4-5
 description: This application's agent.
 limits:
   max_steps: 25          # model calls per turn
   # max_input_tokens: 200000   # cumulative input tokens per turn
   # max_cost: 1.00             # dollars per turn
   # timeout: 300               # wall-clock seconds per turn
+
+# Structured final answers: give the turn's answer a JSON schema and read the
+# parsed Hash from Turn#answer_data (answer_text stays for prose agents).
+# final_answer:
+#   type: object
+#   properties:
+#     verdict: { type: string }
+#     amount_pence: { type: integer }
+#   required: [verdict]
 

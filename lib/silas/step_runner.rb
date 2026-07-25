@@ -22,6 +22,7 @@ module Silas
             stop_reason: result.stop_reason,
             terminal: result.terminal?,
             model: turn_model(turn),
+            provider: provider_for(turn_model(turn)),
             input_tokens: result.usage&.dig(:input_tokens),
             output_tokens: result.usage&.dig(:output_tokens)
           )
@@ -58,6 +59,7 @@ module Silas
         messages: MessageBuilder.call(turn, upto_index: index),
         tools: Silas.tool_definitions,
         model: turn_model(turn),
+        final_answer: Silas.agent.final_answer,
         limits: { max_steps: Silas.agent.max_steps }
       }
 
@@ -108,6 +110,16 @@ module Silas
 
     def turn_model(_turn)
       Silas.agent.model
+    end
+
+    # The provider RubyLLM's own resolution picks for this model id, stamped
+    # on the row so cost lookups price against (model, provider) forever
+    # after — the registry's tie-break can change; the row shouldn't. nil for
+    # ids the installed registry doesn't know (fakes, custom engines).
+    def provider_for(model)
+      ::RubyLLM.models.find(model).provider
+    rescue StandardError
+      nil
     end
   end
 end

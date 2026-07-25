@@ -18,3 +18,13 @@
 {"run":8,"store":"pg","mode":"supervisor","scenario":"default","completed":true,"transcript_identical":true,"duplicate_side_effects":0,"kill_at_ms":1280,"total_ms":5318,"rescuer_retries":1}
 {"run":9,"store":"pg","mode":"supervisor","scenario":"default","completed":true,"transcript_identical":true,"duplicate_side_effects":0,"kill_at_ms":191,"total_ms":5453,"rescuer_retries":1}
 {"run":10,"store":"pg","mode":"supervisor","scenario":"default","completed":true,"transcript_identical":true,"duplicate_side_effects":0,"kill_at_ms":1936,"total_ms":5618,"rescuer_retries":1}
+{"run":1,"store":"pg","mode":"supervisor","scenario":"default","completed":true,"transcript_identical":true,"duplicate_side_effects":0,"kill_at_ms":714,"total_ms":5393,"rescuer_retries":1}
+{"run":2,"store":"pg","mode":"supervisor","scenario":"default","completed":true,"transcript_identical":true,"duplicate_side_effects":0,"kill_at_ms":1383,"total_ms":5804,"rescuer_retries":1}
+{"run":3,"store":"pg","mode":"supervisor","scenario":"default","completed":true,"transcript_identical":true,"duplicate_side_effects":0,"kill_at_ms":1355,"total_ms":5425,"rescuer_retries":1}
+{"run":4,"store":"pg","mode":"supervisor","scenario":"default","completed":true,"transcript_identical":true,"duplicate_side_effects":0,"kill_at_ms":2107,"total_ms":5540,"rescuer_retries":1}
+{"run":5,"store":"pg","mode":"supervisor","scenario":"default","completed":true,"transcript_identical":true,"duplicate_side_effects":0,"kill_at_ms":1055,"total_ms":5444,"rescuer_retries":1}
+{"run":6,"store":"pg","mode":"supervisor","scenario":"default","completed":true,"transcript_identical":true,"duplicate_side_effects":0,"kill_at_ms":1454,"total_ms":5502,"rescuer_retries":1}
+{"run":7,"store":"pg","mode":"supervisor","scenario":"default","completed":true,"transcript_identical":true,"duplicate_side_effects":0,"kill_at_ms":967,"total_ms":5653,"rescuer_retries":1}
+{"run":8,"store":"pg","mode":"supervisor","scenario":"default","completed":true,"transcript_identical":true,"duplicate_side_effects":0,"kill_at_ms":2126,"total_ms":5536,"rescuer_retries":1}
+{"run":9,"store":"pg","mode":"supervisor","scenario":"default","completed":true,"transcript_identical":true,"duplicate_side_effects":0,"kill_at_ms":1456,"total_ms":5498,"rescuer_retries":1}
+{"run":10,"store":"pg","mode":"supervisor","scenario":"default","completed":true,"transcript_identical":true,"duplicate_side_effects":0,"kill_at_ms":1607,"total_ms":3107,"rescuer_retries":0}
