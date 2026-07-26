@@ -62,7 +62,9 @@ module Silas
 
     def plaintext_remote?
       uri = URI(url)
-      uri.scheme == "http" && !%w[localhost 127.0.0.1 ::1].include?(uri.host)
+      # Scheme case-insensitively (HTTP:// is still plaintext); URI#host keeps
+      # brackets on IPv6 literals, so the loopback exemption lists both forms.
+      uri.scheme&.downcase == "http" && !%w[localhost 127.0.0.1 ::1 [::1]].include?(uri.host)
     rescue URI::InvalidURIError
       true # an unparseable url with auth configured fails closed
     end

@@ -64,6 +64,15 @@ RSpec.describe "connections" do
       expect(conn.url).to eq("http://mcp.example.test/mcp")
     end
 
+    it "treats the scheme case-insensitively (HTTP:// is still plaintext)" do
+      expect {
+        parse(<<~YAML)
+          url: HTTP://mcp.example.test/mcp
+          auth: { type: bearer, credential: crm.token }
+        YAML
+      }.to raise_error(Silas::Error, /plaintext http/)
+    end
+
     it "fails closed on an unparseable url with auth configured" do
       expect {
         parse(<<~YAML)
