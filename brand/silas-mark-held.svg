@@ -1,6 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" role="img" aria-label="Silas — held">
   <title>Silas — held (approval aspect)</title>
+  
   <circle cx="12" cy="12" r="9.6" fill="none" stroke="#E9EBEF" stroke-width="2.2"></circle>
-  <circle cx="7.6" cy="12" r="2.5" fill="#E3B341"></circle>
-  <circle cx="16.4" cy="12" r="2.5" fill="#E3B341"></circle>
+  <circle cx="7.2" cy="12" r="2.5" fill="#E3B341"></circle>
+  <circle cx="16.8" cy="12" r="2.5" fill="#E3B341"></circle>
 </svg>
