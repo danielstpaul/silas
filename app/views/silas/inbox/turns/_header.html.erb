@@ -1,28 +1,34 @@
-<div class="turn-head">
-  <span class="turn-input"><%= truncate(turn.input, length: 90) %></span>
-  <%= status_pill(turn.status) %>
-  <% if turn.active? && !turn.cancel_requested_at %>
-    <%# silas_engine_path — this partial is broadcast-rendered through the
-        host renderer on every turn status change; bare engine helpers (and
-        the scope-dependent mounted proxy) 500 there. %>
-    <%= form_with url: silas_engine_path(:cancel_inbox_turn_path, turn), method: :post, class: "inline" do %>
-      <button class="btn-cancel" title="Honored at the next step boundary">Cancel</button>
-    <% end %>
-  <% elsif turn.cancel_requested_at && turn.active? %>
-    <span class="muted">cancel requested…</span>
-  <% end %>
-</div>
-<% if turn.budget_parked? %>
-  <div class="approval">
-    <h3>Budget reached — <%= turn.failure_reason %></h3>
-    <div class="muted">Parked at zero compute. Raise the limit and the turn resumes
-      by replaying completed work from rows — no re-calls, no re-effects.</div>
-    <%= form_with url: silas_engine_path(:raise_budget_inbox_turn_path, turn), method: :post, class: "topup-form" do %>
-      <input name="value" type="number" step="any" min="0" required class="topup-input"
-             placeholder="<%= turn.failure_reason == "max_cost" ? "new limit in dollars, e.g. 2.50" : "new limit, e.g. 200000" %>">
-      <button class="btn approve">Raise &amp; resume</button>
+<%# The root id IS the broadcast target (Broadcastable replaces
+    silas-turn-<id>-header on every status change). It must live HERE, not on
+    a wrapper in the parent: Turbo `replace` swaps the target element itself,
+    so a partial without the id would erase the target on first use. %>
+<div id="silas-turn-<%= turn.id %>-header">
+  <div class="turn-head">
+    <span class="turn-input"><%= truncate(turn.input, length: 90) %></span>
+    <%= status_pill(turn.status) %>
+    <% if turn.active? && !turn.cancel_requested_at %>
+      <%# silas_engine_path — this partial is broadcast-rendered through the
+          host renderer on every turn status change; bare engine helpers (and
+          the scope-dependent mounted proxy) 500 there. %>
+      <%= form_with url: silas_engine_path(:cancel_inbox_turn_path, turn), method: :post, class: "inline" do %>
+        <button class="btn-cancel" title="Honored at the next step boundary">Cancel</button>
+      <% end %>
+    <% elsif turn.cancel_requested_at && turn.active? %>
+      <span class="muted">cancel requested…</span>
     <% end %>
   </div>
-<% elsif turn.failure_reason.present? %>
-  <div class="muted">failed: <%= turn.failure_reason %></div>
-<% end %>
+  <% if turn.budget_parked? %>
+    <div class="approval">
+      <h3>Budget reached — <%= turn.failure_reason %></h3>
+      <div class="muted">Parked at zero compute. Raise the limit and the turn resumes
+        by replaying completed work from rows — no re-calls, no re-effects.</div>
+      <%= form_with url: silas_engine_path(:raise_budget_inbox_turn_path, turn), method: :post, class: "topup-form" do %>
+        <input name="value" type="number" step="any" min="0" required class="topup-input"
+               placeholder="<%= turn.failure_reason == "max_cost" ? "new limit in dollars, e.g. 2.50" : "new limit, e.g. 200000" %>">
+        <button class="btn approve">Raise &amp; resume</button>
+      <% end %>
+    </div>
+  <% elsif turn.failure_reason.present? %>
+    <div class="muted">failed: <%= turn.failure_reason %></div>
+  <% end %>
+</div>

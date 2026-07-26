@@ -73,6 +73,30 @@ RSpec.describe "trace partials under the host renderer" do
     html = host_render("silas/inbox/turns/header", { turn: turn })
     expect(html).to include("/silas/inbox/turns/#{turn.id}/raise_budget")
   end
+
+  # REGRESSION (2026-07-26): Turbo `replace` swaps the target element itself,
+  # so every replace-broadcast partial must carry its own target id at the
+  # root. The header id used to live on a wrapper in _turn — the first status
+  # broadcast destroyed it, and the park that flips the pill to HELD silently
+  # no-opped forever after.
+  it "park flips the pill: the header partial re-emits its target id and reads held" do
+    turn.update!(status: "waiting")
+    html = host_render("silas/inbox/turns/header", { turn: turn })
+    expect(html).to include(%(id="silas-turn-#{turn.id}-header"))
+    expect(html).to include("held")
+    expect(html).not_to include("waiting") # UI relabel, not the enum
+  end
+
+  it "renders the whole turn with exactly one header target (no duplicate wrapper)" do
+    step
+    html = host_render("silas/inbox/turns/turn", { turn: turn })
+    expect(html.scan(%(id="silas-turn-#{turn.id}-header")).size).to eq(1)
+  end
+
+  it "the cost partial re-emits its own target id (replaced after every step)" do
+    html = host_render("silas/inbox/sessions/cost", { session: session })
+    expect(html).to include(%(id="silas-session-#{session.id}-cost"))
+  end
 end
 
 # Hermetic: we don't load turbo-rails (that would contaminate the whole suite

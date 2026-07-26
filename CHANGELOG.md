@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+### Fixed
+
+- **The turn pill now flips to held live.** Turbo `replace` swaps the target
+  element itself, but the header's and cost line's broadcast-target ids lived
+  on wrapper divs in the parent views — so the FIRST status broadcast
+  destroyed the target and every later one (including the park that reads
+  **held**) silently no-opped until a reload. The partials now carry their own
+  root ids, with regression specs asserting a replace re-emits its target.
+- **The first broadcast of a fresh worker no longer dies on lazy routes.**
+  Rails 8.1's lazy route set only retries a missing url helper when the app
+  routes were *just* loaded; in a worker's first Turbo render the engine's
+  helper module could predate its route draw, killing the job silently
+  (`undefined method 'cancel_inbox_turn_path'`). `silas_engine_path` now
+  forces the draw once on miss.
+
 ### Security
 
 - **Connections refuse credentials over plaintext http.** A connection with
