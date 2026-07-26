@@ -51,6 +51,20 @@ module Silas
       raise Error, "connection #{name}: transport #{transport.inspect} unsupported (v1: http)" unless TRANSPORTS.include?(transport)
       raise Error, "connection #{name}: approval #{approval.inspect} invalid" unless APPROVALS.include?(approval)
       raise Error, "connection #{name}: effect #{effect.inspect} invalid" unless EFFECTS.include?(effect)
+      # Never send a credential over plaintext: an auth'd connection must be
+      # https (loopback exempt for local development servers). Boot-time and
+      # loud, like every other connection misconfiguration.
+      if @auth["type"].present? && plaintext_remote?
+        raise Error, "connection #{name}: refusing to send credentials over plaintext http — " \
+                     "use https (localhost/127.0.0.1 are exempt)"
+      end
+    end
+
+    def plaintext_remote?
+      uri = URI(url)
+      uri.scheme == "http" && !%w[localhost 127.0.0.1 ::1].include?(uri.host)
+    rescue URI::InvalidURIError
+      true # an unparseable url with auth configured fails closed
     end
 
     # One remote tool, resolved. Quacks like a resolved Silas::Tool for the

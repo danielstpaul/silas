@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+### Security
+
+- **Connections refuse credentials over plaintext http.** A connection with
+  `auth:` configured and an `http://` URL to a remote host now fails loudly at
+  parse time (localhost exempt; unparseable URLs with auth fail closed).
+  Finding from the pre-release security audit — which otherwise confirmed the
+  posture: fail-closed HMAC webhook verification with constant-time compare
+  and a replay window, expiring signed approval tokens, deny-by-default
+  inbox/API auth enforced at the base controllers, argv-array sandbox exec
+  (no shell interpolation), timing-safe MCP token compare, restricted ERB
+  bindings, no interpolated SQL, Brakeman and bundler-audit clean.
+
 ## 0.6.0 (2026-07-26)
 
 The brand release: the Signals inbox, the docs surface (site + gem-shipped
