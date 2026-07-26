@@ -29,6 +29,9 @@ through the same Ledger.
   join your database transaction, so the honest ceiling is `at_most_once`
   (an ambiguous crash parks in-doubt for a person) or `idempotent` (you're
   asserting the remote op is safe to repeat).
+- **Credentials require https.** A connection with `auth:` configured and a
+  plaintext `http://` URL fails loudly at parse time (localhost is exempt for
+  local development servers).
 - **Transport is HTTP** (v1). Filename is the namespace: `crm.yml` →
   `crm__*`.
 

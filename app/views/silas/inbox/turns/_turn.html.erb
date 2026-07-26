@@ -1,7 +1,9 @@
 <div class="turn" id="<%= dom_id(turn) %>">
-  <div id="silas-turn-<%= turn.id %>-header">
-    <%= render "silas/inbox/turns/header", turn: turn %>
-  </div>
+  <%# The header partial carries its own broadcast-target id: Turbo `replace`
+      swaps the TARGET ELEMENT itself, so if the id lived on a wrapper here,
+      the first status broadcast would destroy it and every later transition
+      (including the park that flips the pill to held) would silently no-op. %>
+  <%= render "silas/inbox/turns/header", turn: turn %>
   <div id="silas-turn-<%= turn.id %>-steps">
     <%= render partial: "silas/inbox/steps/step", collection: turn.steps, as: :step %>
   </div>

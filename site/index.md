@@ -1,5 +1,6 @@
 ---
 title: Home
+description: "Silas is a Rails-native framework for durable AI agents: plain files in your app, exactly-once tool effects, holds at the signal, crash-safe turns."
 nav_order: 1
 ---
 
@@ -36,6 +37,14 @@ To add Silas to an existing app instead:
 bundle add silas
 bin/rails generate silas:install && bin/rails db:migrate
 ```
+
+The template's first run, uncut — a refund holds at the signal, gets cleared,
+and the turn resumes to exactly one refund row:
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/danielstpaul/silas/main/docs/img/silas-flow.gif" width="760"
+       alt="A session starts in the operator inbox, the refund holds at an amber approval card, Approve is clicked, and the turn resumes to a cleared answer">
+</p>
 
 ## Learn
 

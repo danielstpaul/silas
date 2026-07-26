@@ -13,6 +13,13 @@ hoisted to the top of the session, a full audit trail (every tool call's
 arguments and result, who cleared what and why), cancel, raise-budget, and
 per-session token/cost accounting priced from RubyLLM's model registry.
 
+<img src="https://raw.githubusercontent.com/danielstpaul/silas/main/docs/img/silas-inbox-held.png" width="740"
+     alt="A session held at the signal: the amber approval card for issue_refund hoisted above the trace, with the turn marked HELD and a held-at-the-signal stub in place">
+
+A £64 refund holding at the signal: the card carries the exact arguments, the
+turn costs nothing while it waits, and the trace below keeps a one-line stub
+where the invocation held.
+
 It's **deny-by-default** — invisible until you wire auth:
 
 ```ruby

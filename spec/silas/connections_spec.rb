@@ -35,6 +35,54 @@ RSpec.describe "connections" do
     end
   end
 
+  describe "credentials over plaintext http (security audit 2026-07-26)" do
+    def parse(yaml)
+      path = @root.join("app/agent/connections/insecure.yml")
+      path.write(yaml)
+      Silas::Connection.parse(path.to_s)
+    end
+
+    it "refuses an auth'd connection on plaintext http to a remote host" do
+      expect {
+        parse(<<~YAML)
+          url: http://mcp.example.test/mcp
+          auth: { type: bearer, credential: crm.token }
+        YAML
+      }.to raise_error(Silas::Error, /plaintext http/)
+    end
+
+    it "allows plaintext http to localhost for local development servers" do
+      conn = parse(<<~YAML)
+        url: http://localhost:9292/mcp
+        auth: { type: bearer, credential: crm.token }
+      YAML
+      expect(conn.url).to eq("http://localhost:9292/mcp")
+    end
+
+    it "allows plaintext http when no auth is configured" do
+      conn = parse("url: http://mcp.example.test/mcp\n")
+      expect(conn.url).to eq("http://mcp.example.test/mcp")
+    end
+
+    it "treats the scheme case-insensitively (HTTP:// is still plaintext)" do
+      expect {
+        parse(<<~YAML)
+          url: HTTP://mcp.example.test/mcp
+          auth: { type: bearer, credential: crm.token }
+        YAML
+      }.to raise_error(Silas::Error, /plaintext http/)
+    end
+
+    it "fails closed on an unparseable url with auth configured" do
+      expect {
+        parse(<<~YAML)
+          url: "http://bad host/mcp"
+          auth: { type: bearer, credential: crm.token }
+        YAML
+      }.to raise_error(Silas::Error, /plaintext http/)
+    end
+  end
+
   it "surfaces remote tools namespaced, in the definitions and the digest" do
     reg = Silas::Registry.new(root: @root)
     names = reg.definitions.map { |d| d["name"] }

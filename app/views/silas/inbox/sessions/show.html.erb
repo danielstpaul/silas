@@ -12,7 +12,7 @@
     <span class="muted">#<%= @session.id %></span>
   </div>
   <div class="muted"><%= @session.channel.presence || "direct" %> · started <%= silas_relative_time(@session.created_at) %></div>
-  <div id="silas-session-<%= @session.id %>-cost"><%= render "silas/inbox/sessions/cost", session: @session %></div>
+  <%= render "silas/inbox/sessions/cost", session: @session %>
 </div>
 
 <%# 04: everything awaiting a person sits ABOVE the movement — the operator

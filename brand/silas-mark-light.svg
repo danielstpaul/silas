@@ -2,6 +2,6 @@
   <title>Silas</title>
   
   <circle cx="12" cy="12" r="9.6" fill="none" stroke="#15171B" stroke-width="2.2"></circle>
-  <circle cx="8.4" cy="15.6" r="2.5" fill="#15171B"></circle>
-  <circle cx="15.6" cy="8.4" r="2.5" fill="#15171B"></circle>
+  <circle cx="8.61" cy="15.39" r="2.5" fill="#15171B"></circle>
+  <circle cx="15.39" cy="8.61" r="2.5" fill="#15171B"></circle>
 </svg>

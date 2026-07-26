@@ -65,7 +65,15 @@ module Silas
       # bare broadcast renderer doesn't have — so broadcast-rendered partials
       # build paths from the engine's own route set + the discovered mount.
       def silas_engine_path(helper, *args)
-        Silas::Engine.routes.url_helpers.public_send(helper, *args, script_name: Silas::Inbox.mount_path)
+        helpers = Silas::Engine.routes.url_helpers
+        # Rails 8.1's lazy route set: in a worker's FIRST broadcast render the
+        # engine's helper module can predate its route draw, and the lazy
+        # method_missing only retries when the app routes were *just* loaded —
+        # otherwise it raises NoMethodError and the Turbo job dies silently
+        # (observed: the first turn broadcast of a fresh worker). Force the
+        # draw once on miss; every later call takes the fast path.
+        Rails.application.reload_routes! unless helpers.respond_to?(helper)
+        helpers.public_send(helper, *args, script_name: Silas::Inbox.mount_path)
       end
     end
   end

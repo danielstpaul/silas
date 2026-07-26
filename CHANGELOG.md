@@ -1,5 +1,49 @@
 # Changelog
 
+## 0.6.1 (2026-07-26)
+
+Two live-inbox fixes found by driving real apps, a security hardening pass,
+and the polished brand kit.
+
+### Changed
+
+- **Polished brand geometry everywhere.** Lamps sit on a shared r4.8 circle
+  (proceed and held aspects now one geometry), the favicon is redrawn
+  natively at 32px with a heavier housing (it reads at 16px now), and the
+  wordmark lockup is cropped to the ink — re-outlined to font-independent
+  paths on the new geometry. The inbox layout's favicon and header mark
+  carry the new coordinates, as do the templates' landing pages.
+- The docs gained real product imagery: an 18-frame park→approve→clear GIF
+  captured from a genuine template-app run, the held approval card, and the
+  signal board — on the site landing, inbox-and-api, and tutorial pages.
+
+### Fixed
+
+- **The turn pill now flips to held live.** Turbo `replace` swaps the target
+  element itself, but the header's and cost line's broadcast-target ids lived
+  on wrapper divs in the parent views — so the FIRST status broadcast
+  destroyed the target and every later one (including the park that reads
+  **held**) silently no-opped until a reload. The partials now carry their own
+  root ids, with regression specs asserting a replace re-emits its target.
+- **The first broadcast of a fresh worker no longer dies on lazy routes.**
+  Rails 8.1's lazy route set only retries a missing url helper when the app
+  routes were *just* loaded; in a worker's first Turbo render the engine's
+  helper module could predate its route draw, killing the job silently
+  (`undefined method 'cancel_inbox_turn_path'`). `silas_engine_path` now
+  forces the draw once on miss.
+
+### Security
+
+- **Connections refuse credentials over plaintext http.** A connection with
+  `auth:` configured and an `http://` URL to a remote host now fails loudly at
+  parse time (localhost exempt; unparseable URLs with auth fail closed).
+  Finding from the pre-release security audit — which otherwise confirmed the
+  posture: fail-closed HMAC webhook verification with constant-time compare
+  and a replay window, expiring signed approval tokens, deny-by-default
+  inbox/API auth enforced at the base controllers, argv-array sandbox exec
+  (no shell interpolation), timing-safe MCP token compare, restricted ERB
+  bindings, no interpolated SQL, Brakeman and bundler-audit clean.
+
 ## 0.6.0 (2026-07-26)
 
 The brand release: the Signals inbox, the docs surface (site + gem-shipped

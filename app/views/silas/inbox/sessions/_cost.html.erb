@@ -1,1 +1,3 @@
-<span class="cost"><%= cost_label(Silas::Inbox::Cost.for_session(session)) %></span>
+<%# Root id = the broadcast target (replaced after every completed step); it
+    must be in the partial or the first replace erases the target. %>
+<span class="cost" id="silas-session-<%= session.id %>-cost"><%= cost_label(Silas::Inbox::Cost.for_session(session)) %></span>

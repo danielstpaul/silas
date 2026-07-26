@@ -618,8 +618,8 @@ after_bundle do
         <header class="board">
           <svg class="mark" width="24" height="24" viewBox="0 0 24 24" fill="none" role="img" aria-label="Silas">
             <circle class="bezel" cx="12" cy="12" r="9.6" fill="none" stroke-width="2.2"/>
-            <circle class="lamp" cx="8.4" cy="15.6" r="2.5"/>
-            <circle class="lamp" cx="15.6" cy="8.4" r="2.5"/>
+            <circle class="lamp" cx="8.61" cy="15.39" r="2.5"/>
+            <circle class="lamp" cx="15.39" cy="8.61" r="2.5"/>
           </svg>
           <span class="logo">silas</span>
           <nav><a href="<%= silas.inbox_root_path %>">operator inbox →</a></nav>

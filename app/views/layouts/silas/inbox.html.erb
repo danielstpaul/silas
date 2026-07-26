@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title><%= content_for?(:title) ? yield(:title) : "Silas Inbox" %></title>
   <%# The night tile, inlined — the engine ships no assets and keeps shipping none. %>
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230F1013'/%3E%3Cg transform='translate(4,4)'%3E%3Ccircle cx='12' cy='12' r='9.6' fill='none' stroke='%23E9EBEF' stroke-width='2.2'/%3E%3Ccircle cx='8.4' cy='15.6' r='2.5' fill='%23F2F4F8'/%3E%3Ccircle cx='15.6' cy='8.4' r='2.5' fill='%23F2F4F8'/%3E%3C/g%3E%3C/svg%3E">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230F1013'/%3E%3Ccircle cx='16' cy='16' r='10.8' fill='none' stroke='%23E9EBEF' stroke-width='2.5'/%3E%3Ccircle cx='12.18' cy='19.82' r='2.8' fill='%23F2F4F8'/%3E%3Ccircle cx='19.82' cy='12.18' r='2.8' fill='%23F2F4F8'/%3E%3C/svg%3E">
   <% if Silas::Inbox.streaming_available? %><%= turbo_include_tags rescue nil %><% end %>
   <style>
     /* Direction "Signals" (see docs/conventions.md and the brand book).
@@ -160,7 +160,7 @@
           <%# The mark: a position-light signal, diagonal = "proceed". Bezel in
               ink, lamps in the accent — so the lamps are white at night and
               route-blue on paper, per the one-token-may-change-hue rule. %>
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" role="img" aria-hidden="true"><circle cx="12" cy="12" r="9.6" fill="none" style="stroke: var(--ink)" stroke-width="2.2"/><circle cx="8.4" cy="15.6" r="2.5" style="fill: var(--accent)"/><circle cx="15.6" cy="8.4" r="2.5" style="fill: var(--accent)"/></svg><span>silas</span>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" role="img" aria-hidden="true"><circle cx="12" cy="12" r="9.6" fill="none" style="stroke: var(--ink)" stroke-width="2.2"/><circle cx="8.61" cy="15.39" r="2.5" style="fill: var(--accent)"/><circle cx="15.39" cy="8.61" r="2.5" style="fill: var(--accent)"/></svg><span>silas</span>
         <% end %>
       </span>
       <span class="spacer"></span>

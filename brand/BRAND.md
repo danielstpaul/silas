@@ -25,7 +25,7 @@ Three rules hold the system together:
 
 ```
 brand/
-  silas-wordmark.svg         lockup, dark/primary (160x40) — TEXT, must be outlined
+  silas-wordmark.svg         lockup, dark/primary (150x40) — outlined paths, ships anywhere
   silas-wordmark-light.svg   lockup, light
   silas-mark.svg             mark only, dark (24x24) — pure geometry, "proceed" aspect
   silas-mark-light.svg       mark only, light
@@ -66,16 +66,29 @@ a tool you type, not a company you meet — every competitor's wordmark is a
 capitalized logotype. Minimum size 16px cap height; below that use the mark
 alone. Clearspace on all sides = the cap height of the s.
 
-### Outlining the wordmark — DONE (2026-07-26)
+The lockup SVGs are cropped to the ink — 1u of padding on all four sides of
+a 90x24 box, nothing more — so clearspace is something you add outside the
+asset, never something the asset is already carrying. The mark's centre sits
+8.3u above the baseline rather than on the ink centre: the word is lowercase
+with a single ascender, and centring on the ink box makes it read high.
 
-`brand/silas-wordmark*.svg` are now pure paths (Archivo ExtraBold 800,
-tracking −1.1px at 27px, outlined via opentype.js from Google Fonts' static
-800 TTF) and render identically everywhere — no font dependency. The canvas
-was tightened 160×40 → 90×40 so the lockup centers true. To regenerate after
-a wordmark change: fetch the static TTF from the css2 API
+Both lamps sit on a circle of radius 4.8 from the mark's centre, so the
+proceed (diagonal) and held (horizontal) aspects share one geometry — 4.6u
+between the lamps, 1.2u from lamp to housing. The favicon is the mark
+redrawn at 1.125x with a heavier housing, not the 24u mark dropped into a
+tile; at 16px the lamps need the extra separation.
+
+### Outlining the wordmark — DONE (2026-07-26, re-done on the polished crop)
+
+The committed `brand/silas-wordmark*.svg` carry **pure paths** (Archivo
+ExtraBold 800 at 27px, tracking −1.1px, outlined via opentype.js from Google
+Fonts' static 800 TTF) on the polished 90×24 ink-cropped lockup above — they
+render identically everywhere with no font dependency. To regenerate after a
+geometry change: fetch the static TTF from the css2 API
 (`family=Archivo:wght@800`, non-browser UA), then
-`font.getPath("silas", 30, 29, 27, { kerning: true, letterSpacing: -1.1/27 })`
-and drop the path where the `<text>` node was.
+`font.getPath("silas", 30.9, 20.6, 27, { kerning: true, letterSpacing: -1.1/27 })`
+and drop the path where the `<text>` node was, keeping the mark circles from
+the design source.
 
 ## Colour
 
