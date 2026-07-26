@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.6.2 (2026-07-26)
+
+The providers guide and the remaining community files.
+
+### Added
+
+- **`docs/providers.md` — Providers & gateways.** How a model id picks a
+  provider (and why Silas stamps the resolved provider on every step row),
+  the OpenRouter recipe — one key, 300+ models, slash-form ids, with cost
+  lines and `compact_at` following the registry entry for the route you
+  actually run — plus OpenAI-compatible gateways (LiteLLM, Vercel AI
+  Gateway) via `openai_api_base`/`openrouter_api_base`, the
+  Bedrock/Vertex/Azure key map, local runtimes with the honest
+  cost-unavailable story, and `around_model_call` for failover. Every
+  mechanical claim verified against ruby_llm 1.16 source and a live
+  resolution run; Vercel endpoint details from their docs as of 2026-07-07.
+  Ships in the gem; linked from the configuration reference, the README,
+  and the installer's `ruby_llm.rb` initializer comment.
+- **`CODE_OF_CONDUCT.md`** (Contributor Covenant 2.1), linked from
+  CONTRIBUTING and the README.
+- **A pull request template** mirroring CONTRIBUTING's actual gates: both
+  stores, RuboCop, the chaos gate when the loop is touched, the
+  templates-smoke run when generators change, and a durability-notes
+  section for replay-path changes.
+
+### Fixed
+
+- README's status line claimed 0.5.x.
+
 ## 0.6.1 (2026-07-26)
 
 Two live-inbox fixes found by driving real apps, a security hardening pass,

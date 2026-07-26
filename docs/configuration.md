@@ -18,6 +18,10 @@ end
 | `around_model_call` | `nil` | Wrap every model call — e.g. `->(ctx, &call) { RubyLLM::Resilience.chain(:anthropic) { call.() } }`. |
 | `queue_name` | `:default` | Active Job queue for agent turns. |
 
+Which provider serves a turn is decided by the model id — OpenRouter,
+OpenAI-compatible gateways, Bedrock/Vertex/Azure, and local runtimes are all
+recipes in [providers](providers.md).
+
 ## The loop
 
 | Option | Default | Meaning |

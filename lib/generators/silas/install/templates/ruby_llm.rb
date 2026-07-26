@@ -3,7 +3,9 @@
 #
 #   export ANTHROPIC_API_KEY=sk-ant-...
 #
-# Any provider RubyLLM supports works the same way (openai_api_key, etc.).
+# Any provider RubyLLM supports works the same way (openai_api_key, etc.) —
+# OpenRouter, OpenAI-compatible gateways, and local runtimes are covered in
+# the Silas guide docs/providers.md (shipped in the gem: `bundle show silas`).
 RubyLLM.configure do |c|
   # Silas never uses RubyLLM's acts_as_* ActiveRecord mixins (it owns its own
   # durable schema), so opt into the new API to silence the legacy deprecation
