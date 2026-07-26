@@ -38,7 +38,7 @@ NAV = {
 root = File.expand_path("..", __dir__)
 site = __dir__
 
-sources = Dir[File.join(root, "docs", "*.md")].to_h { |f| [File.basename(f, ".md"), f] }
+sources = Dir[File.join(root, "docs", "*.md")].to_h { |f| [ File.basename(f, ".md"), f ] }
 sources["deploy"] = File.join(root, "DEPLOY.md")
 
 missing = sources.keys - NAV.keys
