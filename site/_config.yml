@@ -30,6 +30,9 @@ aux_links:
 plugins:
   - jekyll-optional-front-matter
   - jekyll-titles-from-headings
+  # Rewrites relative [text](other.md) links to the rendered pages — without
+  # this, cross-links between docs open the raw markdown copies.
+  - jekyll-relative-links
 
 titles_from_headings:
   enabled: true
