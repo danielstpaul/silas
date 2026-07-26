@@ -43,9 +43,11 @@ NAV = {
 
   "configuration" => { title: "Configuration", parent: "Reference", order: 1,
                        desc: "Every Silas.configure option with its default — adapter, compaction, approvals, memory, inbox, API, evals, sandbox — plus the fail-loud boot guards." },
-  "deploy"        => { title: "Deploy",        parent: "Reference", order: 2,
+  "providers"     => { title: "Providers & gateways", parent: "Reference", order: 2,
+                       desc: "Run Silas agents on any provider RubyLLM speaks — Anthropic direct, OpenRouter's 300+ model catalog with one key, OpenAI-compatible gateways like LiteLLM and Vercel AI Gateway, Bedrock, Vertex AI, Azure, and local runtimes." },
+  "deploy"        => { title: "Deploy",        parent: "Reference", order: 3,
                        desc: "Deploying Silas apps with Kamal: the worker contract, the rescuer, worker liveness, and the operational lessons from the chaos harness." },
-  "conventions"   => { title: "Conventions",   parent: "Reference", order: 3,
+  "conventions"   => { title: "Conventions",   parent: "Reference", order: 4,
                        desc: "The contracts the UI and API keep, including the held/clear UI labels over unchanged database states." },
 
   "why-silas"     => { title: "Why Silas",    parent: "About", order: 1,
@@ -78,7 +80,7 @@ full = +"# silas — full documentation\n\n"
 full << "> Concatenation of every silas doc. Curated index: llms.txt\n\n"
 ordered = %w[tutorial guarantees tools agents memory channels inbox-and-api
              connections evals budgets cancellation sandbox configuration
-             deploy conventions why-silas vs-eve]
+             providers deploy conventions why-silas vs-eve]
 ordered.each do |slug|
   full << "\n\n---\n\n" << File.read(sources.fetch(slug))
 end

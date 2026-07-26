@@ -4,6 +4,9 @@ Thanks for looking. Silas is early and moving fast, so the most valuable
 contributions right now are **real-world reports**: what you built, where the
 framework fought you, and anything that violated the durability contract.
 
+Everyone interacting here is expected to follow the
+[code of conduct](CODE_OF_CONDUCT.md).
+
 ## Ground rules
 
 - **Open an issue before a big PR.** Small fixes (typos, docs, a failing-test

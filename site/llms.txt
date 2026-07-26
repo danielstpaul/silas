@@ -28,6 +28,7 @@ All docs below are plain markdown and also ship inside the gem package.
 - [Cancellation](https://raw.githubusercontent.com/danielstpaul/silas/main/docs/cancellation.md): cancel semantics mid-flight
 - [Sandbox](https://raw.githubusercontent.com/danielstpaul/silas/main/docs/sandbox.md): code execution, Docker seam, hermetic
 - [Configuration](https://raw.githubusercontent.com/danielstpaul/silas/main/docs/configuration.md): every Silas.configure option with defaults
+- [Providers & gateways](https://raw.githubusercontent.com/danielstpaul/silas/main/docs/providers.md): any RubyLLM provider, OpenRouter, OpenAI-compatible gateways, local runtimes
 - [Conventions](https://raw.githubusercontent.com/danielstpaul/silas/main/docs/conventions.md): contracts the UI and API keep
 - [Deploy](https://raw.githubusercontent.com/danielstpaul/silas/main/DEPLOY.md): production notes from the chaos harness
 

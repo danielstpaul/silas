@@ -100,9 +100,11 @@ release): [guarantees](https://danielstpaul.github.io/silas/guarantees).
 
 ## Status
 
-Early (0.5.x) and moving fast. Requires Rails >= 8.1 (Active Job
+Early (0.6.x) and moving fast. Requires Rails >= 8.1 (Active Job
 Continuations) and Solid Queue >= 1.2; any model provider
-[RubyLLM](https://rubyllm.com) supports.
+[RubyLLM](https://rubyllm.com) supports — Anthropic direct, OpenRouter,
+OpenAI-compatible gateways, local runtimes
+([providers guide](https://github.com/danielstpaul/silas/blob/main/docs/providers.md)).
 
 ## Community
 
@@ -113,7 +115,9 @@ Questions, ideas, and bug reports →
 
 See [CONTRIBUTING.md](https://github.com/danielstpaul/silas/blob/main/CONTRIBUTING.md)
 — including the short list of things Silas deliberately doesn't do, and the
-chaos gate that protects the durability contract.
+chaos gate that protects the durability contract. Everyone interacting here
+is expected to follow the
+[code of conduct](https://github.com/danielstpaul/silas/blob/main/CODE_OF_CONDUCT.md).
 
 ## Security
 
