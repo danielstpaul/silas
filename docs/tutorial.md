@@ -15,8 +15,12 @@ rails new desk -m https://raw.githubusercontent.com/danielstpaul/silas/main/temp
 cd desk && bin/dev
 ```
 
-Open <http://localhost:3000> — the **signal board** — then *operator inbox →*
-and start a session:
+Open <http://localhost:3000> — the **signal board**:
+
+<img src="https://raw.githubusercontent.com/danielstpaul/silas/main/docs/img/silas-board.png" width="740"
+     alt="The desk's signal board: aspect tiles for held/working/clear/in doubt, the keyless demo banner, the agent card, and try-it prompts">
+
+Then *operator inbox →* and start a session:
 
 > The walnut monitor stand (order R-1002) arrived cracked.
 
