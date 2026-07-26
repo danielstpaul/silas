@@ -1,17 +1,32 @@
 module Silas
   module Inbox
     module TraceHelper
+      # The seven run states, in aspect (direction "Signals"): running is the
+      # only aspect that pulses, in_doubt gets its own violet (it is neither
+      # waiting-by-design nor failed), and canceled is a lamp going OUT —
+      # dashed quiet, never red. Failed keeps the only red.
       STATUS_CLASS = {
         "queued" => "pill-grey", "running" => "pill-blue pill-pulse",
-        "waiting" => "pill-amber", "in_doubt" => "pill-amber",
-        "completed" => "pill-green", "failed" => "pill-red", "canceled" => "pill-red",
-        # tool-invocation statuses
+        "waiting" => "pill-amber", "in_doubt" => "pill-violet",
+        "completed" => "pill-green", "failed" => "pill-red", "canceled" => "pill-quiet",
+        # tool-invocation statuses map onto the same seven
         "pending" => "pill-grey", "started" => "pill-blue", "declined" => "pill-red",
-        "approved" => "pill-green", "required" => "pill-amber", "expired" => "pill-red"
+        "approved" => "pill-green", "answered" => "pill-green",
+        "required" => "pill-amber", "expired" => "pill-quiet"
       }.freeze
 
+      # UI-only relabels — the database strings and the JSON API are untouched
+      # (an operator who reads "held" here and greps the API will find
+      # `waiting`; docs name both). Safety-system vocabulary: a turn is held
+      # at the signal until a person clears it.
+      UI_LABEL = { "waiting" => "held", "completed" => "clear" }.freeze
+
+      def status_label(status)
+        UI_LABEL[status.to_s] || status.to_s.tr("_", " ")
+      end
+
       def status_pill(status)
-        tag.span(status.to_s.tr("_", " "), class: "pill #{STATUS_CLASS[status.to_s] || 'pill-grey'}")
+        tag.span(status_label(status), class: "pill #{STATUS_CLASS[status.to_s] || 'pill-grey'}")
       end
 
       def step_text(step)

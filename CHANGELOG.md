@@ -1,5 +1,106 @@
 # Changelog
 
+## 0.6.0 (2026-07-26)
+
+The brand release: the Signals inbox, the docs surface (site + gem-shipped
+guides + tutorial), the templates family (desk + analyst) with its anti-rot
+CI gate, community files, and the framework-first README.
+
+### Added
+
+- **Docs for the whole surface.** New guides, all shipped in the gem:
+  `tutorial` (build the refund desk outward, one primitive per chapter),
+  `guarantees`, `tools`, `agents`, `memory`, `inbox-and-api`, `sandbox`,
+  `evals`, `budgets`, `cancellation`, `connections`, and a full
+  `configuration` reference. A docs site (Jekyll + just-the-docs, dark-first,
+  Archivo/Space Mono, `early · 0.x` chip) builds from `docs/` in CI and
+  deploys to Pages, with an `llms.txt` for coding agents. Brand assets
+  (`brand/`, hero at `docs/img/`) now live in the repo; the hero image is
+  excluded from the packaged gem.
+- **Rails application templates, as a family** — `templates/desk.rb` and
+  `templates/analyst.rb`, each a single CI-gated `rails new -m` script.
+  `rails new desk -m
+  https://raw.githubusercontent.com/danielstpaul/silas/main/templates/desk.rb`
+  builds a deployable agent app from nothing: a refund desk with one tool per effect
+  mode (`lookup_order` idempotent, `issue_refund` transactional behind a
+  £25 approval gate, `notify_customer` at-most-once), Solid Queue **and** Solid
+  Cable wired in development (the durability contract needs a real worker; live
+  deltas need a cross-process cable), a keyless scripted stand-in so the first
+  `bin/dev` works with zero secrets, three deterministic agent evals asserting
+  the hold and the exactly-once execution, and a Signals-branded signal-board
+  landing page. The template only runs the generators the gem already tests,
+  and the `templates_smoke` workflow regenerates and tests an app from every
+  template on each push — starters that structurally cannot rot. (eve needs
+  template repos because it has no generator story; Rails has application
+  templates.) **The analyst** is the second template: a scheduled reporting
+  agent — `query_metrics` reads, `flag_anomaly` lands rows exactly once,
+  `publish_report` holds at the signal (`approval :always`), a Monday-07:00
+  schedule, and a schema-checked `final_answer` (`Turn#answer_data`). Both
+  templates also wire `ANTHROPIC_API_KEY` into Kamal's secrets so the
+  generated app deploys without a scavenger hunt.
+- **Community files** — `CONTRIBUTING.md` (the deliberate scope no-list, the
+  chaos-gate requirement, how templates are contributed), `SECURITY.md`
+  (private vulnerability reporting; deny-by-default surfaces; contract
+  violations count), and GitHub issue forms.
+- **The gem ships its own docs, and the installer ships a coding-agent skill.**
+  `docs/**` and `DEPLOY.md` are in the packaged gem, so `bundle show silas`
+  gives a coding agent (or an offline human) the real reference — and the
+  README's links stop 404ing for gem-only readers. `rails g silas:install` now
+  also writes `.claude/skills/silas/SKILL.md`: the `app/agent/` conventions,
+  the effect-mode and approval decision rules, and the ledger rules an agent
+  must never violate — so a Claude Code/Codex session building on this app
+  gets the framework's judgment without the human learning it first. Gemspec
+  gains `documentation_uri` and `bug_tracker_uri`.
+
+### Changed
+
+- **The inbox wears the brand** (direction "Signals"). Dark-first — the tokens'
+  base is the night palette and light is the `prefers-color-scheme` override —
+  with a position-light mark, a lowercase wordmark, and one white "lamp" accent
+  that never means state. The seven run states each get their aspect:
+  `in_doubt` its own violet (it is neither waiting-by-design nor failed),
+  `canceled` a dashed quiet (a lamp going out, not turning red), and two
+  UI-only relabels — `waiting` reads **held**, `completed` reads **clear**. The
+  database strings and the JSON API are untouched (`docs/conventions.md`).
+- **Approvals and questions are hoisted to the top of the session** — the
+  operator never scrolls a long trace hunting for the card; the trace keeps a
+  one-line "held at the signal" stub in place. Live parks append their card via
+  the same Turbo broadcasts; settled cards remove themselves. Tool arguments
+  render as key/value rows and results collapse behind a disclosure; the
+  session index groups its rail by who's blocked: **Held / Working / Filed**.
+- The playground's chat page consumes the engine's colour tokens instead of
+  re-hardcoding a palette, and hosts the hoisted approval/question cards above
+  its transcript.
+
+- **README reframed, framework-first** — it now mirrors eve's shape exactly:
+  the mark as the logo (dark/light `<picture>`), badges, a one-paragraph
+  thesis, "The filesystem is the authoring interface" with the tree, quick
+  start, one minimal example, status/community/license. The hero illustration
+  moved to the repo's social-preview role (its inbox panel is a designed
+  idealization, not a screenshot — it shouldn't sit where users compare it to
+  the real `/silas/inbox`). The docs site nav is grouped eve-style — Tutorial
+  and Guarantees up top, then **Core / Advanced / Reference / About**
+  sections — via build-time frontmatter injection (`site/assemble.rb`, which
+  fails the build if a docs page lacks a nav entry), keeping the gem-shipped
+  markdown frontmatter-free. `docs/vs-eve.md` was **factually rewritten**
+  (2026-07-26): the previous revision described eve as a managed-cloud
+  platform; eve is fully self-hostable, and the comparison now rests on what's
+  actually different — exactly-once vs documented at-least-once, a shipped
+  production inbox vs a dev TUI, memory vs none, and the transaction-boundary
+  argument, date-stamped against eve 0.27.6 and framed as siblings (pick by
+  stack). `docs/why-silas.md` rewritten in the same voice — you build the same
+  things with Silas you'd build with any modern agent framework; the
+  guarantees are where it goes further — and DEPLOY.md dropped its stale "eve
+  without the bill" subtitle.
+
+### Fixed
+
+- The generated `config/initializers/ruby_llm.rb` no longer guards its whole
+  configure block behind `ANTHROPIC_API_KEY` — keyless boots skipped the
+  `use_new_acts_as` opt-in, so every demo-mode boot printed RubyLLM's legacy
+  acts_as deprecation warning. A nil key assignment is inert; the block now
+  always runs.
+
 ## 0.5.0 (2026-07-26)
 
 Two new loop primitives (replay-safe compaction, ask_question), a whole-channel

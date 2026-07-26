@@ -33,21 +33,22 @@
 <% if @sessions.empty? %>
   <div class="empty">No agent sessions yet — start one above.</div>
 <% else %>
-  <% @sessions.each do |session| %>
-    <%= link_to inbox_session_path(session), class: "card session-row" do %>
-      <div class="row-top">
-        <span class="name"><%= session.agent_name %></span>
-        <%# Loaded association — no per-row queries. %>
-        <% if (turn = session.turns.detect(&:active?) || session.turns.last) %><%= status_pill(turn.status) %><% end %>
-        <% pending = @pending_counts.fetch(session.id, 0) %>
-        <% if pending.positive? %><span class="badge"><%= pending %> to approve</span><% end %>
-      </div>
-      <div class="muted">
-        <%= pluralize(session.turns.size, "turn") %> ·
-        <%= session.channel.presence || "direct" %> ·
-        <%= silas_relative_time(session.updated_at) %>
-      </div>
-    <% end %>
+  <%# 06: the rail, grouped by who's blocked. Held = a person is needed
+      (pending approvals/questions, or a turn parked waiting/in_doubt);
+      Working = a worker holds it; Filed = nothing needs anyone. Grouping is
+      over the loaded page — same queries the flat list already ran. %>
+  <%
+    held, rest = @sessions.partition do |s|
+      @pending_counts.fetch(s.id, 0).positive? ||
+        s.turns.any? { |t| %w[waiting in_doubt].include?(t.status) }
+    end
+    working, filed = rest.partition { |s| s.turns.any? { |t| %w[queued running].include?(t.status) } }
+  %>
+  <% { "Held" => held, "Working" => working, "Filed" => filed }.each do |title, group| %>
+    <% next if group.empty? %>
+    <div class="rail-title"><%= title %></div>
+    <%= render partial: "silas/inbox/sessions/row", collection: group, as: :session,
+               locals: { pending_counts: @pending_counts } %>
   <% end %>
   <% if @next_before %>
     <div class="pager">

@@ -1,9 +1,11 @@
-# Deploying Silas ("eve without the bill")
+# Deploying Silas
 
-Silas is an ordinary Rails app, so it deploys to a single cheap VPS with Kamal —
-no platform, no per-use bill. The one thing you MUST get right: the **Solid Queue
-worker has to run**, because the durability contract (a turn surviving a crash /
-deploy) depends on it. A web-only deploy will accept turns and never run them.
+A Silas app is an ordinary Rails app, so it deploys the way your Rails apps
+already deploy — a single cheap VPS with Kamal works fine; there is no second
+runtime or control plane to stand up. The one thing you MUST get right: the
+**Solid Queue worker has to run**, because the durability contract (a turn
+surviving a crash / deploy) depends on it. A web-only deploy will accept turns
+and never run them.
 
 > Status: this is the reference configuration. It is correct by construction
 > (worker wired, rescuer active, secrets injected) but has not yet been run
@@ -83,9 +85,27 @@ Mid-deploy safety is built in: a turn interrupted by the SIGTERM of a rolling
 deploy re-enqueues and resumes (chaos-gated). Recovery latency after a hard
 crash ≈ `SolidQueue.process_alive_threshold` + the rescuer's 30s cadence.
 
+## 3½. Template apps deploy stock
+
+An app generated from `templates/*.rb` needs no deploy surgery: Rails 8.1's
+generated `config/deploy.yml` already runs Solid Queue inside Puma for the
+single-server SQLite shape (`SOLID_QUEUE_IN_PUMA: true` — that satisfies "the
+worker must run"), the template adds `ANTHROPIC_API_KEY` to Kamal's secret
+list and `.kamal/secrets`, and `config/recurring.yml` already carries the
+rescuer. Set the two secrets in your shell, point `deploy.yml` at your server
+and registry, `kamal setup`. Scale beyond one box by moving to the dedicated
+worker role in §1 and a real Postgres in §2.
+
 ## 4. Cost
 
 The whole thing runs on one VPS + your model spend. The engine authenticates
 with an API key for whatever provider you configure through RubyLLM. Your data
 and the ledger never leave your own Postgres, and there is no Silas platform
 bill or per-run metering.
+
+## 5. Local development note (macOS + Postgres)
+
+Solid Queue forks workers, and on macOS the pg gem needs
+`PGGSSENCMODE=disable OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES` in the
+environment or forked workers crash inside libpq. SQLite development needs
+nothing.

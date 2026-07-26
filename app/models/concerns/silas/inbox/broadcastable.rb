@@ -57,6 +57,18 @@ module Silas
 
             silas_inbox_dispatch(:replace, turn.session_id, target: ActionView::RecordIdentifier.dom_id(self),
                                  partial: "silas/inbox/invocations/invocation", locals: { invocation: self })
+
+            # The hoisted card (session top): a fresh park APPENDS it there —
+            # a replace can't, since no target exists until the park — and any
+            # later transition replaces it in place (the partial renders an
+            # empty shell once settled, so the card vanishes).
+            if saved_change_to_approval_state?
+              action = approval_state == "required" ? :append : :replace
+              target = action == :append ? "silas-session-#{turn.session_id}-approvals"
+                                         : ActionView::RecordIdentifier.dom_id(self, :approval)
+              silas_inbox_dispatch(action, turn.session_id, target: target,
+                                   partial: "silas/inbox/invocations/approval_card", locals: { invocation: self })
+            end
           end
         end
       end

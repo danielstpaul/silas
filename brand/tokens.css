@@ -1,0 +1,85 @@
+/* ─────────────────────────────────────────────────────────────────────────
+   Silas colour tokens — drop-in replacement for the two :root blocks in
+   app/views/layouts/silas/inbox.html.erb.
+
+   Direction: "Signals". Dark-first — cool night, one white lamp as the
+   accent, and the four aspect colours a railway signal already has. The
+   lamp means "you can act on this" (links, focus, the live-step dot) and
+   NEVER means state; aspects mean state and nothing else.
+   ───────────────────────────────────────────────────────────────────────── */
+
+:root {
+  /* surface — dark is primary, not a media-query fallback */
+  --bg:          #0F1013;  /* night */
+  --panel:       #16181D;  /* card, input, button face */
+  --ink:         #E9EBEF;  /* body text, wordmark */
+  --muted:       #969CA8;  /* metadata */
+  --line:        #262A33;  /* borders, rules */
+  --grey-bg:     #1D2027;  /* tool rows, <pre> */
+
+  /* the lamp — the accent. Links, focus, the resume dot. NEVER a status. */
+  --accent:      #F2F4F8;
+  --accent-soft: #1D2027;
+
+  /* aspects — run states */
+  --blue:        #58A6FF;  --blue-bg:   #14233D;  /* running */
+  --amber:       #E3B341;  --amber-bg:  #2E2611;  /* waiting → "held" */
+  --violet:      #B49AE8;  --violet-bg: #241E33;  /* in_doubt */
+  --green:       #3FB950;  --green-bg:  #12291B;  /* completed → "clear" */
+  --red:         #F85149;  --red-bg:    #331815;  /* failed */
+  --quiet:       #737A87;  --quiet-line:#4A5160;  /* canceled — dashed, no fill */
+
+  --radius: 8px;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+/* Light is the derivative, not the primary — reading the schedule in a
+   bright office, not the default experience. */
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg:          #F4F4F2;
+    --panel:       #FFFFFF;
+    --ink:         #15171B;
+    --muted:       #5B5F68;
+    --line:        #DCDEE3;
+    --grey-bg:     #EDEEF1;
+
+    --accent:      #274FBF;  /* the lamp becomes route-blue on paper */
+    --accent-soft: #E3E9FA;
+
+    --blue:        #1D4ED8;  --blue-bg:   #DCE7F5;
+    --amber:       #92650E;  --amber-bg:  #FBEED0;
+    --violet:      #63459B;  --violet-bg: #EAE3F7;
+    --green:       #157A3D;  --green-bg:  #DCF3E3;
+    --red:         #B91C1C;  --red-bg:    #FBDCDA;
+    --quiet:       #5B5F68;  --quiet-line:#C7CAD1;
+  }
+}
+
+/* ── NEW pill variants — add beside whatever the current STATUS_CLASS has ── */
+
+.pill-violet { background: var(--violet-bg); color: var(--violet); }
+
+/* canceled: a person stopped it. No fill, no red — a broken lamp, not a red one. */
+.pill-quiet {
+  background: transparent;
+  color: var(--quiet);
+  border: 1px dashed var(--quiet-line);
+  padding: 1px 7px;
+}
+
+/* Running pulses; it's the only aspect that moves. */
+@keyframes lamppulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+.pill-blue { animation: lamppulse 1.4s ease-in-out infinite; }
+
+/* ── Wordmark (docs / inbox header) ──────────────────────────────────────
+   The gem ships no fonts, so this degrades to the platform sans — lowercase
+   still reads as "silas" in any sans, which is why the wordmark is lowercase. */
+header.top .logo {
+  font-family: Archivo, ui-sans-serif, system-ui, -apple-system, sans-serif;
+  font-weight: 800;
+  font-size: 20px;
+  letter-spacing: -0.03em;
+}
+
+a { color: var(--accent); text-underline-offset: 2px; }

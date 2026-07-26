@@ -76,6 +76,19 @@ a preference: `Silas::Webhook.verify_hmac` (constant-time compare, replay
 window, fail-closed on a missing secret) and `Silas::Channel.approval_url` (a
 signed expiring link, host required and never guessed). See `docs/channels.md`.
 
+### The inbox speaks "Signals"; the API speaks database strings
+
+The inbox is themed dark-first (direction "Signals": one white "lamp" accent
+that never means state, plus an aspect colour per run state), and two states
+are relabelled **in the UI only**: `waiting` renders as **held**, `completed`
+as **clear** (`TraceHelper::UI_LABEL`). The database strings and the JSON API
+are untouched — an operator who reads "held" in the inbox and greps the API
+will find `waiting`, and both names appear in the docs for exactly that
+reason. Approval and question cards are hoisted to the top of a session (the
+trace keeps a one-line stub); the hoisted card's DOM id is
+`dom_id(invocation, :approval)` — distinct from the trace row's
+`dom_id(invocation)` — so Turbo can replace each independently.
+
 ### Deprecations
 
 Everything removable goes through `Silas.deprecator`

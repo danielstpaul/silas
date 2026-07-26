@@ -29,6 +29,18 @@
     <div class="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800"><%= flash[:alert] %></div>
   <% end %>
 
+  <%# 0.6: the gem hoists approval/question cards out of the trace — parked
+      invocations broadcast-APPEND their card to this session-scoped container
+      (the same target id the inbox uses), and the trace rows show a one-line
+      "held" stub. Without this container a parked refund would show the stub
+      with nowhere for the card to land. %>
+  <% if @agent_session %>
+    <div id="silas-session-<%= @agent_session.id %>-approvals">
+      <%= render partial: "silas/inbox/invocations/approval_card",
+                 collection: @agent_session.pending_approvals.order(:id), as: :invocation %>
+    </div>
+  <% end %>
+
   <div id="chat-turns" class="space-y-6">
     <% if @turns.blank? %>
       <div class="rounded-xl border border-dashed border-slate-300 p-6 text-sm text-slate-500">

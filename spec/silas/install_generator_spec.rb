@@ -21,6 +21,16 @@ RSpec.describe Silas::Generators::InstallGenerator do
       .to include("ANTHROPIC_API_KEY")
   end
 
+  it "installs the coding-agent skill with the load-bearing rules" do
+    silenced { run_generator }
+    skill = File.read(File.join(dest, ".claude/skills/silas/SKILL.md"))
+    expect(skill).to start_with("---\nname: silas\n")     # valid skill frontmatter
+    expect(skill).to include("transactional!")            # the effect-mode decision table
+    expect(skill).to include("Never mark an external call `transactional!`")
+    expect(skill).to include("NondeterminismError")       # the parked-turn deploy rule
+    expect(skill).to include("bundle show silas")         # points at the bundled docs
+  end
+
   it "leaves an existing ruby_llm initializer byte-identical" do
     FileUtils.mkdir_p(File.join(dest, "config/initializers"))
     existing = "RubyLLM.configure { |c| c.openai_api_key = ENV[\"MY_KEY\"] } # brownfield\n"

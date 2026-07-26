@@ -1,0 +1,24 @@
+name: Feature request
+description: Something the framework should do — check the scope list first.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: >
+        Heads-up: CONTRIBUTING.md has a short list of things Silas
+        deliberately doesn't do (provider abstraction, RAG, hosted state,
+        component libraries…). Worth a skim before writing.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to build?
+      description: The agent/app you're building and where the framework fights you today.
+    validations:
+      required: true
+  - type: textarea
+    id: shape
+    attributes:
+      label: What would the surface look like?
+      description: >
+        Silas favours files over APIs — a tool file, a YAML, a directory
+        convention. Sketch the file you wish you could write.

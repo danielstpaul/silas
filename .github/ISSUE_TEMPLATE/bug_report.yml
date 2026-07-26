@@ -1,0 +1,36 @@
+name: Bug report
+description: Something broke — or worse, broke the durability contract.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction
+      description: >
+        Smallest path you know. A prompt + tool file is great; a failing eval
+        scenario (Silas::Eval.scenario) is gold.
+      render: shell
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      placeholder: "silas 0.5.0 · rails 8.1.3 · ruby 3.4.10 · sqlite/postgres"
+    validations:
+      required: true
+  - type: checkboxes
+    id: contract
+    attributes:
+      label: Contract check
+      options:
+        - label: >
+            This involves a duplicated tool effect, a turn resuming
+            differently after a crash/deploy, or an approval firing without a
+            person — i.e. the durability contract itself. (These get priority;
+            please include the turn's trace from /silas/inbox if you can.)
