@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/danielstpaul/silas/main/brand/silas-mark.svg">
-    <img src="https://raw.githubusercontent.com/danielstpaul/silas/main/brand/silas-mark-light.svg" alt="Silas" width="72" height="72">
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/danielstpaul/silas/main/brand/silas-wordmark.svg">
+    <img src="https://raw.githubusercontent.com/danielstpaul/silas/main/brand/silas-wordmark-light.svg" alt="silas" width="150">
   </picture>
 </p>
 
@@ -10,8 +10,6 @@
   <a href="https://github.com/danielstpaul/silas/actions/workflows/ci.yml"><img src="https://github.com/danielstpaul/silas/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://github.com/danielstpaul/silas/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
 </p>
-
-# silas
 
 Silas is a Rails-native framework for durable AI agents. An agent's
 capabilities live as plain files in conventional locations inside the app you

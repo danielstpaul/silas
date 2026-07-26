@@ -66,19 +66,16 @@ a tool you type, not a company you meet — every competitor's wordmark is a
 capitalized logotype. Minimum size 16px cap height; below that use the mark
 alone. Clearspace on all sides = the cap height of the s.
 
-### Outlining the wordmark — required before publishing
+### Outlining the wordmark — DONE (2026-07-26)
 
-`brand/silas-wordmark*.svg` ship with a live `<text>` element. On a machine
-without Archivo they fall back to a default sans, which is a visibly
-different weight and spacing. Convert to paths once, commit the result:
-
-```sh
-inkscape silas-wordmark.svg --export-text-to-path --export-plain-svg=out.svg
-# or open in Figma/Illustrator/Affinity: select text, Outline / Create Outlines
-# or: npm i -g svg-text-to-path && svg-text-to-path silas-wordmark.svg
-```
-
-After outlining, delete the SHIP BLOCKER comment from the file.
+`brand/silas-wordmark*.svg` are now pure paths (Archivo ExtraBold 800,
+tracking −1.1px at 27px, outlined via opentype.js from Google Fonts' static
+800 TTF) and render identically everywhere — no font dependency. The canvas
+was tightened 160×40 → 90×40 so the lockup centers true. To regenerate after
+a wordmark change: fetch the static TTF from the css2 API
+(`family=Archivo:wght@800`, non-browser UA), then
+`font.getPath("silas", 30, 29, 27, { kerning: true, letterSpacing: -1.1/27 })`
+and drop the path where the `<text>` node was.
 
 ## Colour
 
