@@ -1,31 +1,38 @@
 # silas
 
-> The agent framework for Rails: durable AI agents as a directory of plain
-> files inside an existing Rails app. Exactly-once tool effects (effect +
-> ledger in one database transaction), human-in-the-loop approvals that park
-> at zero compute, crash-safe turns that resume byte-identical after kill -9,
-> replay-safe context compaction, an operator inbox mounted in the host app,
-> and deterministic agent evals. Ruby gem; Rails >= 8.1 + Solid Queue.
+> Silas is a Rails-native framework for durable AI agents: capabilities as
+> plain files inside an existing Rails app, exactly-once tool effects (effect
+> + ledger in one database transaction), human-in-the-loop approvals that
+> park at zero compute, crash-safe turns that resume byte-identical after
+> kill -9, replay-safe context compaction, an operator inbox mounted in the
+> host app, and deterministic agent evals. Ruby gem; Rails >= 8.1 + Solid
+> Queue.
 
-Quickstart: `rails new desk -m https://raw.githubusercontent.com/danielstpaul/silas/main/template.rb`
+Quickstart: `rails new my-agent -m https://raw.githubusercontent.com/danielstpaul/silas/main/template.rb`
 (or `bundle add silas && bin/rails g silas:install` in an existing app).
 All docs below are plain markdown and also ship inside the gem package.
 
 ## Docs
 
-- [README](https://raw.githubusercontent.com/danielstpaul/silas/main/README.md): overview, guarantees, capability grid
+- [README](https://raw.githubusercontent.com/danielstpaul/silas/main/README.md): overview and quick start
 - [Tutorial](https://raw.githubusercontent.com/danielstpaul/silas/main/docs/tutorial.md): build a refund desk, one primitive per chapter
+- [Guarantees](https://raw.githubusercontent.com/danielstpaul/silas/main/docs/guarantees.md): exactly-once, in-doubt parking, crash-safe turns, verification
+- [Tools & approvals](https://raw.githubusercontent.com/danielstpaul/silas/main/docs/tools.md): effect modes, approval policies, skills
+- [Agents & staff](https://raw.githubusercontent.com/danielstpaul/silas/main/docs/agents.md): named agents, subagents, handoffs, schedules
+- [Memory](https://raw.githubusercontent.com/danielstpaul/silas/main/docs/memory.md): approval-gated triples with provenance
+- [Channels](https://raw.githubusercontent.com/danielstpaul/silas/main/docs/channels.md): Slack, email, and generating transports
+- [Inbox & API](https://raw.githubusercontent.com/danielstpaul/silas/main/docs/inbox-and-api.md): operator surface, JSON + SSE, streaming, structured answers
+- [Connections](https://raw.githubusercontent.com/danielstpaul/silas/main/docs/connections.md): remote MCP servers as YAML files
 - [Evals](https://raw.githubusercontent.com/danielstpaul/silas/main/docs/evals.md): scripted model decisions, real ledger, deploy gates
 - [Budgets](https://raw.githubusercontent.com/danielstpaul/silas/main/docs/budgets.md): per-turn caps, parking, human top-ups
 - [Cancellation](https://raw.githubusercontent.com/danielstpaul/silas/main/docs/cancellation.md): cancel semantics mid-flight
-- [Connections](https://raw.githubusercontent.com/danielstpaul/silas/main/docs/connections.md): remote MCP servers as YAML files
-- [Channels](https://raw.githubusercontent.com/danielstpaul/silas/main/docs/channels.md): Slack, email, and generating transports
+- [Sandbox](https://raw.githubusercontent.com/danielstpaul/silas/main/docs/sandbox.md): code execution, Docker seam, hermetic
 - [Configuration](https://raw.githubusercontent.com/danielstpaul/silas/main/docs/configuration.md): every Silas.configure option with defaults
 - [Conventions](https://raw.githubusercontent.com/danielstpaul/silas/main/docs/conventions.md): contracts the UI and API keep
 - [Deploy](https://raw.githubusercontent.com/danielstpaul/silas/main/DEPLOY.md): production notes from the chaos harness
 
 ## Optional
 
-- [Why Silas](https://raw.githubusercontent.com/danielstpaul/silas/main/docs/why-silas.md): positioning and honest limits
+- [Why Silas](https://raw.githubusercontent.com/danielstpaul/silas/main/docs/why-silas.md): positioning
 - [Silas vs eve](https://raw.githubusercontent.com/danielstpaul/silas/main/docs/vs-eve.md): date-stamped comparison
 - [Changelog](https://raw.githubusercontent.com/danielstpaul/silas/main/CHANGELOG.md)

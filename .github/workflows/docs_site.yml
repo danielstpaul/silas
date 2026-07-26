@@ -32,12 +32,10 @@ jobs:
           working-directory: site
       - name: Assemble sources
         # The markdown source of record is docs/ (shipped in the gem,
-        # frontmatter-free); images stay on raw.githubusercontent URLs.
-        run: |
-          cp docs/*.md site/
-          cp DEPLOY.md site/deploy.md
-          mkdir -p site/assets
-          cp brand/silas-wordmark.svg brand/silas-favicon.svg site/assets/
+        # frontmatter-free); assemble.rb copies it in and injects the nav
+        # frontmatter, and fails if a docs page has no nav entry.
+        working-directory: site
+        run: ruby assemble.rb
       - name: Build
         working-directory: site
         env:

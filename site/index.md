@@ -3,59 +3,49 @@ title: Home
 nav_order: 1
 ---
 
-# silas — the agent framework for Rails
+# silas
 
-Durable AI agents as a directory of plain files, inside the app you already
-run — with guarantees that go further than the category's: **tool effects land
-exactly once**, **consequential calls hold at the signal until a person clears
-them**, and **turns survive `kill -9`** and resume byte-identical. Verified by
-a reproducible chaos harness on every release, not asserted.
+Silas is a Rails-native framework for durable AI agents. An agent's
+capabilities live as plain files in conventional locations inside the app you
+already run — easy to inspect, extend, and operate — and its tool effects
+land **exactly once**, even through a crash.
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/danielstpaul/silas/main/docs/img/silas-hero-dark.png" width="900"
-       alt="app/agents/analyst/ on the left, a durable turn holding at a signal in the middle, the inbox approval card on the right">
-</p>
-
-## Sixty seconds, no API key
-
-From nothing:
-
-```bash
-rails new desk -m https://raw.githubusercontent.com/danielstpaul/silas/main/template.rb
-cd desk && bin/dev
+```
+app/agent/
+  instructions.md   # the persona
+  agent.yml         # model + limits — data only
+  tools/            # one file per tool; filename = identity, keywords = schema
+  skills/           # markdown playbooks, loaded on demand
+  schedules/        # cron frontmatter -> recurring turns
+  channels/         # slack.rb, email.rb — transports bound to the loop
+  connections/      # remote MCP servers as <name>.yml
 ```
 
-Or in the app you already have:
+## Quick start
+
+```bash
+rails new my-agent -m https://raw.githubusercontent.com/danielstpaul/silas/main/template.rb
+cd my-agent && bin/dev
+```
+
+This creates a new agent app with Solid Queue wired, a starter refund-desk
+agent installed, and a keyless demo — no API key needed for the first run.
+To add Silas to an existing app instead:
 
 ```bash
 bundle add silas
 bin/rails generate silas:install && bin/rails db:migrate
 ```
 
-The template builds a working refund desk: paste *"The walnut monitor stand
-(order R-1002) arrived cracked."* into the inbox, watch the £64 refund hold at
-the signal, clear it, and count exactly one refund row. A scripted stand-in
-drives the keyless demo through the real tools, real ledger, and real hold.
+## Learn
 
-## Where to go
+Start with the **[tutorial](tutorial)** — it builds the refund desk outward,
+one primitive per chapter — and read **[guarantees](guarantees)** for what's
+promised (exactly-once effects, holds at zero compute, crash-safe turns) and
+how each claim is verified. Everything else is in the sidebar: **Core** for
+the pieces every agent uses, **Advanced** for the rest, **Reference** for
+configuration and deploy.
 
-Start with **[the tutorial](tutorial)** — it builds the desk outward, one
-primitive per chapter — then go by capability:
-
-- **[Guarantees](guarantees)** — exactly-once, in-doubt parking, crash-safe
-  turns, and how each is verified.
-- **[Tools & approvals](tools)** — effect modes, approval policies, skills.
-- **[Agents & staff](agents)** — named agents, subagents, handoffs,
-  schedules.
-- **[Memory](memory)** · **[Inbox & API](inbox-and-api)** ·
-  **[Channels](channels)** · **[Evals](evals)**
-- **[Budgets](budgets)** · **[Cancellation](cancellation)** ·
-  **[Connections](connections)** · **[Sandbox](sandbox)**
-- **[Configuration](configuration)** — every option, with defaults — and
-  **[Deploy](deploy)**.
-- **[Why Silas](why-silas)** and **[Silas vs eve](vs-eve)** — positioning,
-  and an honest comparison.
-
-Everything here also ships **inside the gem** — `bundle show silas`, then read
-`docs/` offline. The installer writes a Claude Code skill so a coding agent
-building on your app already knows the rules.
+All of these docs also ship inside the gem — `bundle show silas`, then read
+`docs/` offline — and the installer writes a Claude Code skill so a coding
+agent building on your app already knows the conventions.

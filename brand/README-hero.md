@@ -1,4 +1,13 @@
-# Using the hero in README.md
+# Using the hero
+
+**Role change (2026-07-26):** the hero no longer opens the README. Silas
+frames as a framework, not a UI (eve's posture), so the README leads with the
+mark + wordmark and the file tree; the hero's home is the **repo's social
+preview image** (Settings → General → Social preview — upload
+`docs/img/silas-hero-dark.png`), where stylized illustration is expected.
+Note the hero's inbox panel is a designed idealization, not a screenshot —
+another reason it shouldn't sit where users compare it to `/silas/inbox`.
+The markup below is kept for that social-card/docs use.
 
 This direction is dark-first. `brand/silas-hero-dark.png` (3200x1760, 2x) is
 the only rendered frame and ships as a plain image — no `<picture>` swap yet:

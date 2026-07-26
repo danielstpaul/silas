@@ -5,3 +5,7 @@ _preview/
 assets/
 *.md
 !index.md
+!core.md
+!advanced.md
+!reference.md
+!about.md

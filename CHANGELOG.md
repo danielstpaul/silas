@@ -56,9 +56,17 @@
   re-hardcoding a palette, and hosts the hoisted approval/question cards above
   its transcript.
 
-- **README reframed** — small and brand-forward (hero, badges, thesis, tree,
-  quickstart, one minimal example, a docs index), with the depth moved into
-  the per-capability docs above. `docs/vs-eve.md` was **factually rewritten**
+- **README reframed, framework-first** — it now mirrors eve's shape exactly:
+  the mark as the logo (dark/light `<picture>`), badges, a one-paragraph
+  thesis, "The filesystem is the authoring interface" with the tree, quick
+  start, one minimal example, status/community/license. The hero illustration
+  moved to the repo's social-preview role (its inbox panel is a designed
+  idealization, not a screenshot — it shouldn't sit where users compare it to
+  the real `/silas/inbox`). The docs site nav is grouped eve-style — Tutorial
+  and Guarantees up top, then **Core / Advanced / Reference / About**
+  sections — via build-time frontmatter injection (`site/assemble.rb`, which
+  fails the build if a docs page lacks a nav entry), keeping the gem-shipped
+  markdown frontmatter-free. `docs/vs-eve.md` was **factually rewritten**
   (2026-07-26): the previous revision described eve as a managed-cloud
   platform; eve is fully self-hostable, and the comparison now rests on what's
   actually different — exactly-once vs documented at-least-once, a shipped
