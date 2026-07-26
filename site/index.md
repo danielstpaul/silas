@@ -1,5 +1,6 @@
 ---
 title: Home
+description: "Silas is a Rails-native framework for durable AI agents: plain files in your app, exactly-once tool effects, holds at the signal, crash-safe turns."
 nav_order: 1
 ---
 

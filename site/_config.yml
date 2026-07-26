@@ -33,6 +33,14 @@ plugins:
   # Rewrites relative [text](other.md) links to the rendered pages — without
   # this, cross-links between docs open the raw markdown copies.
   - jekyll-relative-links
+  # SEO/AEO: <title>/description/canonical/Open Graph/Twitter/JSON-LD from
+  # page front matter (assemble.rb injects per-page descriptions), plus
+  # sitemap.xml for crawlers.
+  - jekyll-seo-tag
+  - jekyll-sitemap
+
+twitter:
+  card: summary_large_image
 
 titles_from_headings:
   enabled: true
@@ -43,6 +51,8 @@ defaults:
       path: ""
     values:
       layout: default
+      # Social/og image for every page (front matter can override).
+      image: https://raw.githubusercontent.com/danielstpaul/silas/main/docs/img/silas-hero-dark.png
 
 exclude:
   - Gemfile
