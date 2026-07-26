@@ -1,6 +1,21 @@
 # Changelog
 
-## Unreleased
+## 0.6.1 (2026-07-26)
+
+Two live-inbox fixes found by driving real apps, a security hardening pass,
+and the polished brand kit.
+
+### Changed
+
+- **Polished brand geometry everywhere.** Lamps sit on a shared r4.8 circle
+  (proceed and held aspects now one geometry), the favicon is redrawn
+  natively at 32px with a heavier housing (it reads at 16px now), and the
+  wordmark lockup is cropped to the ink — re-outlined to font-independent
+  paths on the new geometry. The inbox layout's favicon and header mark
+  carry the new coordinates, as do the templates' landing pages.
+- The docs gained real product imagery: an 18-frame park→approve→clear GIF
+  captured from a genuine template-app run, the held approval card, and the
+  signal board — on the site landing, inbox-and-api, and tutorial pages.
 
 ### Fixed
 
