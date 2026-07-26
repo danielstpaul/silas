@@ -1,6 +1,10 @@
 # Changelog
 
-## Unreleased
+## 0.6.0 (2026-07-26)
+
+The brand release: the Signals inbox, the docs surface (site + gem-shipped
+guides + tutorial), the templates family (desk + analyst) with its anti-rot
+CI gate, community files, and the framework-first README.
 
 ### Added
 
