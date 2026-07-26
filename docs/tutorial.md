@@ -11,7 +11,7 @@ except "talk to a real model" works keyless).
 ## 1 · Open the desk
 
 ```bash
-rails new desk -m https://raw.githubusercontent.com/danielstpaul/silas/main/template.rb
+rails new desk -m https://raw.githubusercontent.com/danielstpaul/silas/main/templates/desk.rb
 cd desk && bin/dev
 ```
 

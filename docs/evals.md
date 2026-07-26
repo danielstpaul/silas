@@ -42,7 +42,7 @@ step index with no entry ends the scripted conversation.
 | Call | Meaning |
 |---|---|
 | `input "…"` | The turn's input. Required. |
-| `on_step i, text:, call:, calls:` | The scripted model output for step `i`. |
+| `on_step i, text:, call:, calls:, data:` | The scripted model output for step `i`. `data:` scripts a **structured answer** (the `final_answer` schema case) — it becomes the same block the real adapter persists, so `assert_answer_data` reads it back. |
 | `approve tool: "name"` | When the turn parks on this tool, approve it (recorded as approved by `"eval"` — the same `approve!` the inbox uses) and resume. This is how you assert exactly-once **across** a hold. |
 | `stub_tool "name", effect_mode:, approval: { \|**args\| … }` | Replace a real tool with a stub for a side-effect-free scenario. Unstubbed tools stay real. |
 | `mode :real` | Drive a real model instead of the script. **Skipped automatically when `ANTHROPIC_API_KEY` is unset**, so the gate stays green offline. |

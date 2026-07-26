@@ -24,7 +24,7 @@ app/agent/
 ## Quick start
 
 ```bash
-rails new my-agent -m https://raw.githubusercontent.com/danielstpaul/silas/main/template.rb
+rails new my-agent -m https://raw.githubusercontent.com/danielstpaul/silas/main/templates/desk.rb
 cd my-agent && bin/dev
 ```
 

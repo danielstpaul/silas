@@ -1,22 +1,17 @@
 # coding: utf-8
 
-# Silas application template — a deployable agent app from nothing:
+# Silas application template — the analyst:
 #
-#   rails new desk -m https://raw.githubusercontent.com/danielstpaul/silas/main/template.rb
+#   rails new analyst -m https://raw.githubusercontent.com/danielstpaul/silas/main/templates/analyst.rb
 #
-# What you get: a refund desk agent (three tools, one per effect mode, with a
-# money gate that holds refunds over £25 for a human), the operator inbox
-# mounted at /silas/inbox, Solid Queue wired in development (the durability
-# contract needs a real worker), a keyless scripted demo so the first boot
-# works with zero secrets, deterministic agent evals as a CI gate, and a
-# signal-board landing page.
-#
-# The template only runs generators and writes files you own — delete the desk
-# and write your own agent whenever you're ready. Requires Rails >= 8.1.
+# A reporting agent over a small metrics table: reads move freely, anomalies
+# are flagged as rows (exactly-once), and PUBLISHING anything holds at the
+# signal until a person clears it. Ships a Monday-morning schedule, a
+# schema-checked structured answer, a keyless scripted demo, deterministic
+# evals, and a signal-board landing page. Requires Rails >= 8.1.
 #
 # CI note: SILAS_PATH=/path/to/checkout uses a local silas instead of the
-# released gem (this is how silas's own template_smoke workflow verifies that
-# this file can never drift from the gem).
+# released gem (the templates_smoke workflow verifies every template this way).
 
 # Locale-less environments (some docker/CI shells) leave Ruby's external
 # encoding at US-ASCII, which breaks Thor's file mutations on any file
@@ -31,30 +26,28 @@ end
 
 after_bundle do
   # ── Silas itself ─────────────────────────────────────────────────────────
-  # Initializers, app/agent skeleton, channels, the Claude Code skill,
-  # recurring.yml rescuer entry, engine mount, and the silas migrations.
   generate "silas:install"
 
-  # ── The desk: one agent, three tools, one per effect mode ────────────────
+  # ── The analyst: one agent, three tools, one per effect mode ─────────────
   remove_file "app/agent/tools/example_tool.rb"
 
-  create_file "app/agent/instructions.md", force: true, verbose: true do
+  create_file "app/agent/instructions.md", force: true do
     <<~'MD'
-      # The refund desk
+      # The analyst
 
-      You are the refund desk for a small goods shop, talking directly to
-      customers about their orders.
+      You are the in-house analyst for a small goods shop. You report on the
+      metrics table and nothing else.
 
       Rules:
 
-      - Always look the order up before promising anything.
-      - Never quote an amount a tool didn't return.
-      - Refunds at or under £25.00 clear immediately. Larger refunds are issued
-        the same way but HOLD for a person on our side to clear — tell the
-        customer it's been sent for a quick check, never that it failed.
-      - After any refund goes through, send the customer a short confirmation.
-
-      Tone: plain, warm, brief. Pounds and pence — never abstract units.
+      - Always query the metrics before stating any number. Never quote a
+        figure a tool didn't return.
+      - Compare week over week. Call out any metric that moved more than 20%
+        — and flag it with flag_anomaly so it's on the record.
+      - Publishing a report is consequential: publish_report HOLDS until an
+        operator clears it. That's expected — say the report is awaiting
+        clearance, never that something failed.
+      - Keep digests to five lines. Numbers in pounds and pence.
     MD
   end
 
@@ -62,146 +55,156 @@ after_bundle do
     <<~'YAML'
       # Data-only agent config. Model defaults to Silas.config.default_model.
       # model: claude-sonnet-4-5
-      description: Refund desk — looks up orders, issues refunds (holds over £25), sends confirmations.
+      description: The analyst — reads the metrics, flags anomalies, publishes digests (held for clearance).
       limits:
         max_steps: 8      # model calls per turn
         max_cost: 0.25    # dollars per turn
         timeout: 300      # seconds of ACTIVE work — held time doesn't count
+
+      # Structured final answers: the turn's verdict comes back as a Hash on
+      # Turn#answer_data (and over the API as answer_data), schema-checked.
+      final_answer:
+        type: object
+        properties:
+          verdict: { type: string }
+          wow_delta: { type: string }
+        required: [verdict]
     YAML
   end
 
-  create_file "app/agent/tools/lookup_order.rb" do
+  create_file "app/agent/tools/query_metrics.rb" do
     <<~'RUBY'
-      # Tool identity is the filename: this is the "lookup_order" tool.
+      # Tool identity is the filename: this is the "query_metrics" tool.
       # The keyword signature of #call IS the schema the model sees.
-      class Agent::Tools::LookupOrder < Silas::Tool
-        description "Look up an order by its number (e.g. R-1002)."
+      class Agent::Tools::QueryMetrics < Silas::Tool
+        description "Read daily metrics, newest first (revenue_pence, refunds_pence, orders)."
+        param :days, :integer, desc: "How many days back to read (default 14)"
         idempotent! # read-only, so crash replays may re-run it freely
 
-        def call(number:)
-          order = Order.find_by(number: number.to_s.upcase.strip)
-          return { error: "no order #{number}" } unless order
+        def call(metric: nil, days: 14)
+          rows = Metric.where(recorded_on: days.days.ago.to_date..)
+          rows = rows.where(name: metric.to_s) if metric
+          return { error: "no metrics recorded" } if rows.none?
 
-          { number: order.number, email: order.email, item: order.item,
-            amount_pence: order.amount_pence, status: order.status,
-            refunded_pence: order.refunds.sum(:amount_pence) }
+          { metrics: rows.order(recorded_on: :desc).map do |m|
+            { name: m.name, value: m.value, recorded_on: m.recorded_on.iso8601 }
+          end }
         end
       end
     RUBY
   end
 
-  create_file "app/agent/tools/issue_refund.rb" do
+  create_file "app/agent/tools/flag_anomaly.rb" do
     <<~'RUBY'
-      # The money path. transactional! means the refund row and the ledger's
-      # "this ran" record commit in ONE database transaction — exactly-once,
-      # even through kill -9 mid-turn. Only ever declare it when the side
-      # effect lives in this app's own tables; the ledger cannot roll back a
-      # sent email.
-      class Agent::Tools::IssueRefund < Silas::Tool
-        description "Refund part or all of an order."
-        param :amount_pence, :integer, desc: "Amount to refund, in pence (1800 = £18.00)"
+      # transactional!: the anomaly row and the ledger's "this ran" record
+      # commit in ONE database transaction — exactly-once, even through
+      # kill -9. Right here because the effect lives in this app's own tables.
+      class Agent::Tools::FlagAnomaly < Silas::Tool
+        description "Put an unusual metric movement on the record."
         transactional!
-        # At or under £25 the agent clears itself; over £25 the turn HOLDS at
-        # the signal — zero compute — until a person clears it in /silas/inbox.
-        approval ->(session:, input:) { input[:amount_pence] > 2_500 ? :user_approval : :approved }
 
-        def call(number:, amount_pence:, reason:)
-          order = Order.find_by(number: number.to_s.upcase.strip)
-          return { error: "no order #{number}" } unless order
-
-          remaining = order.amount_pence - order.refunds.sum(:amount_pence)
-          return { error: "only #{remaining}p left to refund on #{order.number}" } if amount_pence > remaining
-
-          refund = order.refunds.create!(amount_pence: amount_pence, reason: reason)
-          order.update!(status: "refunded") if amount_pence == remaining
-          { refunded_pence: refund.amount_pence, order: order.number, refund_id: refund.id }
+        def call(metric:, recorded_on:, note:)
+          anomaly = Anomaly.find_or_create_by!(metric: metric.to_s, recorded_on: Date.parse(recorded_on.to_s)) do |a|
+            a.note = note
+          end
+          { flagged: anomaly.metric, recorded_on: anomaly.recorded_on.iso8601, anomaly_id: anomaly.id }
         end
       end
     RUBY
   end
 
-  create_file "app/agent/tools/notify_customer.rb" do
+  create_file "app/agent/tools/publish_report.rb" do
     <<~'RUBY'
-      # External side effects (email, Slack, SMS, any HTTP call) stay
-      # at_most_once! — if a crash makes "did it actually send?" ambiguous,
-      # the invocation parks IN DOUBT for a human verdict instead of firing
-      # again blind. Swap the body for your real transport; keep the mode.
-      class Agent::Tools::NotifyCustomer < Silas::Tool
-        description "Send the customer a short confirmation note about their order."
+      # Publishing leaves the building, so it's at_most_once! (a crash that
+      # makes "did it post?" ambiguous parks IN DOUBT for a human) and it
+      # ALWAYS holds for clearance first — nothing posts until a person
+      # clears it. Swap the body for your real Slack/email transport.
+      class Agent::Tools::PublishReport < Silas::Tool
+        description "Publish a finished digest to a channel."
+        approval :always
         at_most_once!
 
-        def call(number:, message:)
-          order = Order.find_by(number: number.to_s.upcase.strip)
-          return { error: "no order #{number}" } unless order
-
-          # Stand-in transport: replace with your mailer / Slack / SMS call.
-          Rails.logger.info("[desk] to=#{order.email}: #{message}")
-          { delivered: true, to: order.email }
+        def call(channel:, body:)
+          # Stand-in transport: replace with your Slack/mailer call.
+          Rails.logger.info("[analyst] publish to=#{channel}: #{body}")
+          { posted: true, channel: channel }
         end
       end
     RUBY
   end
 
-  # ── Domain: orders + refunds ─────────────────────────────────────────────
+  create_file "app/agent/schedules/monday_kpis.md" do
+    <<~'MD'
+      ---
+      cron: "0 7 * * 1"
+      ---
+      Pull the last 14 days of metrics, compute week-over-week deltas for
+      revenue, refunds, and orders, flag anything that moved more than 20%,
+      and publish the Monday digest to #metrics.
+    MD
+  end
+
+  # ── Domain: a small metrics table + anomalies ────────────────────────────
   # Fixed past timestamp: a generation-time stamp can land in the same second
   # as the silas migrations the installer copies, colliding on version number.
-  create_file "db/migrate/20260101000000_create_desk.rb" do
+  create_file "db/migrate/20260101000000_create_metrics.rb" do
     <<~'RUBY'
-      class CreateDesk < ActiveRecord::Migration[8.1]
+      class CreateMetrics < ActiveRecord::Migration[8.1]
         def change
-          create_table :orders do |t|
-            t.string :number, null: false
-            t.string :email, null: false
-            t.string :item, null: false
-            t.integer :amount_pence, null: false
-            t.string :status, null: false, default: "paid"
+          create_table :metrics do |t|
+            t.string :name, null: false
+            t.integer :value, null: false
+            t.date :recorded_on, null: false
             t.timestamps
           end
-          add_index :orders, :number, unique: true
+          add_index :metrics, [:name, :recorded_on], unique: true
 
-          create_table :refunds do |t|
-            t.references :order, null: false, foreign_key: true
-            t.integer :amount_pence, null: false
-            t.string :reason
+          create_table :anomalies do |t|
+            t.string :metric, null: false
+            t.date :recorded_on, null: false
+            t.string :note
             t.timestamps
           end
+          add_index :anomalies, [:metric, :recorded_on], unique: true
         end
       end
     RUBY
   end
 
-  create_file "app/models/order.rb" do
+  create_file "app/models/metric.rb" do
     <<~'RUBY'
-      class Order < ApplicationRecord
-        has_many :refunds, dependent: :destroy
+      class Metric < ApplicationRecord
       end
     RUBY
   end
 
-  create_file "app/models/refund.rb" do
+  create_file "app/models/anomaly.rb" do
     <<~'RUBY'
-      class Refund < ApplicationRecord
-        belongs_to :order
+      class Anomaly < ApplicationRecord
       end
     RUBY
   end
 
   append_to_file "db/seeds.rb" do
     <<~'RUBY'
-      [
-        { number: "R-1001", email: "ada@example.com",   item: "field notebook",       amount_pence: 1_800 },
-        { number: "R-1002", email: "ada@example.com",   item: "walnut monitor stand", amount_pence: 6_400 },
-        { number: "R-1003", email: "grace@example.com", item: "canvas tote",          amount_pence: 2_200 }
-      ].each do |attrs|
-        Order.find_or_create_by!(number: attrs[:number]) { |o| o.assign_attributes(attrs) }
+      # Two deterministic weeks: revenue up ~4%, orders steady, and a refunds
+      # spike five days ago for the agent to find.
+      revenue = [ 178_00, 181_00, 175_00, 190_00, 186_00, 179_00, 183_00,
+                  184_00, 188_00, 181_00, 196_00, 193_00, 187_00, 191_00 ]
+      refunds = [ 6_00, 4_00, 5_00, 7_00, 5_00, 6_00, 4_00,
+                  5_00, 6_00, 27_00, 5_00, 4_00, 6_00, 5_00 ]
+      orders  = [ 21, 22, 20, 24, 23, 21, 22, 22, 23, 21, 25, 24, 22, 23 ]
+
+      { "revenue_pence" => revenue, "refunds_pence" => refunds, "orders" => orders }.each do |name, series|
+        series.each_with_index do |value, i|
+          date = Date.current - (series.size - 1 - i)
+          Metric.find_or_create_by!(name: name, recorded_on: date) { |m| m.value = value }
+        end
       end
     RUBY
   end
 
   # ── Keyless demo: a scripted stand-in when no provider key is set ────────
-  # It fakes ONLY the model's decisions. Everything else is real: the tools
-  # hit the real tables, the Ledger enforces exactly-once, the £64 refund
-  # genuinely holds for approval. (Same seam the eval harness scripts.)
   create_file "lib/demo_adapter.rb" do
     <<~'RUBY'
       class DemoAdapter < Silas::Adapters::Base
@@ -209,56 +212,48 @@ after_bundle do
           input = context[:turn].input.to_s.downcase
           index = context[:index]
 
-          if input.include?("r-1002")
-            held_story(index, &on_event)
-          elsif input.include?("r-1001")
-            clear_story(index, &on_event)
+          if input.include?("digest") || input.include?("monday") || input.include?("publish")
+            digest_story(index, &on_event)
+          elsif input.include?("anomal") || input.include?("refund")
+            read_story(index, &on_event)
           else
-            say("(Keyless demo — I'm a scripted stand-in, not a model. I know two " \
-                "stories: order R-1001, an £18 field notebook that arrived damaged " \
-                "— that refund clears itself — and order R-1002, a £64 walnut " \
-                "monitor stand that arrived cracked — that refund HOLDS at the " \
-                "signal until you clear it in /silas/inbox. Mention an order " \
-                "number to start one. Set ANTHROPIC_API_KEY and restart to talk " \
+            say("(Keyless demo — I'm a scripted stand-in, not a model. Ask for " \
+                "\"the Monday digest\" to watch a report get built, an anomaly " \
+                "flagged exactly once, and publish_report HOLD at the signal " \
+                "until you clear it in /silas/inbox. Ask \"any anomalies?\" for " \
+                "a read-only pass. Set ANTHROPIC_API_KEY and restart to talk " \
                 "to a real model.)", &on_event)
           end
         end
 
         private
 
-        # £18 — under the gate: looks up, refunds immediately, confirms.
-        def clear_story(index, &on_event)
+        # The full Monday run: read, flag the refunds spike (exactly-once row),
+        # then publish — which HOLDS until an operator clears it.
+        def digest_story(index, &on_event)
           case index
-          when 0 then tool("lookup_order", { "number" => "R-1001" })
-          when 1 then tool("issue_refund", { "number" => "R-1001", "amount_pence" => 1800,
-                                             "reason" => "arrived damaged" })
-          when 2 then tool("notify_customer", { "number" => "R-1001",
-                                                "message" => "We've refunded £18.00 for the field notebook." })
-          else say("Sorry about the notebook, Ada — I've refunded the full £18.00 to your " \
-                   "original payment method and sent a confirmation. It should appear " \
-                   "within a few days.", &on_event)
+          when 0 then tool("query_metrics", { "days" => 14 })
+          when 1 then tool("flag_anomaly", { "metric" => "refunds_pence",
+                                             "recorded_on" => (Date.current - 4).iso8601,
+                                             "note" => "refunds 5x the daily norm" })
+          when 2 then tool("publish_report", { "channel" => "#metrics",
+                                               "body" => "Revenue £191.00 (+4.2% WoW). Orders steady. One refunds spike (£27.00), flagged." })
+          else answer("verdict" => "revenue improving; the refunds spike was flagged and the digest is published",
+                      "wow_delta" => "+4.2%")
           end
         end
 
-        # £64 — over the gate: the refund call HOLDS for a human. Clearing it
-        # in /silas/inbox resumes the turn exactly where it stopped.
-        def held_story(index, &on_event)
+        # Read-only: nothing to clear, the turn just answers.
+        def read_story(index, &on_event)
           case index
-          when 0 then tool("lookup_order", { "number" => "R-1002" })
-          when 1 then tool("issue_refund", { "number" => "R-1002", "amount_pence" => 6400,
-                                             "reason" => "arrived cracked" })
-          when 2 then tool("notify_customer", { "number" => "R-1002",
-                                                "message" => "We've refunded £64.00 for the walnut monitor stand." })
-          else say("That's no good at all — a cracked stand isn't what you paid for. " \
-                   "The full £64.00 refund has just been cleared on our side and is on " \
-                   "its way back to you, with a confirmation in your inbox.", &on_event)
+          when 0 then tool("query_metrics", { "metric" => "refunds_pence", "days" => 14 })
+          else answer("verdict" => "one refunds spike four days ago (£27.00, ~5x the daily norm); otherwise steady",
+                      "wow_delta" => "-2.1%")
           end
         end
 
         def tool(name, arguments)
-          # A real model call takes a second or two; the pause keeps the live
-          # trace readable (rows are durable either way — refresh shows all).
-          sleep 0.7
+          sleep 0.7 # presentation cadence — a real model call takes a second or two
           Silas::Adapters::Result.new(
             blocks: [],
             tool_calls: [ Silas::Adapters::ToolCall.new(id: "demo_#{name}", name: name, arguments: arguments) ],
@@ -267,10 +262,21 @@ after_bundle do
           )
         end
 
+        # The schema-checked case: the same {"type"=>"structured"} block the
+        # real adapter persists when agent.yml declares final_answer — read
+        # back through Turn#answer_data, rendered as a data card in the inbox.
+        def answer(data)
+          Silas::Adapters::Result.new(
+            blocks: [ { "type" => "structured", "data" => data } ],
+            tool_calls: [], stop_reason: "end_turn",
+            usage: { input_tokens: 60, output_tokens: 30 }
+          )
+        end
+
         def say(text, &on_event)
           text.chars.each_slice(3) do |chunk|
             on_event&.call(Silas::Event.new(type: :text_delta, payload: { text: chunk.join }))
-            sleep 0.025
+            sleep 0.02
           end
           Silas::Adapters::Result.new(
             blocks: [ { "type" => "text", "text" => text } ],
@@ -286,8 +292,8 @@ after_bundle do
     <<-'RUBY'
 
   # Keyless first run: with no provider key in development/test, a scripted
-  # stand-in drives the desk (lib/demo_adapter.rb) - the tools, ledger, and
-  # approval hold are all real. Set ANTHROPIC_API_KEY to use a real model.
+  # stand-in drives the analyst (lib/demo_adapter.rb) - the tools, ledger,
+  # and holds are all real. Set ANTHROPIC_API_KEY to use a real model.
   if Rails.env.local? && ENV["ANTHROPIC_API_KEY"].to_s.empty?
     require Rails.root.join("lib/demo_adapter")
     config.adapter = DemoAdapter.new
@@ -306,10 +312,6 @@ after_bundle do
   end
 
   # ── Solid Queue + Solid Cable in development ─────────────────────────────
-  # Rails defaults dev to the in-process :async job adapter, which runs a
-  # re-enqueued continuation CONCURRENTLY with the original — that breaks
-  # exactly-once. And live token deltas cross from the worker process to the
-  # browser, which the in-process async cable adapter can't carry.
   gsub_file "config/database.yml",
             "development:\n  <<: *default\n  database: storage/development.sqlite3\n",
             <<~YAML
@@ -408,65 +410,70 @@ after_bundle do
   end
   chmod "bin/dev", 0o755
 
+  # ── Production deploy: the agent needs its key ───────────────────────────
+  if File.exist?("config/deploy.yml")
+    inject_into_file "config/deploy.yml", after: /^\s*secret:\s*\n\s*- RAILS_MASTER_KEY\n/ do
+      "    - ANTHROPIC_API_KEY\n"
+    end
+  end
+  if File.exist?(".kamal/secrets")
+    append_to_file ".kamal/secrets", "\nANTHROPIC_API_KEY=$ANTHROPIC_API_KEY\n"
+  end
+
   # ── Evals: the model's decisions scripted, the real ledger asserted ──────
   remove_file "test/agent_evals/example_eval.rb"
-  create_file "test/agent_evals/refund_desk_eval.rb" do
+  create_file "test/agent_evals/analyst_eval.rb" do
     <<~'RUBY'
       # Deterministic evals: the MODEL's decisions are scripted, but the real
-      # Ledger runs the real tools against the real tables — so these assert
-      # on a genuine transcript, not a mock. Run: bin/rails silas:eval
-      # (bin/ci gates on them; they need the seeds: bin/rails db:seed).
+      # Ledger runs the real tools against the real tables. Run:
+      # bin/rails db:seed silas:eval  (bin/ci gates on them).
 
-      Silas::Eval.scenario "under the gate: an £18 refund clears itself" do
-        input "My field notebook (order R-1001) arrived damaged."
+      Silas::Eval.scenario "read-only pass never holds" do
+        input "Any anomalies in refunds this week?"
 
-        on_step 0, call: { name: "lookup_order", arguments: { number: "R-1001" } }
-        on_step 1, call: { name: "issue_refund",
-                           arguments: { number: "R-1001", amount_pence: 1800, reason: "arrived damaged" } }
-        on_step 2, call: { name: "notify_customer",
-                           arguments: { number: "R-1001", message: "We've refunded £18.00 for the field notebook." } }
-        on_step 3, text: "Sorry about the notebook — I've refunded the full £18.00 and sent a confirmation."
+        on_step 0, call: { name: "query_metrics", arguments: { metric: "refunds_pence", days: 14 } }
+        on_step 1, data: { verdict: "one refunds spike (£27.00), otherwise steady", wow_delta: "-2.1%" }
 
         expect do
           assert_turn_completed
-          assert_tool_called "issue_refund", times: 1
-          assert_approved tool: "issue_refund"   # under £25: auto-approved, never held
-          assert_final_matches(/£18\.00/)
-          assert_no_hallucinated_price
+          assert_tool_called "query_metrics", times: 1
+          assert_no_tool_called "publish_report"
+          assert_answer_data { |d| d["verdict"].include?("spike") }
         end
       end
 
-      Silas::Eval.scenario "over the gate: a £64 refund holds at the signal" do
-        input "The walnut monitor stand (order R-1002) arrived cracked."
+      Silas::Eval.scenario "publishing holds at the signal" do
+        input "Run the Monday digest."
 
-        on_step 0, call: { name: "lookup_order", arguments: { number: "R-1002" } }
-        on_step 1, call: { name: "issue_refund",
-                           arguments: { number: "R-1002", amount_pence: 6400, reason: "arrived cracked" } }
+        on_step 0, call: { name: "query_metrics", arguments: { days: 14 } }
+        on_step 1, call: { name: "publish_report",
+                           arguments: { channel: "#metrics", body: "Revenue up 4.2% WoW; refunds spiked once." } }
 
         expect do
-          # £64 is over the gate: the turn holds at zero compute and the
-          # refund row does NOT exist yet. The money-moving guarantee, asserted.
-          assert_parked tool: "issue_refund"
-          assert_no_tool_called "issue_refund"
+          # Publishing is gated: the turn holds at zero compute and nothing
+          # posted. The no-surprise-sends guarantee, asserted.
+          assert_parked tool: "publish_report"
+          assert_no_tool_called "publish_report"
         end
       end
 
-      Silas::Eval.scenario "clearing the held refund executes it exactly once" do
-        input "The walnut monitor stand (order R-1002) arrived cracked."
+      Silas::Eval.scenario "cleared: flags exactly once, publishes exactly once" do
+        input "Run the Monday digest."
 
-        on_step 0, call: { name: "issue_refund",
-                           arguments: { number: "R-1002", amount_pence: 6400, reason: "arrived cracked" } }
-        on_step 1, call: { name: "notify_customer",
-                           arguments: { number: "R-1002", message: "We've refunded £64.00 for the walnut monitor stand." } }
-        on_step 2, text: "Cleared and refunded £64.00 for the walnut monitor stand."
+        on_step 0, call: { name: "flag_anomaly",
+                           arguments: { metric: "refunds_pence", recorded_on: "2026-01-05", note: "5x daily norm" } }
+        on_step 1, call: { name: "publish_report",
+                           arguments: { channel: "#metrics", body: "Revenue up 4.2% WoW; one refunds spike, flagged." } }
+        on_step 2, data: { verdict: "digest published to #metrics", wow_delta: "+4.2%" }
 
-        approve tool: "issue_refund"   # the same approve! the inbox, Slack, and email use
+        approve tool: "publish_report"   # the same approve! as the inbox and Slack
 
         expect do
           assert_turn_completed
-          assert_approved tool: "issue_refund"
-          assert_tool_called "issue_refund", times: 1   # exactly once, across the hold
-          assert_tool_arg "issue_refund", :amount_pence, 6400
+          assert_approved tool: "publish_report"
+          assert_tool_called "flag_anomaly", times: 1     # exactly-once row
+          assert_tool_called "publish_report", times: 1   # exactly once, across the hold
+          assert_answer_data(key: :wow_delta, value: "+4.2%")
         end
       end
     RUBY
@@ -493,7 +500,7 @@ after_bundle do
     RUBY
   end
 
-  # ── The landing page: a signal board for your agent ──────────────────────
+  # ── The landing page: a signal board for the analyst ─────────────────────
   route 'root "home#show"'
 
   create_file "app/controllers/home_controller.rb" do
@@ -521,8 +528,7 @@ after_bundle do
   create_file "app/views/home/show.html.erb" do
     <<~'ERB'
       <%# The signal board — brand direction "Signals": dark-first, one white
-          lamp as the accent (never a status), aspect colours for state. The
-          tokens below are the full Silas set; build your own pages on them. %>
+          lamp as the accent (never a status), aspect colours for state. %>
       <style>
         :root {
           --bg: #0F1013; --panel: #16181D; --ink: #E9EBEF; --muted: #969CA8;
@@ -559,7 +565,6 @@ after_bundle do
         header.board { display: flex; align-items: center; gap: 10px; padding-bottom: 22px; }
         header.board .logo { font-family: var(--sans-display); font-weight: 800;
                              font-size: 20px; letter-spacing: -0.03em; }
-        header.board .mark { display: block; }
         header.board .mark .bezel { stroke: var(--ink); }
         header.board .mark .lamp { fill: var(--accent); }
         header.board nav { margin-left: auto; }
@@ -569,7 +574,7 @@ after_bundle do
         .sub { color: var(--muted); margin: 0 0 26px; max-width: 56ch; line-height: 1.5; }
         .board-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
         @media (max-width: 560px) { .board-grid { grid-template-columns: repeat(2, 1fr); } }
-        .aspect { border-radius: var(--radius); padding: 14px 14px 12px; border: 1px solid transparent; }
+        .aspect { border-radius: var(--radius); padding: 14px 14px 12px; }
         .aspect .n { font-family: var(--mono); font-size: 26px; font-weight: 700; display: block; }
         .aspect .l { font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; }
         .aspect.held    { background: var(--amber-bg);  color: var(--amber); }
@@ -615,11 +620,11 @@ after_bundle do
           <nav><a href="<%= silas.inbox_root_path %>">operator inbox →</a></nav>
         </header>
 
-        <h1>The desk is open.</h1>
+        <h1>The analyst is in.</h1>
         <p class="sub">
-          A refund desk agent runs inside this app. Reads move freely; anything
-          that moves money over £25 holds at the signal until you clear it —
-          and every tool effect lands exactly once, even through a crash.
+          A reporting agent runs inside this app. Reads move freely, anomalies
+          land as rows exactly once — and nothing gets published until you
+          clear it at the signal.
         </p>
 
         <div class="board-grid">
@@ -645,10 +650,10 @@ after_bundle do
 
         <% if @demo %>
           <div class="demo">
-            <strong>keyless demo</strong> — a scripted stand-in is driving the desk.
-            The tools, the ledger, and the hold are all real; only the model's
-            decisions are canned. Set <code>ANTHROPIC_API_KEY</code> and restart
-            to talk to a real model.
+            <strong>keyless demo</strong> — a scripted stand-in is driving the
+            analyst. The tools, the ledger, and the hold are all real; only the
+            model's decisions are canned. Set <code>ANTHROPIC_API_KEY</code> and
+            restart to talk to a real model.
           </div>
         <% end %>
 
@@ -659,25 +664,27 @@ after_bundle do
           <div class="row"><span class="k">tools</span>
             <span><% @tools.each do |t| %><code class="chip"><%= t %></code><% end %></span></div>
           <div class="row"><span class="k">the gate</span>
-            <span>refunds over £25.00 hold for a person — approve or decline them in the inbox</span></div>
+            <span>publish_report holds for a person — nothing posts until you clear it in the inbox</span></div>
+          <div class="row"><span class="k">the clock</span>
+            <span><code class="chip">schedules/monday_kpis.md</code> — Mondays 07:00, a normal durable turn</span></div>
           <div class="row"><span class="k">defined in</span>
-            <span><code class="chip">app/agent/</code> — instructions, tools, skills, schedules. The directory is the agent.</span></div>
+            <span><code class="chip">app/agent/</code> — instructions, tools, schedules. The directory is the agent.</span></div>
         </div>
 
         <div class="card">
           <h2>Try it — start a session in the inbox</h2>
           <ul class="try">
             <li>
-              <code>My field notebook (order R-1001) arrived damaged.</code>
-              <span class="fate">£18 — under the gate: refunds itself, exactly once, and confirms.</span>
+              <code>Run the Monday digest.</code>
+              <span class="fate">reads two weeks, flags the refunds spike exactly once, then publishing HOLDS — watch the amber card.</span>
             </li>
             <li>
-              <code>The walnut monitor stand (order R-1002) arrived cracked.</code>
-              <span class="fate">£64 — over the gate: holds at the signal until you clear it. Watch the amber card.</span>
+              <code>Any anomalies in refunds this week?</code>
+              <span class="fate">read-only: answers with a schema-checked verdict, nothing to clear.</span>
             </li>
             <li>
               <code>bin/rails silas:chat</code>
-              <span class="fate">the same desk, from your terminal.</span>
+              <span class="fate">the same analyst, from your terminal.</span>
             </li>
           </ul>
         </div>
@@ -700,12 +707,13 @@ after_bundle do
   # ── README for the generated app ─────────────────────────────────────────
   create_file "README.md", force: true do
     <<~'MD'
-      # The desk
+      # The analyst
 
       An agent app built on [Silas](https://github.com/danielstpaul/silas) —
-      durable AI agents for Rails. A refund desk runs inside it: reads move
-      freely, refunds over £25 **hold at the signal** until a person clears
-      them, and every tool effect lands **exactly once**, even through a crash.
+      durable AI agents for Rails. A reporting agent runs inside it: it reads a
+      small metrics table, flags anomalies as rows (**exactly once**, even
+      through a crash), and **nothing gets published until a person clears it
+      at the signal**. Mondays at 07:00 it runs itself.
 
       ## First run — no API key needed
 
@@ -715,12 +723,12 @@ after_bundle do
       ```
 
       Open <http://localhost:3000> — the signal board — then start a session in
-      the inbox and paste one of the two stories:
+      the inbox:
 
       | prompt | what happens |
       |---|---|
-      | `My field notebook (order R-1001) arrived damaged.` | £18 — under the gate. The agent looks it up, refunds it, confirms. |
-      | `The walnut monitor stand (order R-1002) arrived cracked.` | £64 — over the gate. The refund **holds**; clear it from the amber card and the turn resumes exactly where it stopped. |
+      | `Run the Monday digest.` | Reads two weeks of metrics, flags the refunds spike, then `publish_report` **holds** — clear it from the amber card and the turn resumes exactly where it stopped. |
+      | `Any anomalies in refunds this week?` | Read-only — answers with a schema-checked verdict (`Turn#answer_data`). |
 
       With no `ANTHROPIC_API_KEY` set, a scripted stand-in plays the model —
       the tools, ledger, and hold are all real. Export a key and restart to
@@ -730,41 +738,38 @@ after_bundle do
 
       ```
       app/agent/
-        instructions.md        # persona
-        agent.yml              # model + per-turn limits (steps, cost, timeout)
+        instructions.md          # persona
+        agent.yml                # model + limits + the final_answer schema
         tools/
-          lookup_order.rb      # idempotent!     — read-only, replays freely
-          issue_refund.rb      # transactional!  — DB effect: exactly-once, gated over £25
-          notify_customer.rb   # at_most_once!   — external effect: parks IN DOUBT on a crash
-        skills/ schedules/ channels/
+          query_metrics.rb       # idempotent!     — read-only, replays freely
+          flag_anomaly.rb        # transactional!  — DB effect: exactly-once
+          publish_report.rb      # at_most_once! + approval :always — nothing posts uncleared
+        schedules/
+          monday_kpis.md         # cron "0 7 * * 1" -> a normal durable turn
       ```
-
-      The three tools are one-per-effect-mode on purpose — copy the one whose
-      shape matches your side effect. `.claude/skills/silas/SKILL.md` teaches
-      coding agents these rules, so you can build the next tool by asking for it.
 
       ## Tests and evals — keyless, deterministic
 
       ```sh
-      bin/ci               # app tests + agent evals
-      bin/rails silas:eval # just the evals
+      bin/ci                       # app tests + agent evals
+      bin/rails db:seed silas:eval # just the evals
       ```
 
       Evals script the **model's decisions** and assert on the **real ledger**:
-      the £64 scenario asserts the turn held and no refund row existed, then a
-      second scenario clears it and asserts exactly-once execution. See
-      `test/agent_evals/refund_desk_eval.rb`.
+      publishing holds, the anomaly row lands exactly once across the hold, and
+      the structured verdict comes back schema-checked. See
+      `test/agent_evals/analyst_eval.rb`.
 
       ## Going live
 
-      1. `ANTHROPIC_API_KEY` (or any provider RubyLLM supports) in production env.
+      1. `ANTHROPIC_API_KEY` in production (already listed in `config/deploy.yml`'s secrets).
       2. Replace the dev-only inbox auth in `config/initializers/silas.rb`.
-      3. `bin/rails silas:doctor` — verifies key, queue adapter, migrations, rescuer.
-      4. Deploy with Kamal as usual; the deep guide ships in the gem:
-         `bundle show silas` → `DEPLOY.md` (worker liveness, the rescuer, scaling).
+      3. `bin/rails silas:schedules` after editing any schedule.
+      4. `bin/rails silas:doctor`, then deploy with Kamal as usual — the deep
+         guide ships in the gem: `bundle show silas` → `DEPLOY.md`.
 
-      Replace the desk with your own agent whenever you're ready — delete the
-      orders/refunds models and the three tools, write yours, restart.
+      Swap the metrics table for your own domain whenever you're ready — the
+      shape stays: read freely, write exactly once, publish only past the gate.
     MD
   end
 
@@ -774,12 +779,12 @@ after_bundle do
 
   say ""
   say "──────────────────────────────────────────────────────────", :green
-  say "The desk is open.", :green
+  say "The analyst is in.", :green
   say ""
   say "  cd #{app_name}"
   say "  bin/dev                → web + worker (keyless demo works immediately)"
   say "  http://localhost:3000  → the signal board"
-  say "  /silas/inbox           → where held refunds wait for you"
+  say "  /silas/inbox           → where the held digest waits for you"
   say "  bin/ci                 → tests + agent evals, no key needed"
   say ""
   say "Real model: export ANTHROPIC_API_KEY=sk-ant-... and restart bin/dev."

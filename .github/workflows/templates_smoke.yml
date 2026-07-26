@@ -1,8 +1,8 @@
-name: template_smoke
+name: templates_smoke
 
-# The anti-rot gate for template.rb: generate a real app from the template
+# The anti-rot gate for templates/: generate a real app from EACH template
 # against THIS checkout, then run the generated app's own keyless test + eval
-# suite. If the template drifts from the gem — a renamed generator, a changed
+# suite. If a template drifts from the gem — a renamed generator, a changed
 # config shape, a broken injection anchor — this fails, not a user's first run.
 on:
   push:
@@ -12,6 +12,14 @@ on:
 jobs:
   smoke:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - template: desk
+            marker: "The desk is open."
+          - template: analyst
+            marker: "The analyst is in."
     env:
       LANG: en_US.UTF-8
     steps:
@@ -29,28 +37,31 @@ jobs:
       - name: Generate an app from the template (local silas)
         env:
           SILAS_PATH: ${{ github.workspace }}/silas
-        run: rails new desk -m silas/template.rb --skip-git
+        run: rails new app-${{ matrix.template }} -m silas/templates/${{ matrix.template }}.rb --skip-git
 
       - name: App tests (keyless)
-        working-directory: desk
+        working-directory: app-${{ matrix.template }}
         run: bin/rails test
 
       - name: Agent evals (keyless, scripted decisions, real ledger)
-        working-directory: desk
-        run: bin/rails silas:eval
+        working-directory: app-${{ matrix.template }}
+        run: bin/rails db:seed silas:eval
 
       - name: Landing page renders
-        working-directory: desk
+        working-directory: app-${{ matrix.template }}
+        env:
+          MARKER: ${{ matrix.marker }}
         run: |
           bin/rails runner '
             app = ActionDispatch::Integration::Session.new(Rails.application)
+            app.host!("localhost")   # dev host authorization rejects the default example host
             app.get("/")
             raise "root returned #{app.response.status}" unless app.response.status == 200
-            raise "signal board missing" unless app.response.body.include?("The desk is open.")
+            raise "signal board missing marker" unless app.response.body.include?(ENV.fetch("MARKER"))
           '
 
       - name: Doctor verifies the generated setup
-        working-directory: desk
+        working-directory: app-${{ matrix.template }}
         # Keyless, so the credentials check fails by design — assert the
         # checks the template is responsible for instead of the exit code.
         run: |

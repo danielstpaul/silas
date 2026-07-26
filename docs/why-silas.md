@@ -57,7 +57,7 @@ gem, not assembled from templates. And one command builds a working agent app
 from nothing:
 
 ```bash
-rails new desk -m https://raw.githubusercontent.com/danielstpaul/silas/main/template.rb
+rails new desk -m https://raw.githubusercontent.com/danielstpaul/silas/main/templates/desk.rb
 ```
 
 ## The honest notes

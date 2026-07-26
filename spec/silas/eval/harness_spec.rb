@@ -79,6 +79,23 @@ RSpec.describe "the eval harness" do
       expect(ok).to be(true)
     end
 
+    it "scripts a structured answer with data: and reads it back via answer_data" do
+      write_eval "structured", <<~RUBY
+        Silas::Eval.scenario "structured verdict" do
+          input "give me the verdict"
+          on_step 0, data: { verdict: "approve", wow_delta: "+2.3%" }
+          expect do
+            assert_turn_completed
+            assert_answer_data(key: :verdict, value: "approve")
+            assert_answer_data({ "verdict" => "approve", "wow_delta" => "+2.3%" })
+            assert_answer_data { |d| d["wow_delta"].start_with?("+") }
+          end
+        end
+      RUBY
+      ok = Silas::Eval::Runner.run(dir: @dir, root: DummyApp.root)
+      expect(ok).to be(true)
+    end
+
     it "fails the gate when an assertion is violated" do
       write_eval "bad", <<~RUBY
         Silas::Eval.scenario "wrong tool" do

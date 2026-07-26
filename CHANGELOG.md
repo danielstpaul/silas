@@ -13,9 +13,11 @@
   deploys to Pages, with an `llms.txt` for coding agents. Brand assets
   (`brand/`, hero at `docs/img/`) now live in the repo; the hero image is
   excluded from the packaged gem.
-- **A Rails application template** — `rails new desk -m
-  https://raw.githubusercontent.com/danielstpaul/silas/main/template.rb` builds
-  a deployable agent app from nothing: a refund desk with one tool per effect
+- **Rails application templates, as a family** — `templates/desk.rb` and
+  `templates/analyst.rb`, each a single CI-gated `rails new -m` script.
+  `rails new desk -m
+  https://raw.githubusercontent.com/danielstpaul/silas/main/templates/desk.rb`
+  builds a deployable agent app from nothing: a refund desk with one tool per effect
   mode (`lookup_order` idempotent, `issue_refund` transactional behind a
   £25 approval gate, `notify_customer` at-most-once), Solid Queue **and** Solid
   Cable wired in development (the durability contract needs a real worker; live
@@ -23,9 +25,19 @@
   `bin/dev` works with zero secrets, three deterministic agent evals asserting
   the hold and the exactly-once execution, and a Signals-branded signal-board
   landing page. The template only runs the generators the gem already tests,
-  and the `template_smoke` workflow regenerates and tests an app from it on
-  every push — a starter that structurally cannot rot. (eve needs template
-  repos because it has no generator story; Rails has application templates.)
+  and the `templates_smoke` workflow regenerates and tests an app from every
+  template on each push — starters that structurally cannot rot. (eve needs
+  template repos because it has no generator story; Rails has application
+  templates.) **The analyst** is the second template: a scheduled reporting
+  agent — `query_metrics` reads, `flag_anomaly` lands rows exactly once,
+  `publish_report` holds at the signal (`approval :always`), a Monday-07:00
+  schedule, and a schema-checked `final_answer` (`Turn#answer_data`). Both
+  templates also wire `ANTHROPIC_API_KEY` into Kamal's secrets so the
+  generated app deploys without a scavenger hunt.
+- **Community files** — `CONTRIBUTING.md` (the deliberate scope no-list, the
+  chaos-gate requirement, how templates are contributed), `SECURITY.md`
+  (private vulnerability reporting; deny-by-default surfaces; contract
+  violations count), and GitHub issue forms.
 - **The gem ships its own docs, and the installer ships a coding-agent skill.**
   `docs/**` and `DEPLOY.md` are in the packaged gem, so `bundle show silas`
   gives a coding agent (or an offline human) the real reference — and the

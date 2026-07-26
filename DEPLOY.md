@@ -85,6 +85,17 @@ Mid-deploy safety is built in: a turn interrupted by the SIGTERM of a rolling
 deploy re-enqueues and resumes (chaos-gated). Recovery latency after a hard
 crash ≈ `SolidQueue.process_alive_threshold` + the rescuer's 30s cadence.
 
+## 3½. Template apps deploy stock
+
+An app generated from `templates/*.rb` needs no deploy surgery: Rails 8.1's
+generated `config/deploy.yml` already runs Solid Queue inside Puma for the
+single-server SQLite shape (`SOLID_QUEUE_IN_PUMA: true` — that satisfies "the
+worker must run"), the template adds `ANTHROPIC_API_KEY` to Kamal's secret
+list and `.kamal/secrets`, and `config/recurring.yml` already carries the
+rescuer. Set the two secrets in your shell, point `deploy.yml` at your server
+and registry, `kamal setup`. Scale beyond one box by moving to the dedicated
+worker role in §1 and a real Postgres in §2.
+
 ## 4. Cost
 
 The whole thing runs on one VPS + your model spend. The engine authenticates

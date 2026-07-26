@@ -8,7 +8,7 @@
 > host app, and deterministic agent evals. Ruby gem; Rails >= 8.1 + Solid
 > Queue.
 
-Quickstart: `rails new my-agent -m https://raw.githubusercontent.com/danielstpaul/silas/main/template.rb`
+Quickstart: `rails new my-agent -m https://raw.githubusercontent.com/danielstpaul/silas/main/templates/desk.rb`
 (or `bundle add silas && bin/rails g silas:install` in an existing app).
 All docs below are plain markdown and also ship inside the gem package.
 

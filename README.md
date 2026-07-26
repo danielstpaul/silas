@@ -40,12 +40,15 @@ a Claude Code skill so coding agents working in your app know the conventions.
 ## Quick start
 
 ```bash
-rails new my-agent -m https://raw.githubusercontent.com/danielstpaul/silas/main/template.rb
+rails new my-agent -m https://raw.githubusercontent.com/danielstpaul/silas/main/templates/desk.rb
 ```
 
 This creates a new agent app with Solid Queue wired, a starter refund-desk
 agent installed, and a keyless demo — the first `cd my-agent && bin/dev`
-needs no API key.
+needs no API key. More starting shapes live in
+[templates/](https://github.com/danielstpaul/silas/tree/main/templates) —
+swap `desk.rb` for `analyst.rb` to start from a scheduled reporting agent
+instead.
 
 To add Silas to an existing app:
 
@@ -104,9 +107,19 @@ Continuations) and Solid Queue >= 1.2; any model provider
 ## Community
 
 Questions, ideas, and bug reports →
-[issues](https://github.com/danielstpaul/silas/issues). For security reports,
-please use GitHub's private vulnerability reporting (the repo's Security tab)
-rather than a public issue.
+[issues](https://github.com/danielstpaul/silas/issues).
+
+## Contributing
+
+See [CONTRIBUTING.md](https://github.com/danielstpaul/silas/blob/main/CONTRIBUTING.md)
+— including the short list of things Silas deliberately doesn't do, and the
+chaos gate that protects the durability contract.
+
+## Security
+
+Please report vulnerabilities privately via
+[GitHub's vulnerability reporting](https://github.com/danielstpaul/silas/security/advisories/new)
+— see [SECURITY.md](https://github.com/danielstpaul/silas/blob/main/SECURITY.md).
 
 ## License
 
