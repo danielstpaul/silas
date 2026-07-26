@@ -1,0 +1,59 @@
+name: docs_site
+
+# Builds the docs site (Jekyll + just-the-docs) from site/ + a build-time copy
+# of docs/*.md, and deploys to GitHub Pages on main. PRs get a build check
+# only — a docs change that breaks the site fails here, not after merge.
+on:
+  push:
+    branches: [ main ]
+    paths: [ "docs/**", "site/**", "DEPLOY.md", ".github/workflows/docs_site.yml" ]
+  pull_request:
+    paths: [ "docs/**", "site/**", "DEPLOY.md", ".github/workflows/docs_site.yml" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4"
+          bundler-cache: true
+          working-directory: site
+      - name: Assemble sources
+        # The markdown source of record is docs/ (shipped in the gem,
+        # frontmatter-free); images stay on raw.githubusercontent URLs.
+        run: |
+          cp docs/*.md site/
+          cp DEPLOY.md site/deploy.md
+          mkdir -p site/assets
+          cp brand/silas-wordmark.svg brand/silas-favicon.svg site/assets/
+      - name: Build
+        working-directory: site
+        env:
+          JEKYLL_ENV: production
+        run: bundle exec jekyll build --strict_front_matter
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: site/_site
+
+  deploy:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

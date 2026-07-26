@@ -4,6 +4,14 @@
 
 ### Added
 
+- **Docs for the whole surface.** New guides: `docs/tutorial.md` (build the
+  refund desk outward, one primitive per chapter), `docs/evals.md`,
+  `docs/budgets.md`, `docs/cancellation.md`, `docs/connections.md`, and a full
+  `docs/configuration.md` reference — all shipped in the gem. A docs site
+  (Jekyll + just-the-docs, dark-first, Archivo/Space Mono, `early · 0.x` chip)
+  builds from `docs/` in CI and deploys to Pages, with an `llms.txt` for
+  coding agents. Brand assets (`brand/`, hero at `docs/img/`) now live in the
+  repo; the hero image is excluded from the packaged gem.
 - **A Rails application template** — `rails new desk -m
   https://raw.githubusercontent.com/danielstpaul/silas/main/template.rb` builds
   a deployable agent app from nothing: a refund desk with one tool per effect
@@ -46,6 +54,18 @@
 - The playground's chat page consumes the engine's colour tokens instead of
   re-hardcoding a palette, and hosts the hoisted approval/question cards above
   its transcript.
+
+- **README reframed category-first** — "the agent framework for Rails", the
+  guarantees as proof point #1, the capability grid, the hero, and a
+  template-led quickstart. `docs/vs-eve.md` was **factually rewritten**
+  (2026-07-26): the previous revision described eve as a managed-cloud
+  platform; eve is fully self-hostable, and the comparison now rests on what's
+  actually different — exactly-once vs documented at-least-once, a shipped
+  production inbox vs a dev TUI, memory vs none, and the
+  transaction-boundary argument, date-stamped against eve 0.27.6.
+  `docs/why-silas.md` reframed the same way ("no *second runtime* can sell
+  you this" rather than "no managed cloud"), and DEPLOY.md dropped its stale
+  "eve without the bill" subtitle.
 
 ### Fixed
 

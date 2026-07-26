@@ -1,21 +1,87 @@
-# Your Rails app is already an agent runtime.
+<p align="center">
+  <img src="https://raw.githubusercontent.com/danielstpaul/silas/main/docs/img/silas-hero-dark.png" width="1600"
+       alt="app/agents/analyst/ on the left, a durable turn holding at a signal in the middle, the inbox approval card on the right">
+</p>
 
-**Silas** turns the Rails app you already run into a durable AI-agent runtime.
-Active Job Continuations, Solid Queue, and one Postgres ledger table make every
-turn survive `kill -9` and resume from the last completed step — with a live
-operator inbox at `/silas/inbox` and park-at-zero human-in-the-loop approvals
-holding the big levers. No new service, no managed platform, no per-run meter:
-the durable stack is already booted inside your app. The only new surface is the
-`app/agent/` directory below.
+# Silas — the agent framework for Rails
 
-Honestly early and honestly narrow: **v0.1, one maintainer, zero external
-users**, durability proven by an in-repo `kill -9` chaos harness (100/100, zero
-duplicate effects, byte-identical replay), and scoped to **trusted code you write
-yourself** by default — for untrusted or model-generated code, drop in the
-companion gem [hermetic](https://github.com/danielstpaul/hermetic) (gVisor /
-Firecracker / hosted sandboxes behind one call, see below). The full pitch
-and the honest caveats: [Why Silas](docs/why-silas.md) ·
-[Silas vs eve](docs/vs-eve.md).
+Durable AI agents as a directory of plain files, inside the app you already
+run. Your database is the agent's memory, Solid Queue is its engine room,
+Active Job Continuations are its checkpoints — and on that substrate Silas
+adds the guarantees the agent category doesn't ship:
+
+- **Tool effects land exactly once.** A `transactional!` tool's effect and the
+  ledger's record of it commit in one database transaction — a crash mid-refund
+  leaves exactly one refund row, never two, never zero.
+- **Consequential calls hold at the signal.** Approval parks the turn at
+  **zero compute** — no held thread, no polling — until a person clears it
+  from the inbox, Slack, email, or the JSON API. Parks expire rather than
+  ghost.
+- **Turns survive `kill -9`** and resume from the last completed step with
+  byte-identical transcripts — including long conversations, because context
+  compaction is itself a replayable, exactly-once effect.
+
+Every number behind those claims is reproducible from the in-repo chaos
+harness (`chaos_host/`), which kill -9s live agents hundreds of times per
+release: the current gate is 100/100 completions per mode across a 295-run
+release matrix, **zero duplicate effects**, byte-identical replay, on SQLite
+and Postgres.
+
+For context (2026-07-26, both from primary sources — details and dates in
+[Silas vs eve](https://github.com/danielstpaul/silas/blob/main/docs/vs-eve.md)):
+eve, the category leader, documents itself as **at-least-once** ("make
+non-idempotent side effects idempotent, or gate them with approval"), ships a
+dev TUI but no production operator UI, and declines memory. Running your agent
+loop in background jobs is easy everywhere — the guarantees are the part you
+can't get elsewhere.
+
+## Sixty seconds, no API key
+
+From nothing:
+
+```bash
+rails new desk -m https://raw.githubusercontent.com/danielstpaul/silas/main/template.rb
+```
+
+Or in the app you already have:
+
+```bash
+bundle add silas
+```
+
+```bash
+bin/rails generate silas:install && bin/rails db:migrate
+```
+
+The template builds a working refund desk: `cd desk && bin/dev`, open the
+signal board at `localhost:3000`, and paste *"The walnut monitor stand (order
+R-1002) arrived cracked."* into the inbox. The £64 refund **holds at the
+signal**; clear it from the amber card and the turn resumes exactly where it
+stopped — with exactly one refund row in the database. No API key needed: a
+scripted stand-in drives the demo through the real tools, real ledger, and
+real hold. (`bin/rails silas:doctor` verifies any install end to end.)
+
+## What ships
+
+| Primitive | The surface |
+|---|---|
+| **Tools** | One file per tool in `app/agent/tools/`; the filename is the identity, the keyword signature of `#call` is the schema the model sees. Three effect modes: `transactional!` · `at_most_once!` · `idempotent!`. |
+| **Approvals** | `approval :always` / `:once` / a lambda over the arguments. Same `approve!`/`decline!` from inbox, Slack, signed email links, and the API. |
+| **Skills** | Markdown playbooks in `skills/`, loaded on demand; `description:` frontmatter is the routing hint. |
+| **Schedules** | `schedules/*.md` (cron frontmatter, body = the turn input) or `.rb` handlers, compiled to Solid Queue recurring tasks. Named agents own their own cron. |
+| **Channels** | Slack + email built in; `bin/rails g silas:channel whatsapp` scaffolds any transport — signature-verifying webhook plus the outbound half. |
+| **Memory** | Approval-gated triples with provenance and supersession; `remember` parks a card in your inbox before anything persists. |
+| **Named agents** | `app/agents/<name>/` — a staff, each with its own tools, skills, schedules, instructions, and digest. |
+| **Subagents & handoffs** | Delegation with scoped toolsets; handoffs file a self-contained brief that starts a linked session — exactly-once-guarded, cycle-checked. |
+| **Evals** | Scripted model decisions against the **real ledger**; `bin/rails silas:eval` is a deploy gate. |
+| **Structured answers** | `final_answer:` schema in agent.yml → `Turn#answer_data` as a Hash, via each provider's native structured-output mode. |
+| **Compaction** | Long conversations summarise past the threshold — as a persisted, exactly-once effect, so crash replays stay byte-identical. |
+| **ask_question** | The agent parks to ask the operator something; the answer resumes the turn as the tool result. |
+| **Budgets** | Per-turn caps on steps, input tokens, dollars, and active wall-clock; a breach **parks** (a human can top up from the inbox), never destroys work. |
+| **Operator inbox** | Mounted engine at `/silas/inbox`: web chat, live traces, approval cards, audit trail, cost accounting, cancel. Deny-by-default. |
+| **HTTP API** | Everything the inbox can do over JSON at `/silas/api/v1`, plus SSE streaming with `Last-Event-ID` resume. |
+
+## The directory is the agent
 
 ```
 app/agent/
@@ -24,27 +90,20 @@ app/agent/
   tools/            # one file per tool; identity = filename
     issue_refund.rb #   keyword signature = the schema the model sees
   skills/           # markdown playbooks, loaded on demand
-    triage.md       #   description: frontmatter is the routing hint
-```
-
-## Quickstart
-
-```sh
-bundle add silas
-bin/rails generate silas:install
-bin/rails db:migrate
-bin/rails silas:doctor   # key · queue adapter · model · migrations · tools · rescuer · cable · auth
+  schedules/        # cron frontmatter -> Solid Queue recurring tasks
+  channels/         # slack.rb, email.rb — transports bound to the loop
+  connections/      # <name>.yml — remote MCP servers, tools namespaced <name>__<tool>
 ```
 
 ```ruby
 class Agent::Tools::IssueRefund < Silas::Tool
   description "Refund an order."
-  param :amount, :integer, desc: "Pence"
-  approval :always      # parks the run; a human approves from your app
+  param :amount_pence, :integer, desc: "Amount in pence"
+  approval ->(session:, input:) { input[:amount_pence] > 2_500 ? :user_approval : :approved }
   transactional!        # DB-only side effects -> exactly-once, guaranteed
 
-  def call(order_id:, amount:)
-    Refund.create!(order_id:, amount:)
+  def call(order_id:, amount_pence:)
+    Refund.create!(order_id:, amount_pence:)
     { refunded: order_id }
   end
 end
@@ -56,239 +115,167 @@ session.pending_approvals.first.approve!(by: "daniel")
 session.continue(input: "Now email the customer.")
 ```
 
-Or talk to it from the terminal — the REPL runs *inside your app*, so tools hit
-your real dev database, and parked approvals prompt inline (the same
-`approve!`/`decline!` as the inbox and Slack):
+Or from the terminal — the REPL runs *inside your app*, so tools hit your real
+dev database and parked approvals prompt inline:
 
 ```
 $ bin/rails silas:chat
 you> Refund order 42, £12.50
   ✓ lookup_order(order_id: 42)
-  ⏸ issue_refund(order_id: 42, amount: 1250) — awaiting approval
+  ⏸ issue_refund(order_id: 42, amount_pence: 1250) — held at the signal
 
-approval needed — issue_refund(order_id: 42, amount: 1250)
+approval needed — issue_refund(order_id: 42, amount_pence: 1250)
 approve? [y]es / [d]ecline / [s]kip> y
 agent> Done — £12.50 refunded on order 42.
 ```
 
-`SESSION=id` resumes an existing session.
-
 ## The durability contract (what's actually guaranteed)
 
-Verified by `chaos_host/bin/chaos` — the harness that kill -9s a live agent
-hundreds of times per release (results in `chaos_host/results/`):
+Verified by `chaos_host/bin/chaos` — results in `chaos_host/results/`:
 
 - **A turn survives hard process death** (worker kill -9, whole-tree kill -9,
   SIGTERM deploys) and resumes from the last completed step: 100% completion,
   byte-identical transcripts, on SQLite and Postgres.
 - **`transactional!` tools execute exactly once.** The tool's DB writes and the
-  ledger row commit or roll back together. Zero duplicates across every chaos run.
-- **Other tools are at-least-once within one step** — and when a crash makes an
-  execution ambiguous, the default `at_most_once!` policy **parks the run for a
-  human verdict** instead of guessing (`idempotent!` opts into automatic re-runs).
-- **Approvals park at zero compute** — the job exits; approving enqueues a fresh
-  one that replays completed work from rows, never re-calling the model or
-  re-running tools. Parks expire (default 7 days) rather than ghosting forever.
-- **Transient model errors retry from the checkpoint.** A rate limit,
-  overload, or timeout backs off and retries the job — and the continuation
-  resumes from the last completed step, never re-running completed work.
-  Exhausted retries and permanent rejections (bad key, bad request) expire
-  pending approvals and fail the turn loudly. **A turn can never sit in
-  `running` forever**: the rescuer also fails turns stranded by a loop job
-  that died outside the retry list.
+  ledger row commit or roll back together. Zero duplicates across every chaos
+  run — including runs that compact mid-conversation.
+- **Other tools are at-most-once by default** — when a crash makes an execution
+  ambiguous, the run **parks for a human verdict** instead of guessing
+  (`idempotent!` opts into automatic re-runs).
+- **Approvals park at zero compute** — the job exits; approving enqueues a
+  fresh one that replays completed work from rows, never re-calling the model
+  or re-running tools. Parks expire (default 7 days) rather than ghosting.
+- **Transient model errors retry from the checkpoint**; exhausted retries and
+  permanent rejections fail the turn loudly. A turn can never sit in `running`
+  forever: the rescuer also fails turns stranded by a dead loop job.
 - **The rescuer is part of the contract.** Solid Queue marks a dead worker's
   jobs failed and nothing retries them; the installer wires
-  `Silas::DeadJobRescuerJob` as a recurring task (every 30s). Recovery time ≈
-  `SolidQueue.process_alive_threshold` + that cadence. Do not remove it.
+  `Silas::DeadJobRescuerJob` as a recurring task (every 30s). Do not remove it
+  — and monitor worker liveness: the rescuer can requeue work, it cannot
+  conjure a consumer.
 - **Deploys can't corrupt a run**: instructions are snapshotted per turn, and a
   deploy that changes tools/skills mid-turn fails the turn loudly
   (`NondeterminismError`) instead of resuming into a different agent.
+- **Compaction can't corrupt a replay**: a summary is produced once, claimed
+  compare-and-swap, persisted — never recomputed at rebuild time — so the
+  message array a resumed turn sees is byte-identical to the one the crashed
+  turn saw.
 
-## Adapter
+## Holding the levers
 
-Inference is one pluggable seam (`config.adapter`): `:ruby_llm` — API-key auth
-via [RubyLLM](https://rubyllm.com), any provider it supports — is the default
-and the production path. Compose resilience via `config.around_model_call`, or
-swap in any object responding to `#execute_step` (the eval harness and the
-chaos tests do exactly that).
+Anything that moves money or is hard to reverse gets an approval policy, and a
+held turn costs nothing while it waits. The reverse direction is built in too:
+the `ask_question` tool parks the turn to ask the operator something, and their
+typed answer resumes it as the tool result. Budget breaches park the same way —
+`max_steps`, `max_input_tokens`, `max_cost`, `timeout` (active wall-clock;
+held time doesn't count) — and the inbox has a raise-budget button. Cancel is
+honored at the next step boundary, so an in-flight model call's work commits
+instead of being forfeited. Details:
+[approvals & questions](https://github.com/danielstpaul/silas/blob/main/docs/conventions.md) ·
+[budgets](https://github.com/danielstpaul/silas/blob/main/docs/budgets.md) ·
+[cancellation](https://github.com/danielstpaul/silas/blob/main/docs/cancellation.md).
 
-> The experimental `:agent_sdk` adapter (a `claude -p` subprocess) was removed
-> in 0.2: its subscription-auth rationale was structurally unreachable, and it
-> carried weaker guarantees than `:ruby_llm` on every axis. Its in-process MCP
-> server survives and returns as a first-class *mount your tools as MCP*
-> feature.
+## Operating it
 
-## Sandbox: run untrusted code with hermetic
+Mount the engine (the generator does this) and the inbox appears at
+`/silas/inbox`: session rail grouped **Held / Working / Filed**, web chat, a
+live token-streaming trace, hoisted approval cards, a full audit trail (every
+argument, every result, who cleared what and why), cancel, raise-budget, and
+per-session cost accounting priced from RubyLLM's model registry. It is
+**deny-by-default** — invisible until you wire `config.inbox_auth`.
 
-The sandbox is a second pluggable seam (`config.sandbox`). Built-in adapters are
-`:none` (default — code execution off) and `:docker` (hardened container,
-honest-but-interim). For real isolation, the companion gem
-[**hermetic**](https://github.com/danielstpaul/hermetic) drops straight in:
-
-```ruby
-# Gemfile: gem "hermetic"   (zero runtime deps)
-Silas.configure do |c|
-  c.sandbox = Hermetic.gvisor(image: "python:3.12-slim")     # or .docker /
-  # .firecracker(kernel:, rootfs:) / .hosted(:e2b, api_key:) # pick your strength
-end
-```
-
-That's the whole integration. When a sandbox is configured and enabled, the
-`run_code` tool is advertised to the model automatically (`at_most_once!` — an
-exec is an external effect). Two properties carry through the seam:
-
-- **The trust axis is visible**: every hermetic backend exposes `trust`
-  (`:vendor`/`:remote`/`:vm`/`:host`) and `off_host?`, so you can refuse to run
-  untrusted code on the box that holds your `RAILS_MASTER_KEY` — pair any local
-  backend with `executor:` to push execution to a dedicated sandbox host.
-- **The ledger guard is auto-armed**: configuring a hermetic backend loads its
-  Silas shim, so a sandbox exec attempted inside a ledger transaction fails loud
-  (sandbox-backed tools must be `at_most_once!`, never `transactional!`).
-
-## Named agents: the staff pattern
-
-One app can employ several agents, each with its own room:
-
-```
-app/agents/
-  reader/            # Silas.agent(:reader).start(input: "...")
-    instructions.md
-    agent.yml        # model, limits — same keys as the root agent
-    tools/
-    skills/
-  clerk/
-    ...
-```
-
-Sessions are stamped with the agent's name; every turn — including crash
-resumes — runs under that agent's own tools, skills, instructions, and
-definitions digest. The inbox filters by agent; `bin/rails silas:chat
-AGENT=clerk` chats with one staff member. The root `app/agent/` remains the
-default agent, unchanged. (Subagents stay a root-agent delegation feature;
-scope switching is execution-isolated, so concurrent jobs running different
-agents never cross wires.)
-
-## Memory & handoffs
-
-Silas memory is **graph-shaped, not a graph database**: facts as
-`subject · attribute · content` triples with provenance and supersession
-("author:jane · report_format: prefers CSV" — a new value retires the old).
-The `remember` tool is **approval-gated by default** — the memory card parks
-in your inbox before anything persists; `recall` digs deeper than the few
-recent memories injected into each turn. Private per agent, or `shared: true`
-for the whole staff. Your *domain* data does not belong here — it belongs in
-your own tables, which your tools already read; memory is for the fuzzy
-residue with no natural home.
-
-Staff compose through **handoffs, not conversations**: `handoff` files a
-self-contained brief that starts a linked session for another named agent
-(async, or `await: true` for an answer), exactly-once-guarded, cycle-checked.
-Two models chatting freely is a cost and audit hazard — deliberately
-unblessed.
-
-## Triggers
-
-An agent is reached by more than a method call:
-
-- **`schedules/`** — `app/agent/schedules/*.md` (cron frontmatter, body = the turn
-  input) or `*.rb` handlers. `bin/rails silas:schedules` compiles them into
-  Solid Queue recurring tasks. A scheduled run is a normal durable turn. Named
-  agents own their cron the same way they own tools:
-  `app/agents/analyst/schedules/monday_kpis.md` ticks start the analyst, not
-  the root agent.
-- **`channels/`** — `app/agent/channels/*.rb` bind email (Action Mailbox) and
-  Slack to the loop. A new thread starts a session, a reply continues it, and
-  approvals render as Slack buttons / signed email links that call the same
-  `approve!`/`decline!`. Outbound delivery is idempotent and off the durable loop.
-  `bin/rails g silas:channel whatsapp` scaffolds any other transport — a
-  signature-verifying webhook and the outbound half, wired together. See
-  [docs/channels.md](https://github.com/danielstpaul/silas/blob/main/docs/channels.md).
-
-## Streaming
-
-Turns stream. The `:ruby_llm` adapter emits text deltas as the model responds:
-`bin/rails silas:chat` prints tokens as they arrive, and the inbox trace
-renders them live over Turbo (coalesced to ~10Hz). Deltas are decoration over
-the durable rows — never persisted, never fed back to the model, and a
-replayed step renders from its row with no deltas at all, so streaming adds
-zero risk to the durability contract. Custom sinks subscribe to the
-`"delta.silas"` notification (`{ session_id:, turn_id:, step_id:, step_index:,
-text: }`, where `text` is the accumulated string so far — filter by ids;
-notifications are process-global).
-
-## Structured answers
-
-Give the turn's final answer a schema in agent.yml and read it back as a Hash:
-
-```yaml
-final_answer:
-  type: object
-  properties:
-    verdict: { type: string }
-    amount_pence: { type: integer }
-  required: [verdict]
-```
-
-`Turn#answer_data` returns the parsed payload (`answer_text` stays for prose
-agents); the HTTP API carries it as `answer_data`, evals get
-`assert_answer_data(key: :verdict, value: "approve")`. Rendered through
-RubyLLM's `with_schema`, so each provider's native structured-output mode is
-used. The schema is model-visible state — changing it mid-turn fails the turn
-loudly rather than resuming into a different contract.
-
-## The HTTP API
-
-Everything the operator surface can do, over JSON — mounted with the engine at
-`/silas/api/v1`, **deny-by-default** like the inbox (wire `config.api_auth`;
-`config.api_actor` names the identity recorded on approvals):
+The same surface over JSON, also deny-by-default:
 
 ```sh
 curl -X POST .../silas/api/v1/sessions -d "input=Refund order 42, £12.50"
 curl .../silas/api/v1/sessions/1?trace=1                # turns + steps + tool calls
-curl .../silas/api/v1/sessions/1/approvals              # what's parked
 curl -X POST .../silas/api/v1/approvals/7/approve       # the same approve! as the inbox
-curl -X POST .../silas/api/v1/sessions/1/turns -d "input=Now email them"   # 409 if busy
-curl -X POST .../silas/api/v1/turns/9/cancel
-curl -N .../silas/api/v1/sessions/1/stream              # server-sent events
+curl -X POST .../silas/api/v1/approvals/9/answer -d "answer=Use the June invoice"
+curl -N .../silas/api/v1/sessions/1/stream              # SSE, Last-Event-ID resume
 ```
 
-The stream is SSE at **row granularity** — turn / completed-step / invocation
-changes, at-least-once with `Last-Event-ID` resume (ids are epoch-ms
-watermarks; `?poll=1` returns the backlog and closes, curl-friendly; streams
-close themselves after `api_stream_max_duration` and clients reconnect).
-Per-token streaming is deliberately the browser/Turbo feature — deltas live in
-the worker process, and the gem requires no cross-process bus.
+And evals gate your deploys: scenarios script the **model's decisions** while
+the real ledger runs your real tools, so `assert_parked`, `assert_approved`,
+`assert_tool_called times: 1`, and `assert_no_hallucinated_price` assert on a
+genuine durable transcript — keyless and deterministic in CI. See
+[docs/evals.md](https://github.com/danielstpaul/silas/blob/main/docs/evals.md).
 
-## The inbox
+Turns stream live: deltas render over Turbo in the inbox and print in
+`silas:chat`, but they're decoration over durable rows — never persisted, never
+fed back to the model, absent from replays — so streaming adds zero risk to the
+contract.
 
-Mount the engine (the generator does this) and a live inbox appears at
-`/silas/inbox`: a session list, **web chat** (start a session or reply from
-the browser — same durable loop, no separate surface), a live step-trace that
-streams tokens over Turbo Streams as the agent runs, approval cards whose
-Approve/Decline buttons call the exact same `approve!`/`decline!` as Slack and
-email, a full **audit trail** (every tool call's arguments and its result or
-recorded error; who approved; who declined and why), **cancel** on active
-turns (honored at the next step boundary), and per-session token/cost
-accounting. It's **deny-by-default** — invisible until you wire auth:
+## Memory & handoffs
 
-```ruby
-Silas.configure do |c|
-  # Devise-compatible: the lambda DENIES by rendering; passes by not rendering.
-  c.inbox_auth = ->(controller) { controller.head :not_found unless controller.current_user&.admin? }
-  # c.inbox_public_read = true   # public read-only demo; approve/decline stay gated
-  # c.model_prices["your-model"] = { in: 300, out: 1500 }  # microcents / 1k tokens
-end
-```
+Memory is graph-shaped, not a graph database: `subject · attribute · content`
+triples with provenance and supersession, private per agent or `shared: true`
+for the staff. `remember` is **approval-gated by default** — the memory card
+parks in your inbox before anything persists. Your domain data does not belong
+here; it belongs in your tables, which your tools already read.
 
-Turbo streaming activates automatically when the host has `turbo-rails` (every
-default Rails app does); without it the trace falls back to a polling refresh.
-The gem itself takes no turbo dependency.
+Staff compose through **handoffs, not conversations**: `handoff` files a
+self-contained brief that starts a linked session for another named agent
+(async, or `await: true`), exactly-once-guarded, cycle-checked. Two models
+chatting freely is a cost and audit hazard — deliberately unblessed.
 
-## Requirements
+## Sandbox: untrusted code via hermetic
 
-Rails >= 8.1 (Active Job Continuations) and Solid Queue >= 1.2 for the
-durability contract. macOS dev note: Solid Queue forks + pg need
-`PGGSSENCMODE=disable OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES`.
+Code execution is off by default (`config.sandbox = :none`). The built-in
+`:docker` seam is honest-but-interim; for real isolation the companion gem
+[hermetic](https://github.com/danielstpaul/hermetic) drops in —
+`c.sandbox = Hermetic.gvisor(image: "python:3.12-slim")` (or Firecracker, or
+hosted) — and the `run_code` tool is advertised automatically. Every hermetic
+backend exposes its trust level, and the ledger guard refuses sandbox execs
+inside a ledger transaction. Until off-host isolation is configured, Silas is
+scoped to **trusted code you write yourself**.
+
+## Adapter
+
+Inference is one pluggable seam (`config.adapter`): `:ruby_llm` — any provider
+[RubyLLM](https://rubyllm.com) supports — is the default and the production
+path, bound to RubyLLM's public single-turn API (Silas's ledger owns tool
+execution; the library never runs your tools). Compose resilience via
+`config.around_model_call`, or swap in any object responding to
+`#execute_step` — the eval harness, the chaos suite, and the template's
+keyless demo are all exactly that.
+
+## Requirements & deploy
+
+Rails >= 8.1 (Active Job Continuations) and Solid Queue >= 1.2. Never run
+agents on ActiveJob's in-process `:async` adapter — it double-executes
+continuation steps; Silas raises in production and `silas:doctor` flags it
+everywhere. Deploy notes that came out of the chaos harness (worker liveness,
+the rescuer, what never to hand-delete) live in
+[DEPLOY.md](https://github.com/danielstpaul/silas/blob/main/DEPLOY.md).
+
+## Docs
+
+Everything below also ships **inside the gem** (`bundle show silas`), and the
+installer writes a Claude Code skill (`.claude/skills/silas/SKILL.md`) so a
+coding agent building on your app knows these rules without being told.
+
+| | |
+|---|---|
+| [Tutorial](https://github.com/danielstpaul/silas/blob/main/docs/tutorial.md) | Build the refund desk from nothing, one primitive per chapter. |
+| [Channels](https://github.com/danielstpaul/silas/blob/main/docs/channels.md) | Slack, email, and generating your own transport. |
+| [Evals](https://github.com/danielstpaul/silas/blob/main/docs/evals.md) | Scripted decisions, real ledger, deploy gates, rubric grading. |
+| [Budgets](https://github.com/danielstpaul/silas/blob/main/docs/budgets.md) | Caps, parking, and human top-ups. |
+| [Cancellation](https://github.com/danielstpaul/silas/blob/main/docs/cancellation.md) | What cancel means mid-flight. |
+| [Connections](https://github.com/danielstpaul/silas/blob/main/docs/connections.md) | Remote MCP servers as `<name>.yml` files. |
+| [Configuration](https://github.com/danielstpaul/silas/blob/main/docs/configuration.md) | Every `Silas.configure` option, with defaults. |
+| [Conventions](https://github.com/danielstpaul/silas/blob/main/docs/conventions.md) | The contracts the UI and API keep (including held/clear labels). |
+| [Why Silas](https://github.com/danielstpaul/silas/blob/main/docs/why-silas.md) | The pitch, and who should close the tab. |
+| [Silas vs eve](https://github.com/danielstpaul/silas/blob/main/docs/vs-eve.md) | An honest, date-stamped comparison. |
+
+## Honestly early
+
+One maintainer, zero external users, 0.5.x. The guarantees are proven by a
+reproducible chaos harness — 434 specs, a 295-run kill matrix — **not by
+production traffic**, because there is no production traffic yet. If you need
+battle-tested-at-scale today, buy that; if you're on Rails, moving real money
+your app records in its own database, and you want the dedup inside your own
+transaction boundary — that's the one thing nobody else sells, and it's why
+this exists.
 
 ## License
 

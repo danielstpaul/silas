@@ -28,8 +28,10 @@ Gem::Specification.new do |spec|
   # docs/** + DEPLOY.md ship IN the gem (eve's move): a coding agent driving the
   # install reads the real docs from the bundle instead of guessing, and the
   # README's links resolve for anyone with the gem and no network.
+  # docs/img is README/site artwork — useless offline and ~600KB; keep it out.
   spec.files = Dir["lib/**/*", "app/**/*", "config/**/*", "db/migrate/*", "docs/**/*",
                    "LICENSE", "README.md", "CHANGELOG.md", "DEPLOY.md"]
+               .reject { |f| f.start_with?("docs/img") }
 
   spec.add_dependency "rails", ">= 8.1"     # Active Job Continuations
   spec.add_dependency "ruby_llm", ">= 1.0", "< 2"  # the :ruby_llm engine + Tool param DSL (2.0 removes APIs we rely on)

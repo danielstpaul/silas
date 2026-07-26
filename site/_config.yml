@@ -1,0 +1,47 @@
+# The docs site (danielstpaul.github.io/silas), built by .github/workflows/
+# docs_site.yml. The markdown SOURCE lives in ../docs (shipped inside the gem,
+# frontmatter-free); the workflow copies it here at build time, and two
+# plugins make frontmatter unnecessary: optional-front-matter promotes bare
+# .md files to pages, titles-from-headings takes each page's H1 as its title.
+title: silas
+description: The agent framework for Rails — exactly-once tools, human gates, crash-safe turns.
+url: https://danielstpaul.github.io
+baseurl: /silas
+
+theme: just-the-docs
+# Dark is primary, not a fallback — the audience lives in terminals.
+color_scheme: dark
+# No `logo:` image — an <img>-embedded SVG can't use page webfonts, so the
+# live-text wordmark would fall back to the wrong face. The site title text
+# is styled as the wordmark instead (_includes/head_custom.html loads
+# Archivo — the docs site is the one surface allowed webfonts).
+favicon_ico: /assets/silas-favicon.svg
+search_enabled: true
+
+# The `early` marker stays in the nav until there are external users.
+aux_links:
+  "early · 0.x":
+    - https://github.com/danielstpaul/silas/blob/main/CHANGELOG.md
+  GitHub:
+    - https://github.com/danielstpaul/silas
+  RubyGems:
+    - https://rubygems.org/gems/silas
+
+plugins:
+  - jekyll-optional-front-matter
+  - jekyll-titles-from-headings
+
+titles_from_headings:
+  enabled: true
+  strip_title: true
+
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: default
+
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - vendor

@@ -1,9 +1,11 @@
-# Deploying Silas ("eve without the bill")
+# Deploying Silas
 
-Silas is an ordinary Rails app, so it deploys to a single cheap VPS with Kamal —
-no platform, no per-use bill. The one thing you MUST get right: the **Solid Queue
-worker has to run**, because the durability contract (a turn surviving a crash /
-deploy) depends on it. A web-only deploy will accept turns and never run them.
+A Silas app is an ordinary Rails app, so it deploys the way your Rails apps
+already deploy — a single cheap VPS with Kamal works fine; there is no second
+runtime or control plane to stand up. The one thing you MUST get right: the
+**Solid Queue worker has to run**, because the durability contract (a turn
+surviving a crash / deploy) depends on it. A web-only deploy will accept turns
+and never run them.
 
 > Status: this is the reference configuration. It is correct by construction
 > (worker wired, rescuer active, secrets injected) but has not yet been run
