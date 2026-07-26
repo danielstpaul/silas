@@ -1,7 +1,15 @@
 <%# silas_engine_path, not bare helpers: this partial is broadcast-rendered
     through the HOST's renderer, where engine route helpers don't exist and
-    the mounted proxy has no routing scope to lean on. %>
-<% if invocation.question? %>
+    the mounted proxy has no routing scope to lean on.
+
+    The wrapper id is dom_id(invocation, :approval) — DISTINCT from the trace
+    row's dom_id(invocation) — because this card lives at the TOP of the
+    session (04) while the trace keeps a stub. When the invocation settles,
+    Broadcastable replaces this target with the empty shell below and the card
+    disappears from the top. %>
+<div id="<%= dom_id(invocation, :approval) %>">
+<% if !invocation.awaiting_approval? %>
+<% elsif invocation.question? %>
   <div class="approval">
     <h3>The agent has a question</h3>
     <p class="question-text"><%= invocation.arguments["question"] %></p>
@@ -26,3 +34,4 @@
     <% end %>
   </div>
 <% end %>
+</div>

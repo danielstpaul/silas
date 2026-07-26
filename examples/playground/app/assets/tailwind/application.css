@@ -2,46 +2,73 @@
 
 /* ------------------------------------------------------------------------
    The chat page renders the Silas ENGINE's own trace partials (steps, tool
-   cards, approval cards) and receives the same partials live over Turbo —
-   these rules restyle those engine classes to fit the chat. Plain CSS on
-   purpose: the class names come from the gem, not this app's markup.
+   cards, approval/question cards) and receives the same partials live over
+   Turbo — these rules restyle those engine classes to fit the chat.
+
+   Colour comes from the SAME token names the engine's inbox defines
+   (direction "Signals"), not re-hardcoded hex — so an engine retheme is a
+   token swap here, never a per-rule hunt. This page is light-only (Tinker &
+   Co's storefront is white), so the light palette is the base and there is
+   deliberately no dark override.
    ------------------------------------------------------------------------ */
+:root {
+  --panel: #FFFFFF; --ink: #15171B; --muted: #5B5F68;
+  --line: #DCDEE3;  --grey-bg: #EDEEF1;
+  --accent: #274FBF;                       /* the lamp, route-blue on paper */
+  --blue:   #1D4ED8; --blue-bg:   #DCE7F5; /* running */
+  --amber:  #92650E; --amber-bg:  #FBEED0; /* held */
+  --violet: #63459B; --violet-bg: #EAE3F7; /* in_doubt */
+  --green:  #157A3D; --green-bg:  #DCF3E3; /* clear */
+  --red:    #B91C1C; --red-bg:    #FBDCDA; /* failed */
+  --quiet:  #5B5F68; --quiet-line:#C7CAD1; /* canceled */
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
 .step { position: relative; margin: 0.25rem 0 0.25rem 0; }
 .step-text { max-width: 85%; width: fit-content; border-radius: 1rem 1rem 1rem 0.125rem;
-  background: #f1f5f9; padding: 0.5rem 1rem; font-size: 0.875rem; color: #0f172a; }
+  background: var(--grey-bg); padding: 0.5rem 1rem; font-size: 0.875rem; color: var(--ink); }
 .step-text p { margin: 0 0 0.4rem; } .step-text p:last-child { margin: 0; }
 .step-live { white-space: pre-wrap; }
 .step-live:empty { display: none; }
 
-.tool { max-width: 85%; margin: 0.375rem 0; border: 1px solid #e2e8f0; border-radius: 0.6rem;
-  background: #f8fafc; padding: 0.4rem 0.7rem; font-size: 0.75rem; color: #475569; }
-.tool code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 600; }
-.tool pre { margin: 0.3rem 0 0; overflow-x: auto; font-size: 0.7rem; color: #64748b;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-.tool pre.error { color: #be123c; }
+.tool { max-width: 85%; margin: 0.375rem 0; border: 1px solid var(--line); border-radius: 0.6rem;
+  background: var(--panel); padding: 0.4rem 0.7rem; font-size: 0.75rem; color: var(--muted); }
+.tool code { font-family: var(--mono); font-weight: 600; }
+.tool pre { margin: 0.3rem 0 0; overflow-x: auto; font-size: 0.7rem; color: var(--muted);
+  font-family: var(--mono); }
+.tool pre.error { color: var(--red); }
+.tool-args { margin: 0.3rem 0 0; font-size: 0.7rem; }
+.tool-args .kv { display: flex; gap: 0.5rem; padding: 0.1rem 0; border-bottom: 1px dotted var(--line); }
+.tool-args .kv:last-child { border-bottom: 0; }
+.tool-args .k { font-family: var(--mono); color: var(--muted); min-width: 5.5rem; }
+.tool-args .v { font-family: var(--mono); overflow-wrap: anywhere; }
+details.tool-result summary { cursor: pointer; color: var(--muted); }
+.held-stub { font-size: 0.7rem; color: var(--amber); margin-top: 0.3rem; }
 
 .pill { display: inline-block; margin-left: 0.35rem; border-radius: 999px; padding: 0.05rem 0.5rem;
   font-size: 0.6rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
-.pill-grey { background: #f1f5f9; color: #64748b; }
-.pill-blue { background: #dbeafe; color: #1d4ed8; }
-.pill-amber { background: #fef3c7; color: #b45309; }
-.pill-green { background: #d1fae5; color: #047857; }
-.pill-red { background: #ffe4e6; color: #be123c; }
+.pill-grey { background: var(--grey-bg); color: var(--muted); }
+.pill-blue { background: var(--blue-bg); color: var(--blue); }
+.pill-amber { background: var(--amber-bg); color: var(--amber); }
+.pill-green { background: var(--green-bg); color: var(--green); }
+.pill-red { background: var(--red-bg); color: var(--red); }
+.pill-violet { background: var(--violet-bg); color: var(--violet); }
+.pill-quiet { background: transparent; color: var(--quiet); border: 1px dashed var(--quiet-line); }
 .pill-pulse { animation: pill-pulse 1.4s ease-in-out infinite; }
-@keyframes pill-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+@keyframes pill-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
 
-/* The approval card: on the customer side this reads as "a human is checking
-   this" — the buttons still work if you're also playing operator (they're
-   write-gated by the operator password either way). */
-.approval { max-width: 85%; margin: 0.375rem 0; border: 1px solid #fcd34d; border-radius: 0.6rem;
-  background: #fffbeb; padding: 0.6rem 0.8rem; font-size: 0.75rem; color: #92400e; }
+/* The hoisted approval/question card: on the customer side this reads as
+   "a human is checking this" — the buttons still work if you're also playing
+   operator (they're write-gated by the operator password either way). */
+.approval { margin: 0.375rem 0 1rem; border: 1.5px solid var(--amber); border-radius: 0.6rem;
+  background: var(--amber-bg); padding: 0.6rem 0.8rem; font-size: 0.75rem; color: var(--amber); }
 .approval h3 { margin: 0 0 0.3rem; font-size: 0.75rem; font-weight: 600; }
-.approval pre { margin: 0.2rem 0; font-size: 0.7rem; overflow-x: auto;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.approval .question-text { margin: 0 0 0.4rem; color: var(--ink); }
+.approval pre { margin: 0.2rem 0; font-size: 0.7rem; overflow-x: auto; font-family: var(--mono); }
 .approval .btn { border: 0; border-radius: 0.5rem; padding: 0.35rem 0.8rem; font-size: 0.7rem;
   font-weight: 600; cursor: pointer; }
-.approval .btn.approve { background: #047857; color: #fff; }
-.approval .btn.decline { background: transparent; color: #be123c; border: 1px solid #fda4af; }
-.approval textarea { width: 100%; margin: 0.4rem 0; border: 1px solid #fcd34d; border-radius: 0.5rem;
-  padding: 0.4rem; font: inherit; font-size: 0.7rem; }
+.approval .btn.approve { background: var(--green); color: #fff; }
+.approval .btn.decline { background: transparent; color: var(--red); border: 1px solid var(--red); }
+.approval textarea { width: 100%; margin: 0.4rem 0; border: 1px solid var(--amber); border-radius: 0.5rem;
+  padding: 0.4rem; font: inherit; font-size: 0.7rem; background: var(--panel); color: var(--ink); }
 form.inline { display: inline; }

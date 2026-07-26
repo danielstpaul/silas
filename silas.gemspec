@@ -17,13 +17,19 @@ Gem::Specification.new do |spec|
   spec.metadata["homepage_uri"] = spec.homepage
   spec.metadata["source_code_uri"] = spec.homepage
   spec.metadata["changelog_uri"] = "#{spec.homepage}/blob/main/CHANGELOG.md"
+  spec.metadata["documentation_uri"] = "#{spec.homepage}/tree/main/docs"
+  spec.metadata["bug_tracker_uri"] = "#{spec.homepage}/issues"
   spec.metadata["rubygems_mfa_required"] = "true"
 
   spec.required_ruby_version = ">= 3.2"
 
   # config/** is REQUIRED: the engine draws its routes (inbox, Slack, email) from
   # config/routes.rb — omitting it mounts a routes-less engine that 404s everything.
-  spec.files = Dir["lib/**/*", "app/**/*", "config/**/*", "db/migrate/*", "LICENSE", "README.md", "CHANGELOG.md"]
+  # docs/** + DEPLOY.md ship IN the gem (eve's move): a coding agent driving the
+  # install reads the real docs from the bundle instead of guessing, and the
+  # README's links resolve for anyone with the gem and no network.
+  spec.files = Dir["lib/**/*", "app/**/*", "config/**/*", "db/migrate/*", "docs/**/*",
+                   "LICENSE", "README.md", "CHANGELOG.md", "DEPLOY.md"]
 
   spec.add_dependency "rails", ">= 8.1"     # Active Job Continuations
   spec.add_dependency "ruby_llm", ">= 1.0", "< 2"  # the :ruby_llm engine + Tool param DSL (2.0 removes APIs we rely on)

@@ -4,37 +4,71 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title><%= content_for?(:title) ? yield(:title) : "Silas Inbox" %></title>
+  <%# The night tile, inlined — the engine ships no assets and keeps shipping none. %>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230F1013'/%3E%3Cg transform='translate(4,4)'%3E%3Ccircle cx='12' cy='12' r='9.6' fill='none' stroke='%23E9EBEF' stroke-width='2.2'/%3E%3Ccircle cx='8.4' cy='15.6' r='2.5' fill='%23F2F4F8'/%3E%3Ccircle cx='15.6' cy='8.4' r='2.5' fill='%23F2F4F8'/%3E%3C/g%3E%3C/svg%3E">
   <% if Silas::Inbox.streaming_available? %><%= turbo_include_tags rescue nil %><% end %>
   <style>
+    /* Direction "Signals" (see docs/conventions.md and the brand book).
+       Dark is PRIMARY — the audience lives in terminals; light is the
+       prefers-color-scheme override, the reverse of most sites. The lamp
+       (--accent) means "you can act on this" — links, focus, the live-step
+       dot — and NEVER means state. State is the aspect colours below. */
     :root {
-      --bg: #f7f7f8; --panel: #ffffff; --ink: #16181d; --muted: #6b7280;
-      --line: #e5e7eb; --accent: #4f46e5; --amber: #b45309; --amber-bg: #fef3c7;
-      --green: #047857; --green-bg: #d1fae5; --red: #b91c1c; --red-bg: #fee2e2;
-      --blue: #1d4ed8; --blue-bg: #dbeafe; --grey-bg: #eef0f3;
-      --radius: 14px; --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+      --bg:          #0F1013;  /* night */
+      --panel:       #16181D;  /* card, input, button face */
+      --ink:         #E9EBEF;  /* body text, wordmark */
+      --muted:       #969CA8;  /* metadata */
+      --line:        #262A33;  /* borders, rules */
+      --grey-bg:     #1D2027;  /* tool rows, <pre> */
+
+      /* the lamp — white at night, route-blue on paper: the ONE token allowed
+         to change hue between modes, because it represents light, not pigment */
+      --accent:      #F2F4F8;
+      --accent-soft: #1D2027;
+
+      /* aspects — run states */
+      --blue:   #58A6FF;  --blue-bg:   #14233D;  /* running */
+      --amber:  #E3B341;  --amber-bg:  #2E2611;  /* waiting -> "held" */
+      --violet: #B49AE8;  --violet-bg: #241E33;  /* in_doubt */
+      --green:  #3FB950;  --green-bg:  #12291B;  /* completed -> "clear" */
+      --red:    #F85149;  --red-bg:    #331815;  /* failed */
+      --quiet:  #737A87;  --quiet-line:#4A5160;  /* canceled — a lamp goes out */
+
+      --radius: 8px; --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      --sans-display: Archivo, "Helvetica Neue", Helvetica, Arial, sans-serif;
     }
-    @media (prefers-color-scheme: dark) {
+    @media (prefers-color-scheme: light) {
       :root {
-        --bg: #0d0f14; --panel: #161a22; --ink: #e6e8ec; --muted: #9aa2af;
-        --line: #262b36; --accent: #818cf8; --amber: #fbbf24; --amber-bg: #3a2e12;
-        --green: #34d399; --green-bg: #10291f; --red: #f87171; --red-bg: #35191a;
-        --blue: #60a5fa; --blue-bg: #14233d; --grey-bg: #1e232d;
+        --bg: #F4F4F2; --panel: #FFFFFF; --ink: #15171B; --muted: #5B5F68;
+        --line: #DCDEE3; --grey-bg: #EDEEF1;
+        --accent: #274FBF; --accent-soft: #E3E9FA;
+        --blue:   #1D4ED8; --blue-bg:   #DCE7F5;
+        --amber:  #92650E; --amber-bg:  #FBEED0;
+        --violet: #63459B; --violet-bg: #EAE3F7;
+        --green:  #157A3D; --green-bg:  #DCF3E3;
+        --red:    #B91C1C; --red-bg:    #FBDCDA;
+        --quiet:  #5B5F68; --quiet-line:#C7CAD1;
       }
     }
     * { box-sizing: border-box; }
     body {
       margin: 0; background: var(--bg); color: var(--ink);
-      font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       -webkit-font-smoothing: antialiased;
     }
     .wrap { max-width: 640px; margin: 0 auto; padding: 20px 16px 64px; }
     header.top { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
-    header.top .logo { font-weight: 700; letter-spacing: -0.02em; font-size: 20px; }
-    header.top .logo a { color: var(--ink); text-decoration: none; }
+    header.top .logo {
+      font-family: var(--sans-display); font-weight: 800;
+      letter-spacing: -0.03em; font-size: 20px;
+      display: inline-flex; align-items: center; gap: 8px;
+    }
+    header.top .logo a { color: var(--ink); text-decoration: none; display: inline-flex; align-items: center; gap: 8px; }
+    header.top .logo svg { display: block; }
     header.top .spacer { flex: 1; }
     .badge { background: var(--amber-bg); color: var(--amber); font-weight: 600;
       font-size: 12px; padding: 3px 9px; border-radius: 999px; }
-    a { color: var(--accent); }
+    a { color: var(--accent); text-underline-offset: 2px; }
     .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
       padding: 14px 16px; margin-bottom: 12px; }
     .session-row { display: block; text-decoration: none; color: inherit; }
@@ -49,8 +83,13 @@
     .pill-amber { background: var(--amber-bg); color: var(--amber); }
     .pill-green { background: var(--green-bg); color: var(--green); }
     .pill-red { background: var(--red-bg); color: var(--red); }
-    .pill-pulse { animation: pulse 1.4s ease-in-out infinite; }
-    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+    .pill-violet { background: var(--violet-bg); color: var(--violet); }
+    /* canceled: a person stopped it — a lamp goes out, it doesn't turn red */
+    .pill-quiet { background: transparent; color: var(--quiet);
+      border: 1px dashed var(--quiet-line); padding: 1px 7px; }
+    /* running is the only aspect that moves */
+    .pill-pulse { animation: lamppulse 1.4s ease-in-out infinite; }
+    @keyframes lamppulse { 0%,100% { opacity: 1; } 50% { opacity: 0.45; } }
     .turn { border-left: 2px solid var(--line); padding-left: 14px; margin: 16px 0; }
     .turn-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
     .turn-input { font-weight: 600; }
@@ -59,51 +98,71 @@
       border-radius: 50%; background: var(--accent); }
     .step-text { margin: 2px 0; }
     .step-live { white-space: pre-wrap; }
-    .tool { background: var(--grey-bg); border-radius: 10px; padding: 8px 10px; margin: 6px 0; font-size: 13px; }
+    .tool { background: var(--grey-bg); border-radius: var(--radius); padding: 8px 10px; margin: 6px 0; font-size: 13px; }
     .tool code { font-family: var(--mono); }
-    pre { font-family: var(--mono); font-size: 12px; background: var(--grey-bg); border-radius: 8px;
+    .tool-args { margin: 6px 0; font-size: 13px; }
+    .tool-args .kv { display: flex; gap: 8px; padding: 2px 0; border-bottom: 1px dotted var(--line); }
+    .tool-args .kv:last-child { border-bottom: 0; }
+    .tool-args .k { font-family: var(--mono); font-size: 12px; color: var(--muted); min-width: 96px; }
+    .tool-args .v { font-family: var(--mono); font-size: 12px; overflow-wrap: anywhere; }
+    details.tool-result { margin: 6px 0; }
+    details.tool-result summary { cursor: pointer; font-size: 12px; color: var(--muted); }
+    pre { font-family: var(--mono); font-size: 12px; background: var(--grey-bg); border-radius: var(--radius);
       padding: 8px 10px; overflow-x: auto; margin: 6px 0; }
-    .approval { border: 1.5px solid var(--amber); background: var(--amber-bg); border-radius: 12px;
+    .approval { border: 1.5px solid var(--amber); background: var(--amber-bg); border-radius: var(--radius);
       padding: 12px 14px; margin: 10px 0; }
     .approval h3 { margin: 0 0 8px; font-size: 14px; color: var(--amber); }
-    .btn { display: inline-block; border: 0; border-radius: 10px; padding: 11px 18px; min-height: 44px;
+    .approval .question-text { margin: 0 0 8px; }
+    .held-stub { font-size: 13px; color: var(--amber); margin: 6px 0; }
+    .btn { display: inline-block; border: 0; border-radius: var(--radius); padding: 11px 18px; min-height: 44px;
       font-size: 15px; font-weight: 600; cursor: pointer; }
     .btn.approve { background: var(--green); color: #fff; }
     .btn.decline { background: var(--panel); color: var(--red); border: 1px solid var(--red); }
-    .decline-form textarea { width: 100%; border: 1px solid var(--line); border-radius: 8px;
+    .decline-form textarea { width: 100%; border: 1px solid var(--line); border-radius: var(--radius);
       padding: 8px; margin: 8px 0; font: inherit; background: var(--panel); color: var(--ink); resize: vertical; }
     form.inline { display: inline; }
     .cost { font-family: var(--mono); font-size: 12px; color: var(--muted); }
-    .composer textarea { width: 100%; border: 1px solid var(--line); border-radius: 10px;
+    .composer textarea { width: 100%; border: 1px solid var(--line); border-radius: var(--radius);
       padding: 10px 12px; font: inherit; background: var(--panel); color: var(--ink); resize: vertical; }
     .composer textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
     .composer-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; }
-    .btn.send { background: var(--accent); color: #fff; }
-    select.composer-agent { border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px;
+    /* The lamp as a button: dark text on the white lamp at night, paper text
+       on route-blue in the light — var(--bg) tracks both. */
+    .btn.send { background: var(--accent); color: var(--bg); }
+    select.composer-agent { border: 1px solid var(--line); border-radius: var(--radius); padding: 6px 8px;
       font: inherit; background: var(--panel); color: var(--ink); margin-bottom: 8px; }
-    .flash { background: var(--red-bg); color: var(--red); padding: 10px 12px; border-radius: 10px; margin-bottom: 12px; }
+    .flash { background: var(--red-bg); color: var(--red); padding: 10px 12px; border-radius: var(--radius); margin-bottom: 12px; }
     .flash-notice { background: var(--green-bg); color: var(--green); }
     .btn-cancel { border: 1px solid var(--red); background: transparent; color: var(--red);
-      border-radius: 8px; padding: 2px 10px; font-size: 12px; font-weight: 600; cursor: pointer; margin-left: auto; }
+      border-radius: var(--radius); padding: 2px 10px; font-size: 12px; font-weight: 600; cursor: pointer; margin-left: auto; }
     pre.error { background: var(--red-bg); color: var(--red); }
     pre.args { opacity: 0.85; }
     .empty { text-align: center; color: var(--muted); padding: 48px 0; }
+    .rail-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+      color: var(--muted); margin: 20px 0 8px; }
     .agent-filter { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
-    .agent-filter .chip { font-size: 12px; padding: 3px 10px; border: 1px solid #d9dce1;
+    .agent-filter .chip { font-size: 12px; padding: 3px 10px; border: 1px solid var(--line);
       border-radius: 999px; text-decoration: none; color: inherit; }
-    .agent-filter .chip-on { background: #16181d; color: #fff; border-color: #16181d; }
+    .agent-filter .chip-on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
     .pager { text-align: center; margin: 16px 0; }
     .pager .chip { font-size: 13px; padding: 6px 14px; border: 1px solid var(--line);
       border-radius: 999px; text-decoration: none; color: inherit; }
     .topup-form { display: flex; gap: 8px; margin-top: 8px; }
-    .topup-input { flex: 1; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px;
+    .topup-input { flex: 1; border: 1px solid var(--line); border-radius: var(--radius); padding: 8px 10px;
       font: inherit; background: var(--panel); color: var(--ink); }
   </style>
 </head>
 <body>
   <div class="wrap">
     <header class="top">
-      <span class="logo"><%= link_to "Silas", inbox_sessions_path %></span>
+      <span class="logo">
+        <%= link_to inbox_sessions_path do %>
+          <%# The mark: a position-light signal, diagonal = "proceed". Bezel in
+              ink, lamps in the accent — so the lamps are white at night and
+              route-blue on paper, per the one-token-may-change-hue rule. %>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" role="img" aria-hidden="true"><circle cx="12" cy="12" r="9.6" fill="none" style="stroke: var(--ink)" stroke-width="2.2"/><circle cx="8.4" cy="15.6" r="2.5" style="fill: var(--accent)"/><circle cx="15.6" cy="8.4" r="2.5" style="fill: var(--accent)"/></svg><span>silas</span>
+        <% end %>
+      </span>
       <span class="spacer"></span>
       <% if content_for?(:header_extra) %><%= yield :header_extra %><% end %>
     </header>

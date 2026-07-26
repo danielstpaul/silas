@@ -22,13 +22,43 @@ RSpec.describe "trace partials under the host renderer" do
     expect(host_render("silas/inbox/steps/step", { step: step })).to include("hello there")
   end
 
-  it "renders a parked invocation's approval card (engine routes via the mount proxy)" do
+  it "renders a parked invocation as the held stub (the card lives at the session top)" do
     invocation = Silas::ToolInvocation.create!(step: step, turn: turn, tool_call_id: "t0",
                                                tool_name: "issue_refund", effect_mode: "at_most_once",
                                                arguments: { "amount" => 120 }, approval_state: "required")
     html = host_render("silas/inbox/invocations/invocation", { invocation: invocation })
+    expect(html).to include("held at the signal")
+    expect(html).not_to include("/approve") # the buttons moved to the hoisted card
+  end
+
+  it "renders the hoisted approval card under the host renderer (Broadcastable appends it there)" do
+    invocation = Silas::ToolInvocation.create!(step: step, turn: turn, tool_call_id: "t0",
+                                               tool_name: "issue_refund", effect_mode: "at_most_once",
+                                               arguments: { "amount" => 120 }, approval_state: "required")
+    html = host_render("silas/inbox/invocations/approval_card", { invocation: invocation })
     expect(html).to include("Approval needed")
     expect(html).to include("/silas/inbox/invocations/#{invocation.id}/approve")
+    expect(html).to include(%(id="approval_tool_invocation_#{invocation.id}")) # dom_id(inv, :approval)
+  end
+
+  it "renders a settled invocation's card as an empty shell (the replace that clears the top)" do
+    invocation = Silas::ToolInvocation.create!(step: step, turn: turn, tool_call_id: "t1",
+                                               tool_name: "issue_refund", effect_mode: "at_most_once",
+                                               arguments: {}, approval_state: "approved", status: "completed")
+    html = host_render("silas/inbox/invocations/approval_card", { invocation: invocation })
+    expect(html).not_to include("Approval needed")
+    expect(html).to include("approval_") # the addressable shell survives
+  end
+
+  it "renders a parked question's card with the answer form, not approve/decline" do
+    invocation = Silas::ToolInvocation.create!(step: step, turn: turn, tool_call_id: "q0",
+                                               tool_name: "ask_question", effect_mode: "at_most_once",
+                                               arguments: { "question" => "Which env?" },
+                                               approval_state: "required")
+    html = host_render("silas/inbox/invocations/approval_card", { invocation: invocation })
+    expect(html).to include("The agent has a question")
+    expect(html).to include("/silas/inbox/invocations/#{invocation.id}/answer")
+    expect(html).not_to include("/silas/inbox/invocations/#{invocation.id}/approve")
   end
 
   it "renders a whole turn with its header (cancel form route resolves)" do

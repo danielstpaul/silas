@@ -1,0 +1,14 @@
+<%= link_to inbox_session_path(session), class: "card session-row" do %>
+  <div class="row-top">
+    <span class="name"><%= session.agent_name %></span>
+    <%# Loaded association — no per-row queries. %>
+    <% if (turn = session.turns.detect(&:active?) || session.turns.last) %><%= status_pill(turn.status) %><% end %>
+    <% pending = pending_counts.fetch(session.id, 0) %>
+    <% if pending.positive? %><span class="badge"><%= pending %> held</span><% end %>
+  </div>
+  <div class="muted">
+    <%= pluralize(session.turns.size, "turn") %> ·
+    <%= session.channel.presence || "direct" %> ·
+    <%= silas_relative_time(session.updated_at) %>
+  </div>
+<% end %>

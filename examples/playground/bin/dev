@@ -13,4 +13,6 @@ export PORT="${PORT:-3000}"
 export RUBY_DEBUG_OPEN="true"
 export RUBY_DEBUG_LAZY="true"
 
-exec foreman start -f Procfile.dev "$@"
+# `gem exec` resolves foreman from the gem store directly — no PATH, no shim,
+# no `asdf reshim` needed after the install above.
+exec gem exec foreman start -f Procfile.dev "$@"

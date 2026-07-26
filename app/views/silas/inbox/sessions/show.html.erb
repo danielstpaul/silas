@@ -15,6 +15,15 @@
   <div id="silas-session-<%= @session.id %>-cost"><%= render "silas/inbox/sessions/cost", session: @session %></div>
 </div>
 
+<%# 04: everything awaiting a person sits ABOVE the movement — the operator
+    never scrolls a long trace hunting for the card. Live parks are appended
+    here by Broadcastable; settled cards replace themselves with an empty
+    shell and vanish. %>
+<div id="silas-session-<%= @session.id %>-approvals">
+  <%= render partial: "silas/inbox/invocations/approval_card",
+             collection: @session.pending_approvals.order(:id), as: :invocation %>
+</div>
+
 <div id="silas-turns">
   <%= render partial: "silas/inbox/turns/turn", collection: @turns, as: :turn %>
 </div>

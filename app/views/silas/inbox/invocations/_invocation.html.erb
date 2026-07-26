@@ -5,23 +5,35 @@
     <%# The audit line — who held the lever, and why it moved. %>
     <% if invocation.approval_state == "approved" %>
       <span class="muted"><%= invocation.approved_by.present? ? "approved by #{invocation.approved_by}" : "auto-approved by policy" %></span>
+    <% elsif invocation.approval_state == "answered" %>
+      <span class="muted">answered<%= " by #{invocation.approved_by}" if invocation.approved_by.present? %></span>
     <% elsif invocation.approval_state == "declined" %>
       <span class="muted">declined<%= " by #{invocation.approved_by}" if invocation.approved_by.present? %><%= " — “#{invocation.decline_reason}”" if invocation.decline_reason.present? %></span>
     <% elsif invocation.approval_state == "expired" %>
-      <span class="muted">approval expired unanswered</span>
+      <span class="muted"><%= invocation.question? ? "question expired unanswered" : "approval expired unanswered" %></span>
     <% end %>
   </div>
   <% if invocation.awaiting_approval? %>
-    <%= render "silas/inbox/invocations/approval_card", invocation: invocation %>
+    <%# The card itself lives at the TOP of the session (04) — the trace keeps
+        its place in the movement with a one-line stub. %>
+    <div class="held-stub">↑ held at the signal — <%= invocation.question? ? "answer" : "clear" %> it above</div>
   <% else %>
-    <%# What the agent passed — the question an audit surface must answer. %>
+    <%# What the agent passed — the question an audit surface must answer.
+        Key/value rows (05): scannable at a glance, JSON only per value. %>
     <% if invocation.arguments.present? %>
-      <pre class="args"><%= pretty_args(invocation.arguments) %></pre>
+      <div class="tool-args">
+        <% invocation.arguments.each do |key, value| %>
+          <div class="kv"><span class="k"><%= key %></span><span class="v"><%= value.is_a?(String) ? value : JSON.generate(value) %></span></div>
+        <% end %>
+      </div>
     <% end %>
     <% if invocation.error.present? %>
       <pre class="error"><%= invocation.error %></pre>
     <% elsif invocation.result.present? %>
-      <pre><%= pretty_args(invocation.result) %></pre>
+      <details class="tool-result">
+        <summary>result</summary>
+        <pre><%= pretty_args(invocation.result) %></pre>
+      </details>
     <% end %>
   <% end %>
 </div>

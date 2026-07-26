@@ -34,6 +34,15 @@ module Silas
         template "channel_email.rb", "app/agent/channels/email.rb"
       end
 
+      # A Claude Code / coding-agent skill: the app/agent/ conventions, the
+      # effect-mode and approval decision rules, and the ledger rules an agent
+      # must never violate — so a coding agent driving this app builds Silas
+      # agents correctly without the human learning the framework first.
+      # Delete the file if you don't use coding agents.
+      def create_claude_skill
+        template "claude_skill.md", ".claude/skills/silas/SKILL.md"
+      end
+
       def mount_engine
         route 'mount Silas::Engine => "/silas"'
       end
