@@ -1,5 +1,60 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **A Rails application template** — `rails new desk -m
+  https://raw.githubusercontent.com/danielstpaul/silas/main/template.rb` builds
+  a deployable agent app from nothing: a refund desk with one tool per effect
+  mode (`lookup_order` idempotent, `issue_refund` transactional behind a
+  £25 approval gate, `notify_customer` at-most-once), Solid Queue **and** Solid
+  Cable wired in development (the durability contract needs a real worker; live
+  deltas need a cross-process cable), a keyless scripted stand-in so the first
+  `bin/dev` works with zero secrets, three deterministic agent evals asserting
+  the hold and the exactly-once execution, and a Signals-branded signal-board
+  landing page. The template only runs the generators the gem already tests,
+  and the `template_smoke` workflow regenerates and tests an app from it on
+  every push — a starter that structurally cannot rot. (eve needs template
+  repos because it has no generator story; Rails has application templates.)
+- **The gem ships its own docs, and the installer ships a coding-agent skill.**
+  `docs/**` and `DEPLOY.md` are in the packaged gem, so `bundle show silas`
+  gives a coding agent (or an offline human) the real reference — and the
+  README's links stop 404ing for gem-only readers. `rails g silas:install` now
+  also writes `.claude/skills/silas/SKILL.md`: the `app/agent/` conventions,
+  the effect-mode and approval decision rules, and the ledger rules an agent
+  must never violate — so a Claude Code/Codex session building on this app
+  gets the framework's judgment without the human learning it first. Gemspec
+  gains `documentation_uri` and `bug_tracker_uri`.
+
+### Changed
+
+- **The inbox wears the brand** (direction "Signals"). Dark-first — the tokens'
+  base is the night palette and light is the `prefers-color-scheme` override —
+  with a position-light mark, a lowercase wordmark, and one white "lamp" accent
+  that never means state. The seven run states each get their aspect:
+  `in_doubt` its own violet (it is neither waiting-by-design nor failed),
+  `canceled` a dashed quiet (a lamp going out, not turning red), and two
+  UI-only relabels — `waiting` reads **held**, `completed` reads **clear**. The
+  database strings and the JSON API are untouched (`docs/conventions.md`).
+- **Approvals and questions are hoisted to the top of the session** — the
+  operator never scrolls a long trace hunting for the card; the trace keeps a
+  one-line "held at the signal" stub in place. Live parks append their card via
+  the same Turbo broadcasts; settled cards remove themselves. Tool arguments
+  render as key/value rows and results collapse behind a disclosure; the
+  session index groups its rail by who's blocked: **Held / Working / Filed**.
+- The playground's chat page consumes the engine's colour tokens instead of
+  re-hardcoding a palette, and hosts the hoisted approval/question cards above
+  its transcript.
+
+### Fixed
+
+- The generated `config/initializers/ruby_llm.rb` no longer guards its whole
+  configure block behind `ANTHROPIC_API_KEY` — keyless boots skipped the
+  `use_new_acts_as` opt-in, so every demo-mode boot printed RubyLLM's legacy
+  acts_as deprecation warning. A nil key assignment is inert; the block now
+  always runs.
+
 ## 0.5.0 (2026-07-26)
 
 Two new loop primitives (replay-safe compaction, ask_question), a whole-channel

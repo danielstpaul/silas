@@ -1,0 +1,62 @@
+name: template_smoke
+
+# The anti-rot gate for template.rb: generate a real app from the template
+# against THIS checkout, then run the generated app's own keyless test + eval
+# suite. If the template drifts from the gem — a renamed generator, a changed
+# config shape, a broken injection anchor — this fails, not a user's first run.
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    env:
+      LANG: en_US.UTF-8
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          path: silas
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4"
+
+      - name: Install Rails
+        run: gem install rails -v "~> 8.1" --no-document
+
+      - name: Generate an app from the template (local silas)
+        env:
+          SILAS_PATH: ${{ github.workspace }}/silas
+        run: rails new desk -m silas/template.rb --skip-git
+
+      - name: App tests (keyless)
+        working-directory: desk
+        run: bin/rails test
+
+      - name: Agent evals (keyless, scripted decisions, real ledger)
+        working-directory: desk
+        run: bin/rails silas:eval
+
+      - name: Landing page renders
+        working-directory: desk
+        run: |
+          bin/rails runner '
+            app = ActionDispatch::Integration::Session.new(Rails.application)
+            app.get("/")
+            raise "root returned #{app.response.status}" unless app.response.status == 200
+            raise "signal board missing" unless app.response.body.include?("The desk is open.")
+          '
+
+      - name: Doctor verifies the generated setup
+        working-directory: desk
+        # Keyless, so the credentials check fails by design — assert the
+        # checks the template is responsible for instead of the exit code.
+        run: |
+          bin/rails silas:doctor 2>&1 | tee doctor.log || true
+          grep -q "queue adapter — solid_queue" doctor.log
+          grep -q "migrations — all silas tables present" doctor.log
+          grep -q "rescuer — recurring entry present" doctor.log
+          grep -q "live streaming — cable adapter solid_cable" doctor.log
+          grep -q "inbox auth — configured" doctor.log
