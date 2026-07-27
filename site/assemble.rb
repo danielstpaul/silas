@@ -29,6 +29,8 @@ NAV = {
                        desc: "Bind Slack and email to the durable loop, with approve/decline from either — and generate a signature-verifying webhook for any other transport." },
   "inbox-and-api" => { title: "Inbox & API",       parent: "Core", order: 5,
                        desc: "The mounted operator inbox (live traces, approval cards, audit trail, cost) and the same surface over JSON with SSE streaming and structured answers." },
+  "headless"      => { title: "Headless",          parent: "Core", order: 6,
+                       desc: "Run the durable runtime with no screens of ours: drive approve, decline and answer from your own UI via the model API, and mount the inbox as an engine-room audit surface behind staff auth." },
 
   "connections"   => { title: "Connections",  parent: "Advanced", order: 1,
                        desc: "Remote MCP servers as one YAML file each: namespaced tools under the same ledger, credential paths (never secrets), https enforced for auth." },
@@ -79,8 +81,8 @@ end
 full = +"# silas — full documentation\n\n"
 full << "> Concatenation of every silas doc. Curated index: llms.txt\n\n"
 ordered = %w[tutorial guarantees tools agents memory channels inbox-and-api
-             connections evals budgets cancellation sandbox configuration
-             providers deploy conventions why-silas vs-eve]
+             headless connections evals budgets cancellation sandbox
+             configuration providers deploy conventions why-silas vs-eve]
 ordered.each do |slug|
   full << "\n\n---\n\n" << File.read(sources.fetch(slug))
 end
