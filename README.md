@@ -75,6 +75,7 @@ Create a tool at `app/agent/tools/issue_refund.rb` — the keyword signature
 ```ruby
 class Agent::Tools::IssueRefund < Silas::Tool
   description "Refund part or all of an order."
+  param :amount_pence, :integer, desc: "Amount in pence (1800 = £18.00)"
   approval ->(session:, input:) { input[:amount_pence] > 2_500 ? :user_approval : :approved }
   transactional!   # DB effect + ledger commit atomically -> exactly-once
 
