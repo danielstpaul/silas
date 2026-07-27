@@ -342,6 +342,92 @@ the agent better.*
 
 ---
 
+## Judging Phase 1: a pre-registered test
+
+Everything above rests on counterfactual replay being genuinely striking rather
+than merely clever. That judgement cannot be made after building it — by then
+you have a stake in the answer, and "does this feel magic?" reliably returns
+yes to the person who wrote it. So the criteria go here, now, while nobody
+cares about the outcome. **If you find yourself revising this section after
+seeing results, that is the finding.**
+
+### Two checks that come before the code
+
+**Day 0 — write the demo transcript first.** Before implementing anything,
+write the one-page transcript you want to show: exact commands, exact output,
+faked. If you cannot write a page that makes *you* want to run it, the feature
+does not exist and no implementation will rescue it. This costs an afternoon
+and can kill the phase outright. It also becomes the spec — build toward the
+transcript, not toward an API.
+
+**Day 1 — the null test.** Replay a real production turn with *nothing*
+changed. It must reproduce the original byte-identically. This is nearly free
+(the chaos harness already asserts byte-identical replay) and it validates the
+mechanism rather than the story. If the null test fails, counterfactual replay
+is not merely unmagical — it is unsound, and Phase 1 stops here until it isn't.
+
+Two strong signals, neither requiring the real implementation.
+
+### The known failure mode: divergence
+
+The thing most likely to make replay feel unconvincing is not performance or
+ergonomics. It is that **once you change the model at step 7, step 8's input
+differs, so the trajectories diverge and you are no longer comparing like with
+like.** A diff that silently compares two increasingly unrelated runs is worse
+than no diff — it's confidently wrong.
+
+Design for this from the start: divergence is a *first-class output*, not a
+bug. The replay should report where the runs parted company and how far they
+had drifted by the end. "These two agreed through step 9 and split at the
+refund amount" is a usable finding. An undifferentiated wall of diff is not.
+
+### Pre-registered numbers
+
+Run the built engine against **ten real turns you already know went wrong**.
+Decide these thresholds now:
+
+| Dimension | Test | Kill below |
+|---|---|---|
+| **Friction** | Replay a production turn against a different model | One command + one flag. More than that and it's a library, not an instrument. |
+| **Latency** | 10-step turn, 3 variants, wall clock | 60 seconds. Past that you'll stop reaching for it. |
+| **Non-obviousness** | Of 10 known-bad turns, how many surfaced a cause you would *not* have gotten from reading the inbox transcript? | 3/10. Below that, the transcript was already enough and replay is decoration. |
+| **Decision change** | Of those, how many changed what you actually shipped — a prompt edit, a model swap, a tool fix? | 2. An instrument that never changes a decision is a toy. |
+| **Unprompted reuse** | Two weeks later, count invocations made while doing real work, not while testing the feature | 5. Zero is the loudest possible result. |
+
+Non-obviousness is the one that matters most and the one you'll be most tempted
+to fudge. Guard it: **write down what you think the cause is *before* running
+the replay**, then compare. Without that, hindsight makes everything look
+predicted.
+
+### Outside eyes, and the specific tell
+
+You cannot judge your own demo. Show it to five Rails engineers who have
+shipped an LLM feature and would use this in anger.
+
+The signal is not "that's cool" — people are polite about other people's side
+projects. **The tell is whether they immediately ask a specific question about
+their own system.** "Could I replay the turn where our agent double-charged?"
+is signal. "Nice, how long did that take to build?" is noise. Count the
+unprompted specific applications; three or more out of five is a real result.
+
+### Separating a wrong idea from wrong packaging
+
+If it lands flat, the diagnosis matters more than the verdict, because the two
+failures have opposite responses:
+
+- **"I'd use this if it also did X"** → packaging. The thesis holds; keep
+  going and fix the ergonomics.
+- **"Interesting, but I'd just read the logs / add a print statement"** →
+  substance. The transcript is already sufficient for their debugging, and
+  replay is solving a problem they don't have. That is the thesis failing, and
+  the honest response is to fall back to Layer 1 as a durability framework and
+  drop Act II.
+
+The second outcome is survivable and cheap at Phase 1. It is expensive at
+Phase 4. That asymmetry is the entire reason replay is sequenced first.
+
+---
+
 ## How this reads as a portfolio
 
 You framed this as demonstrating seven years of ML infrastructure and platform
