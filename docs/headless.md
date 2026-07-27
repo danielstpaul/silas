@@ -32,8 +32,13 @@ For the queue itself:
 
 ```ruby
 session.pending_approvals          # what this session is parked on
-Silas::Session.where(status: "waiting")
+Silas::ToolInvocation.where(approval_state: "required")   # the whole queue
+Silas::Turn.where(status: "waiting")                      # parked turns
 ```
+
+Note the two status vocabularies: a **Turn** is
+`queued/running/waiting/in_doubt/completed/failed/canceled`, while a
+**Session** is only `active/archived`. Parked work is a turn in `waiting`.
 
 Nothing about parking is UI-coupled: a turn parked for approval holds at zero
 compute until one of those methods is called, whatever calls it.
