@@ -84,7 +84,7 @@ instructions, note that Silas resolves those through the active scope, not
 process-global config:
 
 ```ruby
-Silas.with_scope(scope) { ... }   # per-thread AND per-fiber
+Silas.with_agent_scope(scope) { ... }   # per-thread AND per-fiber
 ```
 
 An `AgentScope` carries `name`, `dir`, `agent`, `resolver`, `definitions`,
@@ -93,13 +93,23 @@ agents and subagents, and `Silas.scope_for_session` resolves a session's
 scope from its `agent_name` on every turn, so scoped capabilities survive
 parking and resumption.
 
-Two constraints if you build on this:
+Constraints worth knowing before you build on this:
 
 - **Credentials are paths, not values.** Connections resolve
   `credential: crm.token` against `Rails.application.credentials` at call
   time — designed for *your* app's credentials, not per-end-user OAuth
-  tokens. Per-user credentials need a tool of your own that reads them.
-- **Changing capabilities invalidates parked turns.** The definitions digest
-  is a nondeterminism guard: a turn parked before a tool changed fails loudly
-  on resume rather than resuming with different capabilities. Settle parked
-  turns before rolling a capability change out to whoever is affected.
+  tokens. Per-user credentials need a tool of your own that reads them;
+  `Tool#session` is the context the Ledger injects, so the session is where
+  you hang "whose account is this".
+- **Changing capabilities fails parked turns, by design.** The definitions
+  digest is a nondeterminism guard: a turn parked before its tools changed is
+  *failed* on resume rather than resumed against a different agent. The
+  digest is per-scope, so scoped agents don't invalidate each other — but
+  within a scope, settle parked work before rolling a capability change out.
+- **Memory is not in the digest.** It covers tool schemas, skill names and
+  descriptions, and `final_answer` — so teaching an agent new *facts* is safe
+  for parked turns, while changing its *tools* is not. If you build an
+  end-user-facing way to steer an agent, prefer memory for the frequent path.
+- **Named-agent scopes don't include connection tools.** A scope's resolver
+  is built from its own directory's tools plus builtins; remote MCP tools are
+  wired into the root agent only.
