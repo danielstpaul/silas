@@ -1,22 +1,35 @@
 # Direction
 
-*Written 2026-07-27, against Silas 0.6.2. Competitor claims come from source
+*Written 2026-07-28, against Silas 0.6.2. Competitor claims come from source
 and shipped docs inspected on that date — versions are named so this ages
 honestly.*
 
 ---
 
+## Decisions at a glance
+
+| Question | Decision |
+|---|---|
+| What is Silas *for*? | The agent framework where the production run is the dataset — durability is the foundation, not the pitch |
+| Gem, or product? | Both, in three layers: `silas` (the contract), `silas-lab` (the improvement loop), a builder harness (the product) |
+| Keep the gem minimal? | Yes — but "minimal" means *one contract*, not *few features* |
+| Build a Ruby LiteLLM? | **No.** Take the inference seam (a provider protocol + two native adapters); leave the 102-provider fan-out to LiteLLM and consume it |
+| Keep up with eve? | Hold a **defined, finite parity floor**; refuse the open-ended breadth race |
+| What's the bet? | Counterfactual replay → traces as datasets → trace-driven optimization |
+| How do we find out if the bet is wrong? | A pre-registered test at Phase 1, written before the code |
+
+---
+
 ## The short answer
 
-**Stop competing on agent-framework surface area. You will lose that race, and
-it isn't where your advantage is.**
+**Durability is the foundation, not the pitch.**
 
-Silas's real asset is not that it authors agents from a directory — eve, Mastra
-and half a dozen others do that, several with a platform company behind them.
-Silas's asset is that **the agent's execution ledger commits inside the
-application's own database transaction.** Today that buys exactly-once effects.
-That's a good feature. But it's one instance of a much larger property that
-nobody else can structurally have:
+Silas's asset is not that it authors agents from a directory — eve, Mastra and
+half a dozen others do that, several with a platform company behind them. It's
+that **the agent's execution ledger commits inside the application's own
+database transaction.** Today that buys exactly-once effects. That's a good
+feature. But it's one instance of a much larger property that nobody else can
+structurally have:
 
 > Every other framework's record of what the agent did lives in a store outside
 > your application. Silas's lives inside it — transactional, replayable,
@@ -95,8 +108,8 @@ Production deployments require a valid EE license."**
 Read that as validation of your product instinct and a warning about the
 commodity path. The agent-builder-UI idea is proven enough that the leading TS
 framework monetises it. Building the same UI in Ruby, later, with no
-distribution, is not a plan. Their durable agents are still beta and workflow-
-memoized — at-least-once, same as everyone.
+distribution, is not a plan. Their durable agents are still beta and
+workflow-memoized — at-least-once, same as everyone.
 
 ### The evaluation stack is a spectator sport
 
@@ -106,10 +119,12 @@ of them sits **outside** the runtime. They can observe a trace. They cannot
 re-execute it against your real domain, cannot see the row the tool wrote,
 cannot roll it back, and cannot tell you what the *approving human* decided.
 
-Meanwhile DSPy and GEPA (ICLR 2026) do the actual optimization — GEPA reads full
-execution traces in natural language, reflects on failures and evolves prompts,
-reportedly beating GRPO by up to 20% with ~35× fewer rollouts. But they hand you
-a library and expect you to supply the harness, the dataset and the metric.
+Meanwhile DSPy and GEPA do the actual optimization — GEPA reads full execution
+traces in natural language, reflects on why a candidate failed, and evolves
+prompts by Pareto-aware search. Its README reports 100–500 evaluations against
+5,000–25,000+ for GRPO, and open models plus GEPA beating a frontier model at
+Databricks for ~90× less. But it hands you a library and expects you to supply
+the harness, the dataset and the metric.
 
 **Nobody joins the three.** The runtime, the labeled data and the optimizer live
 in three different companies' products. Silas can hold all three in one process,
@@ -155,7 +170,8 @@ Four properties, and only the first is currently marketed:
    `response_blocks`, `model`, `provider`, `input_tokens`, `output_tokens`,
    `terminal`; `ToolInvocation` stamps `arguments`, `result`, `effect_mode`,
    `approval_state`, `approved_by`. That row set joins to `refunds`, `orders`,
-   `invoices` — the actual outcomes. Braintrust cannot do that join. Ever.
+   `invoices` — the actual outcomes. An external eval platform can only do that
+   join if you ship it your business tables, and then only as a stale copy.
 4. **`MessageBuilder.call(turn, upto_index: i)` already reconstructs the exact
    prompt at any step, deterministically, guarded by
    `definitions_digest`.** You built that for replay safety. It is *also*, and
@@ -171,7 +187,7 @@ already paid for it. You are not currently selling it.
 ## The architecture: three layers
 
 This answers the gem-vs-product question directly. **Yes to the gem being
-minimal — but redefine "minimal" as *one contract*, not *few features*.**
+minimal — but "minimal" means *one contract*, not *few features*.**
 
 ### Layer 1 — `silas`: the contract
 
@@ -180,12 +196,15 @@ sentence: **a durable agent loop whose effects land exactly once and whose every
 decision is recorded as a replayable, priced row in your database.**
 
 In scope: the loop, the ledger, the step/turn/invocation schema, the filesystem
-conventions, the inference seam, the trace substrate. The inbox stays as an
-optional mountable engine — it's the debugger, and a framework whose selling
-point is auditability shouldn't make you build the audit view.
+conventions, the inference seam, the trace substrate, and the built-in tool
+harness (including the parity-floor items below — a session workspace and its
+file tools belong here, not in a side gem). The inbox stays as an optional
+mountable engine — it's the debugger, and a framework whose selling point is
+auditability shouldn't make you build the audit view.
 
 Out of scope stays out: RAG, vector stores, more first-party channels,
-component libraries. Those lines in `CONTRIBUTING.md` are good and should hold.
+component libraries. Those rows in `CONTRIBUTING.md` are right and should hold.
+(One row does need rewriting — see the gateway section.)
 
 **One deliberate change to the schema philosophy:** treat the trace tables as a
 *public, documented, versioned interface*, not internal bookkeeping. Layer 2 and
@@ -267,8 +286,7 @@ Build it as a real Rails app in this repo (the `examples/playground` and
 ## On RubyLLM and the gateway question
 
 You asked specifically about taking over `ruby_llm` and building a Ruby
-LiteLLM. My answer splits the question, because the two halves have opposite
-economics.
+LiteLLM. The answer splits, because the two halves have opposite economics.
 
 **Don't build the provider fan-out.** 102 providers, ten endpoint families,
 per-provider drift forever, against free incumbents that are faster and better
@@ -304,54 +322,16 @@ it; the no-list is a credibility asset precisely because it looks decided.
 
 ---
 
-## Roadmap
+## The parity floor: what "keeping up with eve" means
 
-Sequenced so each phase ships something demonstrable and nothing is wasted.
-
-**Phase 0 — clear the debt (days).**
-Fix `docs/vs-eve.md` against eve 0.27.8. Revise the `CONTRIBUTING.md` scope
-row. Document the trace schema as a public interface. Small, and all three are
-credibility.
-
-**Phase 1 — the replay engine (0.7).**
-Counterfactual replay: re-run a real turn from step *n* with a changed
-model/prompt/tool, in a rolled-back transaction, and diff the trajectories.
-Expose it as `silas:replay` and as an inbox action ("replay this turn with…").
-This is the highest-leverage thing in the whole plan — it converts machinery you
-already own into the feature nobody else can build.
-
-**Phase 2 — datasets and the eval harness (0.8).**
-Traces → eval cases. Approval ledger → labeled preference dataset. Fan-out
-running, judge scoring, run comparison, regression tracking. Ship
-`silas-lab` as its own gem here.
-
-**Phase 3 — the inference seam (0.9).**
-Adapter protocol with contract tests, first-party Anthropic + OpenAI adapters,
-per-step model policy, real cost/latency/quality accounting.
-
-**Phase 4 — the optimizer (1.0).**
-GEPA-lineage reflective optimization over your traces, using Phase 1 for
-rollouts and Phase 2 for fitness. Output: a PR against `app/agent/` with an
-eval delta. Distillation export alongside.
-
-**Phase 5 — the product.**
-The builder harness, as a Silas app, dogfooding all of the above.
-
-The 1.0 story writes itself: *the durability contract, plus the loop that makes
-the agent better.*
-
----
-
-## Keeping up with eve: the parity floor
-
-The advice above — "stop competing on surface area" — ran two different things
-together, and the distinction matters more than the slogan.
+"Don't compete on surface area" is right about the race and wrong as a blanket
+rule, so here is the distinction it hides.
 
 **Table stakes are not surface area.** Their absence is disqualifying; their
 presence is not differentiating. If a Rails engineer evaluating Silas hits
 "wait, the agent can't write a file?", they never reach the exactly-once
 argument at all. The moat is worthless if nobody gets far enough to stand on
-it. So there *is* a floor to hold, and holding it is not the same mistake as
+it. So there *is* a floor to hold, and holding it is a different activity from
 racing eve feature-for-feature.
 
 What you cannot do is track them item-for-item. eve is a funded team shipping
@@ -397,22 +377,6 @@ frontend SDKs — yes, enormously. Kamal versus a deploy product — yes. A JSON
 column versus a state subsystem — yes. Nine vendor channel integrations — no,
 identical cost, no discount, infinite maintenance. Play where the discount is.
 
-### Sequencing: two tracks, not one queue
-
-The parity floor and the replay thesis are independent, and they want different
-hours. Run them in parallel:
-
-- **Track A (the bet):** Phase 1 replay, as sequenced above. This is the risky,
-  thinking-heavy work. It gets your best hours and the pre-registered test.
-- **Track B (the floor):** session workspace → file tools → `todo` →
-  `web_fetch`/`web_search` → session state → OpenAPI. Well-understood,
-  low-risk, mostly mechanical. It fills the hours where Track A is blocked on
-  thinking rather than typing.
-
-Track B has a **definition of done**, which is the whole point of writing it
-down: when the list above is shipped, the floor is held and the track closes.
-It does not become a standing commitment to chase eve's changelog.
-
 ### The tripwire
 
 Revisit the deliberate-no rows only on evidence, not on anxiety. Concretely: a
@@ -420,15 +384,72 @@ real user says they cannot adopt Silas without it. Three unrelated people asking
 for the same channel beats any amount of reading eve's release notes and feeling
 behind.
 
-**One thing to keep clearly in view:** none of Track B differentiates Silas.
-Finishing it means people stop bouncing before they reach the argument — it does
-not itself make an argument. If Track B ever starts consuming the hours Track A
-needs, the project has quietly become a worse-funded eve, which is the one
-outcome with no path to winning.
+**One thing to keep clearly in view:** none of the parity floor differentiates
+Silas. Finishing it means people stop bouncing before they reach the argument —
+it does not itself make an argument.
 
 ---
 
-## Judging Phase 1: a pre-registered test
+## Roadmap
+
+Two tracks, run in parallel, because the bet and the floor want different hours.
+
+**Track A is the bet.** Risky, thinking-heavy, unproven. It gets your best
+hours and the pre-registered test in the next section.
+
+**Track B is the floor.** Well-understood, low-risk, mostly mechanical. It
+fills the hours where Track A is blocked on thinking rather than typing. It has
+a **definition of done** — that's the entire point of writing it out. When the
+list ships, the floor is held and the track closes. It does not become a
+standing commitment to chase eve's changelog.
+
+### Phase 0 — clear the debt (days, both tracks blocked on none of it)
+
+Fix `docs/vs-eve.md` against eve 0.27.8. Revise the `CONTRIBUTING.md` scope row.
+Document the trace schema as a public interface. Small, and all three are
+credibility.
+
+### Track A — the improvement loop
+
+**A1 — the replay engine (0.7).** Counterfactual replay: re-run a real turn from
+step *n* with a changed model/prompt/tool, in a rolled-back transaction, and
+diff the trajectories. Expose it as `silas:replay` and as an inbox action
+("replay this turn with…"). The highest-leverage thing in the whole plan — it
+converts machinery you already own into the feature nobody else can build.
+
+**A2 — datasets and the eval harness (0.8).** Traces → eval cases. Approval
+ledger → labeled preference dataset. Fan-out running, judge scoring, run
+comparison, regression tracking. Ship `silas-lab` as its own gem here.
+
+**A3 — the inference seam (0.9).** Adapter protocol with contract tests,
+first-party Anthropic + OpenAI adapters, per-step model policy, real
+cost/latency/quality accounting.
+
+**A4 — the optimizer (1.0).** GEPA-lineage reflective optimization over your
+traces, using A1 for rollouts and A2 for fitness. Output: a PR against
+`app/agent/` with an eval delta. Distillation export alongside.
+
+### Track B — the parity floor
+
+Session workspace → file tools (`read_file`, `write_file`, `glob`, `grep`) →
+`todo` → `web_fetch`/`web_search` → typed session state → OpenAPI connections.
+Then stop.
+
+The session workspace is first because everything else on the list depends on
+it, and because Layer 3 cannot exist without it.
+
+### Then — the product
+
+The builder harness, as a Silas app, dogfooding all of the above. It needs A1–A4
+to have something to be about and Track B to be buildable at all, which is why
+it is last rather than numbered.
+
+The 1.0 story writes itself: *the durability contract, plus the loop that makes
+the agent better.*
+
+---
+
+## Judging A1: a pre-registered test
 
 Everything above rests on counterfactual replay being genuinely striking rather
 than merely clever. That judgement cannot be made after building it — by then
@@ -450,7 +471,7 @@ transcript, not toward an API.
 changed. It must reproduce the original byte-identically. This is nearly free
 (the chaos harness already asserts byte-identical replay) and it validates the
 mechanism rather than the story. If the null test fails, counterfactual replay
-is not merely unmagical — it is unsound, and Phase 1 stops here until it isn't.
+is not merely unmagical — it is unsound, and A1 stops here until it isn't.
 
 Two strong signals, neither requiring the real implementation.
 
@@ -509,8 +530,13 @@ failures have opposite responses:
   the honest response is to fall back to Layer 1 as a durability framework and
   drop Act II.
 
-The second outcome is survivable and cheap at Phase 1. It is expensive at
-Phase 4. That asymmetry is the entire reason replay is sequenced first.
+The second outcome is survivable and cheap at A1. It is expensive at A4. That
+asymmetry is the entire reason replay is sequenced first.
+
+**What this test does not cover:** it judges replay as a *debugging instrument*.
+A4 needs it to also work as a *rollout mechanism* for optimization — a different
+bar, where batch throughput and cost per rollout dominate and none of the five
+criteria above apply. A pass here is not a green light for the optimizer.
 
 ---
 
@@ -547,19 +573,20 @@ safe enough to move money."**
 
 ## Honest notes
 
-- **Layer 2 is a research-flavoured bet.** Counterfactual replay and trace-driven
-  optimization are less charted than durable execution. Phase 1 is the cheap
-  test: if replay-with-rollback doesn't feel magic when you demo it, the thesis
-  is weaker than it looks and you should find that out in weeks, not quarters.
-- **Scope discipline is the whole game.** The plan is ambitious *and* it must
-  cut. If the improvement loop is the thesis, then more channels, more
-  templates, and UI polish are the things that don't get built. eve will
-  out-ship you on breadth every single week; the only winning response is to
-  not be playing that game.
+- **Layer 2 is a research-flavoured bet.** Counterfactual replay and
+  trace-driven optimization are less charted than durable execution. A1 is the
+  cheap test, and the pre-registered criteria above are what "cheap test"
+  actually means — without them the bet never gets falsified, it just gets
+  rationalised.
+- **The cut is between Track A and everything else, not between features and
+  no features.** Track B is real work that has to happen. But when the two
+  tracks compete for the same hour, Track A wins — a project that finishes the
+  parity floor and never ships the improvement loop is a worse-funded eve,
+  which is the one outcome with no path to winning.
 - **6,814 downloads.** The moat is real but nobody is standing on it yet. Layer
-  1 needs at least a handful of real users hitting real crashes before the
-  durability claim moves from "chaos-verified" to "battle-tested." Weigh Phase 5
-  against that — the builder product is also a distribution strategy.
+  1 needs a handful of real users hitting real crashes before the durability
+  claim moves from "chaos-verified" to "battle-tested." Weigh the product phase
+  against that — the builder harness is also a distribution strategy.
 - **The `ruby_llm` relationship is a genuine fork in the road.** Handled as
   above (protocol + two native adapters, ruby_llm still supported) it stays
   friendly and you keep the ecosystem. Framed as "taking over ruby_llm" it
