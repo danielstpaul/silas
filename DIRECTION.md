@@ -342,6 +342,92 @@ the agent better.*
 
 ---
 
+## Keeping up with eve: the parity floor
+
+The advice above — "stop competing on surface area" — ran two different things
+together, and the distinction matters more than the slogan.
+
+**Table stakes are not surface area.** Their absence is disqualifying; their
+presence is not differentiating. If a Rails engineer evaluating Silas hits
+"wait, the agent can't write a file?", they never reach the exactly-once
+argument at all. The moat is worthless if nobody gets far enough to stand on
+it. So there *is* a floor to hold, and holding it is not the same mistake as
+racing eve feature-for-feature.
+
+What you cannot do is track them item-for-item. eve is a funded team shipping
+weekly; a solo project loses that race arithmetically. The only sustainable way
+to keep up is to be **structurally cheaper per feature** — and Rails genuinely
+is, for a large fraction of eve's surface. Where it isn't, don't play.
+
+### The classification
+
+| eve surface | Silas today | Verdict |
+|---|---|---|
+| Session filesystem + `read_file`/`write_file`/`glob`/`grep` | **Nothing.** `run_code` shells into an *ephemeral* sandbox; there is no persistent per-session workspace for a file to survive in. | **Table stakes. The biggest real gap.** |
+| `todo` durable task list | Nothing | **Table stakes** — cheap (a JSON column), and it visibly improves long-task behaviour |
+| `web_fetch` / `web_search` | Nothing | **Table stakes**, near-free |
+| Typed durable session state (`defineState`) | Memory (triples, approval-gated) covers a different need | **Cheap parity** — a JSON column and an API |
+| OpenAPI connections | MCP client + server + connections | **Cheap parity**, high value per hour |
+| Evals: dataset fan-out, gate/soft severity, reporters, run comparison | Scenario DSL, assertions, rubric grader, deploy gate | **Converges with Phase 2** — this *is* the roadmap |
+| Credential brokering into the sandbox | No | Worth stealing; medium cost |
+| Nine first-party channels | Slack, email, generator | **Deliberate no** — vendor-API drift forever, and Rails gives no discount |
+| Frontend SDKs for four frameworks | Mounted engine + Turbo + JSON API/SSE | **Already ahead** for a Rails audience; document the API-plus-SPA path and stop |
+| Deployment product, Workflow "worlds" | Kamal, Solid Queue, your database | **Already ahead** — inherently self-hosted |
+| Model-authored dynamic workflows | No | **Deliberate no** — experimental even at eve |
+| Sandbox as microVM | Docker seam + hermetic | Honest gap, already stated in the docs |
+| Compaction, subagents, skills, MCP, instrumentation, hooks | All present | At parity or better (compaction is replay-safe, which theirs need not be) |
+
+### The gap that isn't really about eve
+
+The top row is the one to act on, and notice what it actually is. eve's sandbox
+**owns a per-session filesystem**, seeded from `agent/sandbox/workspace/**`, with
+a lifetime decoupled from the durable loop. Silas's sandbox is ephemeral per
+invocation. So "add five file tools" is the wrong framing — without a persistent
+session workspace there is nowhere for a file to persist *to*, and the tools are
+meaningless.
+
+That's a real chunk of architecture. It is also **exactly what Layer 3 requires**:
+a builder agent that writes `app/agent/tools/*.rb` across several turns cannot
+work without it. So this isn't keeping up with eve. It's building the product
+you already wanted, and the parity is a side effect.
+
+Which is the test for everything on this list: **does the Rails-native answer to
+the underlying need cost you less than it costs eve?** Turbo versus four
+frontend SDKs — yes, enormously. Kamal versus a deploy product — yes. A JSON
+column versus a state subsystem — yes. Nine vendor channel integrations — no,
+identical cost, no discount, infinite maintenance. Play where the discount is.
+
+### Sequencing: two tracks, not one queue
+
+The parity floor and the replay thesis are independent, and they want different
+hours. Run them in parallel:
+
+- **Track A (the bet):** Phase 1 replay, as sequenced above. This is the risky,
+  thinking-heavy work. It gets your best hours and the pre-registered test.
+- **Track B (the floor):** session workspace → file tools → `todo` →
+  `web_fetch`/`web_search` → session state → OpenAPI. Well-understood,
+  low-risk, mostly mechanical. It fills the hours where Track A is blocked on
+  thinking rather than typing.
+
+Track B has a **definition of done**, which is the whole point of writing it
+down: when the list above is shipped, the floor is held and the track closes.
+It does not become a standing commitment to chase eve's changelog.
+
+### The tripwire
+
+Revisit the deliberate-no rows only on evidence, not on anxiety. Concretely: a
+real user says they cannot adopt Silas without it. Three unrelated people asking
+for the same channel beats any amount of reading eve's release notes and feeling
+behind.
+
+**One thing to keep clearly in view:** none of Track B differentiates Silas.
+Finishing it means people stop bouncing before they reach the argument — it does
+not itself make an argument. If Track B ever starts consuming the hours Track A
+needs, the project has quietly become a worse-funded eve, which is the one
+outcome with no path to winning.
+
+---
+
 ## Judging Phase 1: a pre-registered test
 
 Everything above rests on counterfactual replay being genuinely striking rather
