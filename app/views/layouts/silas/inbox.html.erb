@@ -147,6 +147,13 @@
     .deed-quiet .deed-outcome { color: var(--muted); font-weight: 400; }
     .deed-detail { margin: 6px 0 0; }
     .deed-detail summary { cursor: pointer; font-size: 12px; color: var(--muted); }
+    /* [hidden] is a UA rule at the bottom of the cascade, so ANY author
+       `display` on these elements beats it and BOTH readings render at once.
+       The raw blocks carry `hidden` so a host rendering these partials without
+       our stylesheet still sees one reading — the attribute has to keep winning
+       here too. Scoped rather than !important, so the :checked rules below
+       (higher specificity) can still reveal the trace. */
+    #silas-turns [hidden] { display: none; }
     .deed-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
     .raw-state { font-family: var(--mono); font-size: 11px; color: var(--muted); margin: 4px 0 6px; }
     .turn-meta { margin: -4px 0 8px; }
