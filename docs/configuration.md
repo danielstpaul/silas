@@ -88,7 +88,7 @@ recipes in [providers](providers.md).
 
 | Option | Default | Meaning |
 |---|---|---|
-| `mcp_server_host` | `"127.0.0.1"` | Bind host for the in-process MCP server (serving *your* tools to MCP clients). |
+| `mcp_server_host` | `"127.0.0.1"` | Bind host for the in-process MCP server (`Silas::Mcp::Server`, serving *your* tools to MCP clients). Inert — nothing starts that server yet; see [connections](connections.md). |
 | `mcp_client_factory` | `nil` | `->(connection) { client }` — inject a fake MCP client per connection in tests. |
 
 The remaining accessors (`tool_resolver`, `tool_definitions`,

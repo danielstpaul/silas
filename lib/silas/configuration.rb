@@ -52,7 +52,8 @@ module Silas
     attr_accessor :channel_resolver
     attr_writer :slack_signing_secret, :slack_bot_token
     # Bind host for the in-process MCP server (Mcp::Server — the "mount your
-    # tools as MCP" seam).
+    # tools as MCP" seam). Inert: nothing outside Mcp::Server's own specs calls
+    # .start, so this setting has no effect until a mounted endpoint ships.
     attr_accessor :mcp_server_host
 
     # Renamed in 0.4, removed in 2.0. "engine" meant two unrelated things —

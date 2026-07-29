@@ -29,7 +29,7 @@ byte-identical to the control run's.
 | **compact** (kill mid-turn-1, incl. mid-summary) | pg | 25 | 25/25 | 25/25 + 25/25 messages + 25/25 exactly-once | **0** |
 | **compact** | sqlite | 25 | 25/25 | 25/25 + 25/25 messages + 25/25 exactly-once | **0** |
 
-**Gate: PASSED — 295 runs, zero duplicate side effects, zero transcript
+**Gate: PASSED — 275 runs, zero duplicate side effects, zero transcript
 divergence.** The compact rows additionally prove the compaction claim is
 exactly-once under kill -9 (including kills landing mid-summarisation) and
 that the post-crash MessageBuilder rebuild is byte-identical to the control

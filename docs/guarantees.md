@@ -1,11 +1,19 @@
 # Guarantees
 
 Durability in Silas is a contract, not a slide. Everything on this page is
-verified by the in-repo chaos harness (`chaos_host/bin/chaos`), which
-`kill -9`s live agents hundreds of times per release — the current gate is
-100/100 completions per mode across a 295-run matrix, zero duplicate effects,
-byte-identical replay, on SQLite and Postgres. Results live in
-`chaos_host/results/` and every run is reproducible.
+verified by the in-repo chaos harness (`chaos_host/bin/chaos`), which `kill -9`s
+live agents mid-turn. The maintainer runs the full matrix before a release —
+`chaos_host/bin/full_gate`, 275 runs across five kill modes on SQLite and
+Postgres — and commits the output. Last gate: every run completed, zero
+duplicate effects, byte-identical replay. CI runs the spec suite and RuboCop,
+not chaos; the harness is a local gate, and every run is reproducible.
+
+`chaos_host/results/*.jsonl` is an append-only, unedited history, so it carries
+batches from before harness fixes alongside the gate batch. The first two rows
+of `sqlite_compact.jsonl` are one of those: their duplicate counts are the
+harness's turn-scoped side-effect keys colliding across a multi-turn session,
+not effects that happened twice (`chaos_host/RESULTS.md` records the fix). The
+gate figures are the last batch in each file.
 
 ## Turns survive hard process death
 

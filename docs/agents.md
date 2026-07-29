@@ -67,9 +67,11 @@ to keep a specialist's tools out of the main agent's prompt until needed.
 Staff compose through **handoffs, not conversations**: the built-in `handoff`
 tool files a self-contained brief that starts a **linked session** for another
 named agent — asynchronously by default, or `await: true` for an answer.
-Handoffs are exactly-once-guarded and cycle-checked. Two models chatting
-freely is a cost and audit hazard, so it's deliberately unblessed; a handoff
-is a work order, with the paper trail that implies.
+Handoffs are cycle-checked, and at-most-once: filing one is a single external
+effect, so a crash mid-handoff parks the call **in doubt** for a person rather
+than starting the colleague twice. Two models chatting freely is a cost and
+audit hazard, so it's deliberately unblessed; a handoff is a work order, with
+the paper trail that implies.
 
 ## Schedules give any agent a clock
 

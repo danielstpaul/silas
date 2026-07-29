@@ -1,6 +1,6 @@
 # Silas vs eve
 
-> Written **2026-07-26** against **eve 0.27.6** and Silas 0.5.x, from eve's
+> Written **2026-07-26** against **eve 0.27.6** and Silas 0.6.x, from eve's
 > published docs and source. Both projects move fast — if you're reading this
 > much later, re-verify before deciding.
 
@@ -24,14 +24,14 @@ the boundary — and for the differences that go deeper than language.
 |---|---|---|
 | **Shape** | A gem in your Rails app — your database, your job queue, your auth, one deploy. | A TypeScript service beside your app, with its own workflow store and deploy. |
 | **Authoring** | A directory of plain files. | A directory of plain files — genuinely the same idea. |
-| **Durable loop** | Survives `kill -9`, resumes from the last completed step. Chaos-gated every release: zero duplicate effects, byte-identical replay, SQLite + Postgres. | Workflow-engine replay; interrupted steps re-run. |
+| **Durable loop** | Survives `kill -9`, resumes from the last completed step. A `kill -9` harness runs before each release: zero duplicate effects, byte-identical replay, SQLite + Postgres. | Workflow-engine replay; interrupted steps re-run. |
 | **Tool-effect semantics** | **Exactly-once** for DB-recorded effects (`transactional!` — effect + ledger in one transaction). Default at-most-once: an ambiguous crash **parks for a human**. | **At-least-once, documented as such** — "make non-idempotent side effects like charges or emails idempotent, or gate them with approval." Dedup is the tool author's job. |
 | **Human-in-the-loop** | Parks at zero compute; cleared from inbox, Slack, signed email, or API; parks expire; `ask_question` for the reverse direction. | `needsApproval` on tools. |
 | **Operator surface** | A production inbox mounted in your app: live traces, approval cards, audit trail, cost accounting, web chat. | A dev TUI ("not a production chat UI or customer-facing dashboard"); production UIs are assembled from templates. |
 | **Memory** | Shipped: approval-gated triples with provenance and supersession. | Deliberately out of scope. |
 | **Ecosystem** | Ruby/Rails. | TypeScript + the AI SDK — a much larger ecosystem, with Vercel's distribution behind it. |
 | **Channels & integrations** | Slack + email built in; a generator scaffolds any transport. | More first-party surfaces, growing quickly. |
-| **Maturity** | Early (0.5.x); the durability contract is chaos-verified on every release. | Weeks old publicly; backed by a platform company, shipping at platform speed. |
+| **Maturity** | Early (0.6.x); the durability contract is chaos-verified by the maintainer before each release, with the results committed. | Weeks old publicly; backed by a platform company, shipping at platform speed. |
 
 ---
 

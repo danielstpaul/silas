@@ -28,8 +28,8 @@ beside your app — it's a gem inside the Rails app you already deploy:
 
 Every serious framework makes the loop durable. Silas draws the line a step
 past that, and verifies it with a chaos harness that `kill -9`s live agents
-hundreds of times per release (zero duplicate effects, byte-identical replay
-— [guarantees](guarantees.md)):
+mid-turn — a 275-run matrix before each release, zero duplicate effects,
+byte-identical replay ([guarantees](guarantees.md)):
 
 - **Exactly-once tool effects.** A `transactional!` tool's database write and
   the ledger's record of it commit in **one transaction**. A crash mid-refund
@@ -62,10 +62,10 @@ rails new desk -m https://raw.githubusercontent.com/danielstpaul/silas/main/temp
 
 ## The honest notes
 
-- **Silas is early** — 0.5.x, and the guarantees are proven by a reproducible
-  chaos harness rather than years of production traffic. The contract is
-  measured on every release, and it's stated precisely so you know exactly
-  what's promised.
+- **Silas is early** — 0.6.x, and the guarantees are proven by a reproducible
+  chaos harness rather than years of production traffic. The maintainer runs
+  the matrix before each release and commits the results, and the contract is
+  stated precisely so you know exactly what's promised.
 - **Rails-only, on purpose.** If your team lives in TypeScript, eve is
   excellent and closer to home — the [comparison](vs-eve.md) is honest about
   that in both directions.
