@@ -12,8 +12,11 @@ not chaos; the harness is a local gate, and every run is reproducible.
 batches from before harness fixes alongside the gate batch. The first two rows
 of `sqlite_compact.jsonl` are one of those: their duplicate counts are the
 harness's turn-scoped side-effect keys colliding across a multi-turn session,
-not effects that happened twice (`chaos_host/RESULTS.md` records the fix). The
-gate figures are the last batch in each file.
+not effects that happened twice (`chaos_host/RESULTS.md` records the fix). It
+also carries the smaller batches run against individual changes — a batch
+starts wherever `run` restarts at 1, and no field on a row says which batch was
+a gate. `chaos_host/RESULTS.md` is that record; its per-mode run counts are the
+gate's.
 
 ## Turns survive hard process death
 

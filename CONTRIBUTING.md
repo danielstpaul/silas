@@ -54,5 +54,7 @@ here:
 ## Releases
 
 Maintainer-driven: squash-merge, then a GitHub release triggers Trusted
-Publishing to RubyGems. Every release runs the full suite, RuboCop, Brakeman,
-and the chaos gate where the loop changed.
+Publishing to RubyGems. CI runs the full suite, RuboCop and Brakeman on every
+push. The chaos gate is local and manual: the maintainer runs
+`chaos_host/bin/full_gate` before a release and commits the results, which is
+what `docs/guarantees.md` points readers at.
