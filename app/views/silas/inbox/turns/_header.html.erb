@@ -17,6 +17,13 @@
       <span class="muted">cancel requested…</span>
     <% end %>
   </div>
+  <%# A settled turn's audit line. A turn that used no tools says exactly
+      that: nothing ran, nothing was written — the absence is the answer an
+      operator came here for, and it has to be stated, not inferred from an
+      empty space. %>
+  <div class="turn-meta muted">
+    asked <%= silas_relative_time(turn.created_at) %> · <%= turn_progress(turn) %><%= " · #{turn_effects_summary(turn)}" unless turn.active? %>
+  </div>
   <% if turn.budget_parked? %>
     <div class="approval">
       <h3>Budget reached — <%= turn.failure_reason %></h3>
@@ -28,7 +35,5 @@
         <button class="btn approve">Raise &amp; resume</button>
       <% end %>
     </div>
-  <% elsif turn.failure_reason.present? %>
-    <div class="muted">failed: <%= turn.failure_reason %></div>
   <% end %>
 </div>

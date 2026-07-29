@@ -1,8 +1,9 @@
 <div class="step" id="<%= dom_id(step) %>">
+  <% text = step_text(step) %>
   <%# The text container is unconditional: silas-step-<id>-text is the live
       delta target. While the step runs, deltas replace its innerHTML; the
       completed row render (this partial, re-broadcast) supersedes them. %>
-  <% if (text = step_text(step)) %>
+  <% if text %>
     <div class="step-text" id="silas-step-<%= step.id %>-text"><%= simple_format(text) %></div>
   <% else %>
     <div class="step-text step-live" id="silas-step-<%= step.id %>-text"></div>
@@ -13,4 +14,10 @@
   <div id="silas-step-<%= step.id %>-tools">
     <%= render partial: "silas/inbox/invocations/invocation", collection: step.tool_invocations, as: :invocation %>
   </div>
+  <%# A completed step with neither text nor a tool call is a model turn that
+      produced nothing. Rare, and worth naming — an unexplained gap in a feed
+      reads as a rendering bug. %>
+  <% if step.completed? && text.blank? && step.tool_invocations.empty? %>
+    <div class="step-silent muted">the model returned nothing on this step</div>
+  <% end %>
 </div>

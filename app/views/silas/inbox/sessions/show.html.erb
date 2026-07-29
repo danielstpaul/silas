@@ -24,9 +24,21 @@
              collection: @session.pending_approvals.order(:id), as: :invocation %>
 </div>
 
+<%# The switch is a bare checkbox and #silas-turns is its SIBLING, because the
+    swap has to be pure CSS: every row in the feed can be replaced by a
+    broadcast at any moment, and a broadcast render has no params to consult.
+    Both readings are in the DOM; :checked decides which one is on. %>
+<input type="checkbox" id="silas-raw" class="raw-switch">
+<div class="feed-bar">
+  <label class="chip" for="silas-raw">raw trace</label>
+</div>
+
 <div id="silas-turns">
   <%= render partial: "silas/inbox/turns/turn", collection: @turns, as: :turn %>
 </div>
+<%# :has, not a Ruby conditional — a turn appended live has to retire this
+    line, and the append never re-renders the page. %>
+<div class="empty feed-empty">Nothing has happened here yet.</div>
 
 <div class="card composer">
   <%= form_with url: inbox_session_turns_path(@session) do |f| %>
