@@ -1,4 +1,5 @@
 require "rails_helper"
+require "tempfile"
 require "generators/silas/install/install_generator"
 
 # Brownfield safety: the installer must never touch an app's existing
@@ -57,6 +58,38 @@ RSpec.describe Silas::Generators::InstallGenerator do
     expect(initializer).not_to include("claude-opus") # never default a first run to the priciest model
   end
 
+  # The next steps end on "run silas:doctor", and doctor FAILS the :async
+  # adapter Rails defaults development to. The install has to hand over the fix.
+  describe "the queue-adapter remedy" do
+    it "prints the config to paste when the app is on :async" do
+      adapter = double(class: double(name: "ActiveJob::QueueAdapters::AsyncAdapter"))
+      allow(ActiveJob::Base).to receive(:queue_adapter).and_return(adapter)
+
+      output = silenced { run_generator }
+
+      expect(output).to include("config.active_job.queue_adapter = :solid_queue")
+      expect(output).to include("config.solid_queue.connects_to")
+      expect(output).to include("bin/jobs")
+      expect(output).to include("silas:doctor")
+    end
+
+    it "stays quiet on any other adapter (the suite runs on :test)" do
+      output = silenced { run_generator }
+      expect(output).not_to include("queue_adapter = :solid_queue")
+    end
+
+    it "writes no config files — database.yml and cable.yml belong to the host" do
+      adapter = double(class: double(name: "ActiveJob::QueueAdapters::AsyncAdapter"))
+      allow(ActiveJob::Base).to receive(:queue_adapter).and_return(adapter)
+
+      silenced { run_generator }
+
+      expect(File.exist?(File.join(dest, "config/database.yml"))).to be(false)
+      expect(File.exist?(File.join(dest, "config/cable.yml"))).to be(false)
+      expect(File.exist?(File.join(dest, "config/environments/development.rb"))).to be(false)
+    end
+  end
+
   describe "the rescuer recurring task" do
     let(:recurring) { File.join(dest, "config/recurring.yml") }
 
@@ -99,14 +132,20 @@ RSpec.describe Silas::Generators::InstallGenerator do
   end
 
   # The generator's post-install rake step fails harmlessly in the skeleton;
-  # keep its noise (stdout and stderr) out of the suite output.
+  # keep its noise (stdout and stderr) out of the suite output. Returns what
+  # was written to stdout. A file, not a StringIO: the rake step is a
+  # subprocess writing to fd 1, which a reassigned $stdout would never see.
   def silenced
+    out = Tempfile.new("silas-install-generator")
     old_out, old_err = $stdout.dup, $stderr.dup
-    $stdout.reopen(File::NULL)
+    $stdout.reopen(out.path, "w")
     $stderr.reopen(File::NULL)
     yield
+    $stdout.flush
+    File.read(out.path)
   ensure
     $stdout.reopen(old_out)
     $stderr.reopen(old_err)
+    out.close!
   end
 end

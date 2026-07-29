@@ -1,4 +1,5 @@
 require "rails/generators"
+require "silas/doctor" # ASYNC_QUEUE_REMEDY — one remedy text, two surfaces
 
 module Silas
   module Generators
@@ -123,6 +124,26 @@ module Silas
             8. Inbox + web chat: /silas/inbox, deny-by-default — uncomment
                config.inbox_auth in config/initializers/silas.rb to make it visible.
             9. Restart your server if it was running (app/agent/ registers at boot).
+        MSG
+      end
+
+      # Rails defaults development to the in-process :async adapter, which the
+      # doctor step above FAILS — without this the documented happy path ends
+      # on a red X. Detected, printed, never written: a gsub against the host's
+      # database.yml no-ops silently the moment they've edited it, and a
+      # force-written cable.yml clobbers whatever Redis config they run.
+      def show_queue_adapter_remedy
+        return unless defined?(::ActiveJob::Base)
+        return unless ::ActiveJob::Base.queue_adapter.class.name.to_s.include?("AsyncAdapter")
+
+        say <<~MSG, :yellow
+
+          Queue adapter: this app is on ActiveJob's in-process :async adapter, and
+          `bin/rails silas:doctor` fails it — :async runs a re-enqueued continuation
+          concurrently with the original, which double-executes steps and breaks
+          exactly-once tool effects.
+
+          #{Silas::Doctor::ASYNC_QUEUE_REMEDY}
         MSG
       end
     end

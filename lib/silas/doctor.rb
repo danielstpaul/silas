@@ -10,6 +10,35 @@ module Silas
   class Doctor
     Check = Struct.new(:status, :label, :detail) # status: :pass | :warn | :fail
 
+    # Rails defaults development to :async, which the queue_adapter check below
+    # FAILS — so a stock app fails the doctor the installer told it to run. The
+    # remedy travels with the failure, and the install generator prints this
+    # same constant when it detects :async, so the two surfaces can't drift.
+    # Printed, never written: database.yml and cable.yml belong to the host app.
+    ASYNC_QUEUE_REMEDY = <<~MSG.freeze
+      Add to config/environments/development.rb:
+
+          config.active_job.queue_adapter = :solid_queue
+          config.solid_queue.connects_to = { database: { writing: :queue } }
+
+      and a queue database to config/database.yml (SQLite shown — drop the
+      connects_to line above if Solid Queue shares your primary database):
+
+          development:
+            primary:
+              <<: *default
+              database: storage/development.sqlite3
+            queue:
+              <<: *default
+              database: storage/development_queue.sqlite3
+              migrations_paths: db/queue_migrate
+
+      Then `bin/rails db:prepare`, and run the worker next to the server:
+      `bin/jobs`. On an app that predates Rails 8, `bundle add solid_queue &&
+      bin/rails solid_queue:install` first. For scripts and demos `:inline` is
+      also safe — synchronous, no durability.
+    MSG
+
     def self.run(root: Rails.root) = new(root: root).run
 
     def initialize(root:)
@@ -49,11 +78,15 @@ module Silas
       when /AsyncAdapter/
         Check.new(:fail, "queue adapter",
                   "in-process :async double-executes continuation steps and voids the durability " \
-                  "contract — use :solid_queue (see DEPLOY.md)")
+                  "contract — use :solid_queue (see DEPLOY.md)\n\n#{ASYNC_QUEUE_REMEDY.indent(3).chomp}")
       when /InlineAdapter/
         Check.new(:warn, "queue adapter", "inline — fine for scripts and demos, no durability")
       else
-        Check.new(:warn, "queue adapter", "#{name.demodulize} — durability requires a serializing, DB-backed adapter")
+        Check.new(:warn, "queue adapter",
+                  "#{name.demodulize} — no dead-job rescue path: DeadJobRescuerJob sweeps expired approvals " \
+                  "but returns early unless SolidQueue is defined, so a job killed with its worker is never " \
+                  "retried and a turn stranded mid-tool stays running with its in-doubt invocation unswept. " \
+                  "Durability requires a serializing, DB-backed adapter.")
       end
     end
 
