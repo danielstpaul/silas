@@ -196,6 +196,55 @@ module Silas
         "#{pluralize(invocations.size, "tool")} · #{wrote.zero? ? "nothing written" : "#{wrote} wrote"}"
       end
 
+      # ---- lineage -----------------------------------------------------
+      #
+      # A handoff or a delegation starts a SECOND session. Nothing on the child
+      # points back at the call that made it — the only link is the invocation
+      # result — so the feed recovers the pair from there, and the child's
+      # metadata says which of the two it was.
+
+      LINEAGE_FROM = { "handoff" => "handed over by", "delegation" => "delegated by" }.freeze
+      LINEAGE_TO   = { "handoff" => "handed to", "delegation" => "delegated to" }.freeze
+
+      def lineage_relation(child)
+        meta = child.metadata
+        return nil unless meta.is_a?(Hash)
+        return "handoff" if meta.key?("handoff_from")
+
+        "delegation" if meta.key?("delegated_from")
+      end
+
+      def lineage_from_phrase(child) = LINEAGE_FROM.fetch(lineage_relation(child), "started by")
+      def lineage_to_phrase(child)   = LINEAGE_TO.fetch(lineage_relation(child), "started")
+
+      def invocation_child_session(invocation)
+        result = invocation.result
+        return nil unless result.is_a?(Hash) && result["session_id"].present?
+
+        child = Silas::Session.find_by(id: result["session_id"])
+        # Any tool may return a key called `session_id` meaning something of its
+        # own. Only a session whose parent IS this call's session was started
+        # by this call.
+        child if child && child.parent_session_id == invocation.turn.session_id
+      end
+
+      # Children the feed has no place for. An at_most_once handoff that
+      # crashes after Session.create! records no result, so the call that made
+      # the child names nothing — without this the child is visible only from
+      # the index, which is the orphan the lineage work exists to end.
+      def stranded_child_sessions(session, turns)
+        placed = turns.flat_map(&:steps).flat_map(&:tool_invocations).filter_map do |i|
+          i.result["session_id"].to_i if i.result.is_a?(Hash) && i.result["session_id"].present?
+        end
+        session.child_sessions.reject { |child| placed.include?(child.id) }
+      end
+
+      # The turn a session is judged by: the one in flight, else the last one
+      # to settle. Reads off the loaded association — the index depends on that.
+      def session_state_turn(session)
+        session.turns.detect(&:active?) || session.turns.last
+      end
+
       def scalar_arg?(value)
         case value
         when String then value.present?

@@ -22,7 +22,9 @@ module Silas
 
         # One query for the rows + turns, one for the pending counts — the
         # per-row active_turn/turns.last/counts pattern was ~4 queries a card.
-        @sessions = scope.limit(PER_PAGE).includes(:turns).to_a
+        # parent_session rides along for the lineage line: every child row
+        # names the agent that handed to it, and that must not cost a query.
+        @sessions = scope.limit(PER_PAGE).includes(:turns, :parent_session).to_a
         @next_before = @sessions.last&.id if @sessions.size == PER_PAGE
         @pending_counts = Silas::ToolInvocation.joins(:turn)
                                                .where(approval_state: "required",

@@ -121,6 +121,24 @@ RSpec.describe "the live console's DOM contract" do
     end
   end
 
+  # A handoff's row is broadcast-replaced the moment it settles, and settling
+  # is when it first names the session it started. So the child link is built
+  # in the host renderer or not at all: bare engine helpers have no url_options
+  # there and take the whole broadcast job down with them.
+  describe "the lineage row inside a broadcast-rendered invocation" do
+    it "links the child through the engine mount" do
+      child = Silas::Session.create!(agent_name: "filer", parent_session_id: session.id,
+                                     metadata: { "handoff_from" => "refunds" })
+      handoff = Silas::ToolInvocation.create!(step: step, turn: turn, tool_call_id: "h0",
+                                              tool_name: "handoff", effect_mode: "at_most_once",
+                                              status: "completed", result: { "session_id" => child.id })
+
+      html = host_render("silas/inbox/invocations/invocation", { invocation: handoff })
+      expect(html).to include("#{Silas::Inbox.mount_path}/inbox/sessions/#{child.id}")
+      expect(html).to include("handed to")
+    end
+  end
+
   describe "containers the session page owns", type: :request do
     before { Silas.configure { |c| c.inbox_auth = ->(_controller) { } } }
 

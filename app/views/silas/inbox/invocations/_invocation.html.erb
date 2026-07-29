@@ -44,4 +44,11 @@
       <%= render "silas/inbox/invocations/detail", invocation: invocation %>
     </div>
   <% end %>
+  <%# A handoff or a delegation is the one call whose outcome is another
+      session. It belongs here, at the call that made it — that is the only
+      place in the product where "A handed to B" is a fact you can read.
+      Outside the raw/feed split: lineage is not a reading, it happened. %>
+  <% if (child = invocation_child_session(invocation)) %>
+    <%= render "silas/inbox/sessions/child", child: child %>
+  <% end %>
 </div>

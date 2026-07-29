@@ -184,6 +184,94 @@ RSpec.describe "the inbox", type: :request do
     end
   end
 
+  # A handoff creates a session of its own. Nothing but the invocation result
+  # links the two, so a UI that doesn't read it shows the child as a row nobody
+  # can account for — in a multi-agent framework, the one relationship the
+  # console has to be able to state.
+  describe "handoff and delegation lineage" do
+    before { allow_all! }
+
+    let(:child) do
+      Silas::Session.create!(agent_name: "filer", parent_session_id: session.id,
+                             metadata: { "handoff_from" => "refunds" })
+    end
+
+    # The handoff's own row: a second invocation on the same step, settled,
+    # naming the session it started.
+    def handoff_to!(target)
+      Silas::ToolInvocation.create!(step: step, turn: turn, tool_call_id: "h0", tool_name: "handoff",
+                                    effect_mode: "at_most_once", status: "completed",
+                                    arguments: { "agent" => target.agent_name },
+                                    result: { "session_id" => target.id, "status" => "queued" })
+    end
+
+    it "names the agent that handed over and links to its session" do
+      get "/silas/inbox/sessions/#{child.id}"
+      expect(response.body).to include("handed over by")
+      expect(response.body).to include("refunds")
+      expect(response.body).to include("/silas/inbox/sessions/#{session.id}")
+    end
+
+    it "says delegated, not handed over, when the child came from delegate" do
+      child.update!(metadata: { "delegated_from" => session.id })
+      get "/silas/inbox/sessions/#{child.id}"
+      expect(response.body).to include("delegated by")
+    end
+
+    it "renders the child in the feed at the call that started it" do
+      handoff_to!(child)
+      Silas::Turn.create!(session: child, index: 0, input: "File it.", status: "running")
+
+      get "/silas/inbox/sessions/#{session.id}"
+      expect(response.body).to include("handed to")
+      expect(response.body).to include("filer")                              # the agent
+      expect(response.body).to include("/silas/inbox/sessions/#{child.id}")  # linked
+      expect(response.body).to include("working")                            # its state now
+    end
+
+    # `session_id` is a plausible key for any tool to return; only the session
+    # whose parent is this one was actually started here.
+    it "ignores a session_id from a tool that did not start that session" do
+      unrelated = Silas::Session.create!(agent_name: "filer")
+      handoff_to!(unrelated)
+      get "/silas/inbox/sessions/#{session.id}"
+      expect(response.body).not_to include("handed to")
+      expect(response.body).not_to include("/silas/inbox/sessions/#{unrelated.id}")
+    end
+
+    # at_most_once: a crash after Session.create! leaves the colleague started
+    # and the result unwritten, so no row in the trace names the child.
+    it "still shows a child whose call never recorded a result" do
+      child
+      get "/silas/inbox/sessions/#{session.id}"
+      expect(response.body).to include("the trace never recorded")
+      expect(response.body).to include("/silas/inbox/sessions/#{child.id}")
+    end
+
+    # The class, not the bare word: the layout inlines the stylesheet, so the
+    # rule name is in every response body whether a child row rendered or not.
+    it "marks the child's row on the index with the agent that handed to it" do
+      child
+      get "/silas/inbox"
+      expect(response.body).to include(%(class="card session-row session-child"))
+      expect(response.body).to include("handed over by")
+      expect(response.body).to include("refunds")
+    end
+
+    it "renders no lineage at all for a root session, and does not error" do
+      get "/silas/inbox/sessions/#{session.id}"
+      expect(response).to have_http_status(:ok)
+      expect(response.body).not_to include("handed over by")
+      expect(response.body).not_to include("handed to")
+      expect(response.body).not_to include("the trace never recorded")
+
+      get "/silas/inbox"
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include(%(class="card session-row"))
+      expect(response.body).not_to include("session-row session-child")
+    end
+  end
+
   describe "cancel button" do
     it "is write-gated even in public-read mode" do
       Silas.configure { |c| c.inbox_public_read = true }

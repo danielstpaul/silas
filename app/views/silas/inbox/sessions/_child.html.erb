@@ -1,0 +1,14 @@
+<%# One session this one started, as a row on the parent's page.
+
+    silas_engine_path, not the bare helper: this partial is reached from
+    _invocation, which is broadcast-rendered on every tool transition, and
+    bare engine helpers 500 in that renderer. %>
+<div class="lineage lineage-child">
+  <span class="lineage-mark">↳</span>
+  <%= lineage_to_phrase(child) %>
+  <span class="lineage-agent"><%= child.agent_name %></span>
+  <%= link_to "session ##{child.id}", silas_engine_path(:inbox_session_path, child) %>
+  <%# The child's state as it stood when this page rendered — the parent's
+      stream carries no broadcast from the child's session. %>
+  <% if (turn = session_state_turn(child)) %><%= status_pill(turn.status) %><% end %>
+</div>

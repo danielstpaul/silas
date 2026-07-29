@@ -73,6 +73,17 @@
       padding: 14px 16px; margin-bottom: 12px; }
     .session-row { display: block; text-decoration: none; color: inherit; }
     .session-row:hover { border-color: var(--accent); }
+    /* Lineage. A handoff or a delegation makes a SECOND session: unmarked, the
+       child is a row on the index nobody can account for and the parent's feed
+       shows no sign it ever handed anything over. Neutral tokens throughout —
+       lineage is not a run state, and the lamp is reserved for what you can
+       act on. */
+    .lineage { display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+      margin: 6px 0 0; color: var(--muted); font-size: 13px; }
+    .lineage-mark { font-family: var(--mono); color: var(--quiet); }
+    .lineage-agent { color: var(--ink); font-weight: 600; }
+    .lineage-child { padding-left: 10px; border-left: 2px solid var(--line); margin-top: 8px; }
+    .session-child { border-left: 3px solid var(--line); }
     .row-top { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
     .row-top .name { font-weight: 600; }
     .muted { color: var(--muted); font-size: 13px; }
