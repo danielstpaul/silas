@@ -56,7 +56,7 @@ RSpec.describe Silas::AgentMailbox do
 
       session = Silas::Session.last
       expect(session.channel).to eq("recorder")
-      expect(session.continuation_token).to eq("recorder:msg-1@example.com")
+      expect(session.continuation_token).to eq("recorder:agent:msg-1@example.com")
       expect(session.turns.sole.input).to eq("please refund my order")
       expect(session.metadata.dig("email", "from")).to eq("ada@example.com")
       expect(session.metadata.dig("email", "subject")).to eq("My order")

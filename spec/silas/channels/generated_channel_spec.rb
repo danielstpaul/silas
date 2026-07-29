@@ -29,7 +29,7 @@ RSpec.describe "a generated channel", type: :request do
       expect(response).to have_http_status(:ok)
       session = Silas::Session.last
       expect(session.channel).to eq("pigeon")
-      expect(session.continuation_token).to eq("pigeon:coop-1")
+      expect(session.continuation_token).to eq("pigeon:agent:coop-1")
       expect(session.metadata).to eq({ "pigeon" => { "coop" => "coop-1" } })
     end
 

@@ -56,6 +56,10 @@ bin/rails silas:chat AGENT=escalations   # talk to one staff member
 
 The inbox filters by agent; the root `app/agent/` stays the default.
 
+Staff answer their own mail: `config.channel_routes` sends a Slack channel or an
+email address to a named agent, and every turn on that thread runs under their
+scope. See [channels](channels.md#routing-which-agent-wakes).
+
 ## Subagents — delegation within a turn
 
 The built-in `delegate` tool runs a scoped sub-task under a subagent's own

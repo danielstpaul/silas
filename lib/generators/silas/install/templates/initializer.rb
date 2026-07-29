@@ -39,6 +39,11 @@ Silas.configure do |config|
   # installed registry (units per 1k tokens; 1e6 units = $1):
   # config.model_prices["your-fine-tune"] = { in: 3000, out: 15_000 }
 
+  # Which agent an inbound Slack thread or email wakes. Unmatched threads wake
+  # the root agent; a name that isn't in app/agents/ fails boot, not a webhook.
+  # config.channel_routes = { "slack" => { "C0BILLING" => "bookkeeper" },
+  #                           "email" => { "billing@example.com" => "bookkeeper" } }
+
   # Where eval scenarios live (bin/rails silas:eval).
   # config.eval_dir = "test/agent_evals"
 end

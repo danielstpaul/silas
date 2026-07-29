@@ -43,7 +43,7 @@ RSpec.describe "channels" do
 
       s1 = Agent::Channels::Recorder.dispatch(thread_key: "T1", input: "hello")
       expect(s1.channel).to eq("recorder")
-      expect(s1.continuation_token).to eq("recorder:T1")
+      expect(s1.continuation_token).to eq("recorder:agent:T1")
       expect(s1.turns.sole.input).to eq("hello")
       drain!
 

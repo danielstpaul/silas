@@ -20,6 +20,10 @@ module Silas
       Silas.config.agent_override = nil
       Silas.config.instructions_dir = nil
       Silas.reset_agent_memo!
+      # Boot is the last place a bad channel route can fail safely. Directory
+      # names, not built scopes: validation must not force every named agent's
+      # tools to constantize before anything needs them.
+      Silas::Channel.validate_routes!(registry.named_agent_dirs.map { |dir| File.basename(dir) })
       registry
     end
 

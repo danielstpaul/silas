@@ -69,6 +69,7 @@ recipes in [providers](providers.md).
 | Option | Default | Meaning |
 |---|---|---|
 | `slack_signing_secret` / `slack_bot_token` | `credentials.silas.slack.*` | Explicit setters override the credentials path; `nil` disables Slack. |
+| `channel_routes` | `{}` | Which agent an inbound thread wakes: `{ "slack" => { "C0BILLING" => "bookkeeper" }, "email" => { "billing@shop.test" => "bookkeeper" } }`. Unmatched threads wake the root agent. Names are checked at boot against `app/agents/` — a typo fails the deploy, never a webhook. See [channels](channels.md#routing-which-agent-wakes). |
 
 ## Evals
 

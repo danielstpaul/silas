@@ -58,7 +58,7 @@ end
 ```
 
 `dispatch` is the whole inbound API. It maps the external thread to a session and
-then calls the ordinary public API — `Silas.agent.start` for a new thread,
+then calls the ordinary public API — `<agent>.start` for a new thread,
 `session.continue` for a reply. There is no channel-specific loop.
 
 Three things to get right:
@@ -66,7 +66,8 @@ Three things to get right:
 **The thread key must be stable.** The same conversation must produce the same
 key every time, or every message starts a new session and the agent has no
 memory. Use the vendor's conversation or thread id, never a per-message id. Keys
-are namespaced by channel (`whatsapp:abc123`), so two channels can't collide.
+are namespaced by channel *and* agent (`whatsapp:bookkeeper:abc123`), so neither
+two channels nor two staff members sharing a transport can collide.
 
 **Sign over the raw body.** `request.raw_post`, never re-serialized params —
 re-serializing changes the bytes and the HMAC no longer matches. See
@@ -79,6 +80,56 @@ message matters for your transport, buffer it or tell the user.
 
 Metadata is stored on the session and shown in the inbox, so keep it small and
 free of secrets. It exists so outbound knows where to reply.
+
+### Routing: which agent wakes
+
+By default an inbound thread wakes the root agent. `config.channel_routes` sends
+it to a [named agent](agents.md#named-agents--the-staff-pattern) instead — data
+only, one entry per destination:
+
+```ruby
+# config/initializers/silas.rb
+config.channel_routes = {
+  "slack" => { "C0BILLING" => "bookkeeper" },   # Slack channel id
+  "email" => { "billing@shop.test" => "bookkeeper" }
+}
+```
+
+The outer key is the transport's filename identity (`slack`, `email`, and for a
+generated channel, whatever you named the file). The inner key is whatever that
+transport calls a destination. Both shipped channels read it for you: Slack
+matches the channel the message arrived in, email matches every recipient
+address — To, Cc, and the forwarding headers Action Mailbox itself routes on —
+first match wins, case-insensitively. Anything unmatched wakes the root agent.
+
+The session is stamped with the agent's name, so **every** turn on that thread —
+including crash resumes weeks later — runs under that agent's tools, skills,
+instructions, and definitions digest.
+
+A custom channel opts in with one argument:
+
+```ruby
+Agent::Channels::Whatsapp.dispatch(
+  thread_key: message[:from],
+  input: message.dig(:text, :body).to_s,
+  agent: Silas::Channel.route_for("whatsapp", message[:to]),
+  metadata: { "whatsapp" => { "to" => message[:from] } }
+)
+```
+
+**A route naming an agent that doesn't exist fails the boot that installs it**,
+listing the staff that do exist. That is deliberate: `Silas.agent(name)` raises
+on an unknown name, and finding that out at dispatch time would 500 the webhook
+— which for Slack means a retry, which the retry guard drops, which means the
+message is gone. If a bad name is assigned *after* boot, dispatch does not
+raise: it logs the error and wakes the root agent, which is where that thread
+went before routing existed.
+
+Routing changes how continuation tokens are derived — `whatsapp:abc123` became
+`whatsapp:agent:abc123`. Sessions that predate the change keep working: a lookup
+that misses the new form falls back to the old one, so a live thread carries on
+in the session it already has (with the agent it already had — a conversation
+does not change hands mid-thread). New threads route normally.
 
 ### Verification
 
