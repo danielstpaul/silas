@@ -129,6 +129,17 @@ RSpec.describe "connections" do
     expect(@calls).to eq([ [ "search_issues", { "query" => "outage" } ] ])
   end
 
+  it "reaches a named agent too — one set of credentials, all the staff" do
+    @root.join("app/agents/clerk").mkpath
+    @root.join("app/agents/clerk/instructions.md").write("You are the Clerk.\n")
+
+    scope = Silas::Registry.new(root: @root).named_agent_scopes.fetch("clerk")
+    expect(scope.definitions.map { |d| d["name"] }).to include("linear__search_issues")
+    tool = scope.resolver.call("linear__search_issues")
+    expect(tool).to be_a(Silas::Connection::RemoteTool)
+    expect(tool.call(query: "bug")["content"].first["text"]).to include("found 2 issues for bug")
+  end
+
   it "fails loud at boot when a connection is unreachable" do
     bad = @root.join("app/agent/connections/broken.yml")
     bad.write("transport: http\nurl: https://nope.test/mcp\n")

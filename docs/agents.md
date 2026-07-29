@@ -46,6 +46,12 @@ resumes — runs under that agent's own tools, skills, instructions, and
 definitions digest. Scope switching is execution-isolated, so concurrent jobs
 running different agents never cross wires.
 
+A named agent is staff, not a lesser agent: it gets `ask_question` (subject to
+`config.ask_question`), `load_skill` when it has skills, `run_code` when the
+sandbox is on, `remember`/`recall`, `handoff`, and the remote tools from
+`app/agent/connections/` — one set of credentials for the whole app. It does
+not get `delegate`; subagents belong to the root agent's turn.
+
 ```ruby
 Silas.agent("escalations").start(input: "…")
 ```

@@ -1,5 +1,34 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Named agents get `ask_question` and the remote connections.** A named
+  agent (`app/agents/<name>/`) is staff, not a lesser agent: it can park to
+  ask a person, and it can reach the MCP tools declared in
+  `app/agent/connections/` — one set of credentials for the whole app,
+  resolved the same way the root agent resolves them. `config.ask_question`
+  governs it exactly as it governs the root agent. `delegate` stays root-only:
+  subagents belong to the root agent's turn.
+
+### Upgrading
+
+- **Settle parked turns for your named agents before deploying this.** Adding
+  tools to a scope changes that scope's definitions digest, and the
+  nondeterminism guard refuses to resume a turn against a different agent than
+  the one that started it. A turn parked under a named agent — waiting on an
+  approval, a question, or an in-doubt call — is failed with
+  `definitions_changed` when it wakes after the upgrade, not resumed. Clear
+  the inbox for each named agent and let those turns finish first. Root-agent
+  and subagent digests are unchanged, so their parked turns are unaffected.
+
+### Fixed
+
+- **A named agent asking for a tool it doesn't have raised a bare `KeyError`.**
+  It now raises `Silas::Error` naming both the tool and the agent, which is
+  what the operator needs to see in the log.
+
 ## 0.6.2 (2026-07-26)
 
 The providers guide and the remaining community files.

@@ -186,6 +186,13 @@ module Silas
     # identity under const_base, skills, the load_skill builtin when skills
     # exist, run_code when asked, and the scope's own digest (the same
     # NondeterminismError guard root turns get).
+    #
+    # A named agent is a full member of staff: it gets ask_question (parking to
+    # ask a person is the premise, not a root-agent privilege) and the shared
+    # remote connections. Connections live in the root app/agent/connections/ —
+    # one set of credentials for the app, reachable by everyone. Subagents get
+    # neither: they run inside a parent's turn, which is where the human contact
+    # and the remote surface belong.
     def build_agent_scope(dir, name, const_base:, agent: nil, run_code: false, named: false)
       tools = Dir[dir.join("tools/*.rb")].sort.to_h do |file|
         tname = File.basename(file, ".rb")
@@ -197,6 +204,7 @@ module Silas
       end
       skills = Dir[dir.join("skills/*.md")].sort.map { |f| Skill.parse(f) }
       builtins = {}
+      builtins["ask_question"] = Silas::Tools::AskQuestion if named && Silas.config.ask_question
       builtins["load_skill"] = Silas::Tools::LoadSkill if skills.any?
       builtins["run_code"] = Silas::Tools::RunCode if run_code
       if named && Silas.memory_enabled?
@@ -204,8 +212,14 @@ module Silas
         builtins["recall"] = Silas::Tools::Recall
       end
       builtins["handoff"] = Silas::Tools::Handoff if named && named_agent_dirs.size > 1
-      resolver = ->(n) { (tools[n] || builtins.fetch(n)).new }
-      definitions = (tools.values + builtins.values).map(&:schema)
+      remote = connections if named
+      resolver = lambda do |n|
+        klass = tools[n] || builtins[n]
+        return klass.new if klass
+
+        remote&.resolve(n) or raise Error, "unknown tool #{n.inspect} for agent #{name.inspect}"
+      end
+      definitions = (tools.values + builtins.values).map(&:schema) + (remote&.definitions || [])
       loaded_agent = agent || Silas::Agent.load(dir: dir)
       payload = { tools: definitions, skills: skills.map { |s| [ s.name, s.description ] } }
       payload[:final_answer] = loaded_agent.final_answer if loaded_agent.final_answer.present?
