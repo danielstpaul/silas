@@ -1,33 +1,213 @@
 # Changelog
 
-## Unreleased
+## 0.6.3 (2026-07-29)
+
+Two safety declarations were failing open, and one approval card could be
+spent twice. The rest of the release is the console, the channel layer and the
+docs catching up with what the framework already does.
+
+### Fixed
+
+- **Tool declarations now inherit — a base class silently disarmed both
+  gates.** Ruby does not inherit class-level instance variables, and
+  `Silas::Tool` stored all four of its declarations in them. So the ordinary
+  Rails move of factoring shared declarations into a base class — a `MoneyTool`
+  declaring `transactional!` and `approval :always`, with
+  `class IssueRefund < MoneyTool; end` under it — left `IssueRefund` running at
+  `effect_mode :at_most_once` and `approval :never`: no database transaction
+  around the write, no human gate, no error and no warning. The two
+  declarations the Ledger acts on both failed **open**, into their least safe
+  defaults, and the transcript looked entirely normal. `param` refinements had
+  the same defect, which compounds the string-default trap: a subclass lost its
+  base's `param :amount_pence, :integer`, so the model was told to send a
+  string and any numeric comparison in an approval lambda raised outside the
+  ledger's rescue. Settings now resolve up the ancestry with the nearest
+  explicit declaration winning; param refinements merge down, so a subclass can
+  override one param without dropping the rest. Direct subclasses that declare
+  nothing keep the documented defaults. **If your app has a tool base class,
+  read `YourTool.effect_mode` and `YourTool.approval_policy` in a console
+  before you deploy — that is what those tools have been running as.**
+- **`approve!`, `answer!` and `decline!` are compare-and-swap — one approval
+  could be spent twice.** The guard read in-memory state and the settle paths
+  then wrote with a bare `update!`, so two holders of the same rendered
+  approval card — two people, a double-click, a retried POST — both passed it,
+  both wrote, and both reached `resume_turn!`. Each then found no invocation
+  still `required` and enqueued a fresh `AgentLoopJob`: **one turn ran twice**,
+  two paid model calls, the second minting `tool_call` ids the ledger has never
+  seen and therefore cannot dedup. That is the double-execution the
+  unsafe-queue-adapter boot guard exists to prevent, arriving instead through
+  the approval path — the one path whose entire purpose is to be the safe place
+  a human intervenes. A verdict now settles through an `update_all` scoped to
+  `approval_state "required"` and raises naming the approver who won, rather
+  than silently overwriting a decline with an approval; `resume_turn!` moves
+  the turn out of `waiting`/`in_doubt` with a second compare-and-swap and
+  enqueues only if it won that one, which covers the case a per-invocation
+  claim cannot — two gated invocations on one step, settled concurrently, each
+  legitimately winning its own row and both then seeing no remaining gate.
+  Chaos on the fixed path: worker 25/25 and parked 15/15, all completed, all
+  transcripts byte-identical, zero duplicate side effects.
+- **The installer sent you to a doctor it had already failed.** Rails defaults
+  development to the in-process `:async` queue adapter, and the doctor fails
+  `:async` — correctly, because a re-enqueued continuation runs concurrently
+  with the original there and double-executes steps. The install generator's
+  last words were "then `bin/rails silas:doctor` to verify the whole setup", so
+  the first thing the framework told a new developer was a red X for a
+  condition it knew about before it printed the instruction. The generator now
+  detects the adapter and prints the exact config to paste — printed, never
+  written — and the doctor prints the same text beside the failure, from the
+  same constant, so the two cannot drift. The doctor's unrecognised-adapter
+  branch also stops reading as a style preference: a Sidekiq or GoodJob app is
+  now told what it actually loses, which is `DeadJobRescuerJob` (it returns
+  early unless Solid Queue is defined), so a job killed with its worker is
+  never retried and a turn stranded mid-tool stays `running` with its in-doubt
+  invocation unswept. It stays a warning, and the boot guard stays scoped to
+  `:async`.
+- **Six published claims about the guarantees were false** — all of them in the
+  material a reader uses to decide whether the durability contract can be
+  trusted. Chaos does not run "hundreds of times per release": `ci.yml` has no
+  chaos job and `release.yml` runs only rspec, so the harness is real and
+  reproducible and a human runs it. The matrix is **275 runs**, not 295 —
+  `bin/full_gate` is 100 + 100 + 10 + 10 + 5 + 25 + 25, and `RESULTS.md`'s own
+  table summed to 275 under the inflated total. Handoffs are **at-most-once**,
+  not "exactly-once-guarded"; a crash mid-handoff parks in doubt for a person.
+  `Silas::Mcp::Server` was documented as a shipped seam when nothing outside
+  its specs calls `.start`, so an app cannot turn it on at all — the code stays
+  because a mounted endpoint is the planned shape, and both pages now say it is
+  not wired up. Two pages still read 0.5.x. `guarantees.md` also told readers
+  the gate figures were the last batch in each results file: `results/*.jsonl`
+  is append-only and every per-change run appends to it, so the last batch is
+  whatever ran most recently. The page now says what is true — batches start
+  where `run` restarts at 1, no field marks which one was a gate, and
+  `chaos_host/RESULTS.md` is the record — and the rows stay unedited, including
+  the inconvenient ones. `CONTRIBUTING.md` promised the chaos gate only "where
+  the loop changed" against four published pages promising the full gate before
+  every release; it now matches the public promise.
+- **The README's `IssueRefund` example never declared its integer param.** Param
+  types default to string, so the model was told to send `"6400"` and the
+  example's own `input[:amount_pence] > 2_500` raised `ArgumentError` — inside
+  `approval_verdict`, outside `run_tool!`'s rescue, which kills the loop job
+  and (in development, where no rescuer is scheduled) strands the turn in
+  `running` with no diagnostic. `docs/tools.md`, the skill and
+  `templates/desk.rb` all had it right; the one place it was missing was the
+  most-copied snippet in the project.
+- **`docs/headless.md` named a scope helper that does not exist** (`with_scope`
+  for `Silas.with_agent_scope`) and suggested `Session.where(status: "waiting")`
+  — `waiting` is a turn status, and a session query for it validates fine and
+  silently returns nothing. Corrected to the approval queue and parked turns,
+  with both vocabularies named so the trap is visible rather than inferred.
+- **A named agent asking for a tool it doesn't have raised a bare `KeyError`.**
+  It now raises `Silas::Error` naming both the tool and the agent, which is
+  what the operator needs to see in the log.
+
+### Upgrading
+
+- **Settle parked turns for your named agents before deploying this.** Named
+  agents gain `ask_question` and the connection tools (below), and adding tools
+  to a scope changes that scope's definitions digest — the nondeterminism guard
+  refuses to resume a turn against a different agent than the one that started
+  it. A turn parked under a named agent — waiting on an approval, a question,
+  or an in-doubt call — is failed with `definitions_changed` when it wakes after
+  the upgrade, not resumed. Clear the inbox for each named agent and let those
+  turns finish first. Root-agent and subagent digests are unchanged, so their
+  parked turns are unaffected.
 
 ### Added
 
+- **Channels route to named staff.** `Silas::Channel.dispatch` hardcoded
+  `Silas.agent.start` and neither first-party caller could say otherwise, so
+  every Slack thread and every email woke the root agent: an app could employ
+  staff with their own tools, instructions and cron and still had no way to
+  send `#billing` or `billing@` to the bookkeeper. `config.channel_routes` maps
+  a transport-specific key to an agent name
+  (`{"slack" => {"C0BILLING" => "bookkeeper"}}`); unmatched threads wake the
+  root agent, so nothing changes for an app that sets nothing. Routes are
+  checked at boot against the `app/agents/` roster — a typo fails the deploy
+  and names the staff that do exist, rather than raising inside a webhook,
+  where Slack retries, the retry guard drops the retry, and the message is
+  gone. The continuation token now carries the agent as well as the channel
+  (`slack:bookkeeper:C1:ts`), and a lookup that misses the new form falls back
+  to the old one, so a live thread keeps the session — and the agent — it
+  already had. Only new threads route.
 - **Named agents get `ask_question` and the remote connections.** A named
   agent (`app/agents/<name>/`) is staff, not a lesser agent: it can park to
   ask a person, and it can reach the MCP tools declared in
   `app/agent/connections/` — one set of credentials for the whole app,
-  resolved the same way the root agent resolves them. `config.ask_question`
-  governs it exactly as it governs the root agent. `delegate` stays root-only:
+  resolved the same way the root agent resolves them. Its scope was built by
+  the same builder subagents use, which grants only `load_skill`, `run_code`,
+  `remember`, `recall` and `handoff` — so the member of staff woken by its own
+  Slack channel or email address was structurally the one that could not stop
+  and ask, in a framework whose premise is that a turn parks for days waiting
+  on a human. And the remote credentials are the app's, not the root agent's,
+  yet only the root agent could spend them. `config.ask_question` governs the
+  builtin exactly as it governs the root agent. `delegate` stays root-only:
   subagents belong to the root agent's turn.
+- **`docs/headless.md` — Silas without the inbox.** The inbox is a mountable
+  engine, not a requirement, and nothing said so. The page names the pattern —
+  drive `approve!`/`decline!`/`answer!` from your own controllers, since the
+  inbox, the JSON API, the Slack controller and the signed email links are four
+  callers of the same three `ToolInvocation` methods — and what you take on
+  instead of pretending it is free: rendering model-authored arguments, your
+  own authorization, live updates (the engine's broadcast targets are internal,
+  not a contract), and the real coupling, which is that
+  `Channel.approval_url` mints links against `Engine.routes`. It also covers
+  `Silas.with_agent_scope` for apps whose capabilities vary per user or tenant,
+  with the two constraints that bite: connection credentials are paths into the
+  app's own credentials rather than per-end-user OAuth tokens, and changing an
+  agent's capabilities fails its parked turns loudly on resume — while teaching
+  it facts does not, because memory is not in the definitions digest.
+- **The console accounts for a handoff.** `Session` has carried
+  `parent_session` and `child_sessions` since 0.5 and the JSON API serializes
+  both, but no view read either — so the one relationship a multi-agent
+  framework exists to express appeared in the inbox as a new row with a
+  different agent's name, no explanation and no route back to the session that
+  started it. Three places state it now: a child session names the agent that
+  handed over and links to its session, the call that made a child renders that
+  child in the feed at the point it happened (with its agent and its turn's
+  state), and the index marks child rows with the parent's agent, so a row that
+  read as a stray reads as the second half of a handoff. The pairing is
+  recovered from `session_id` in the handoff's own result and accepted only
+  when that session's parent is the calling session — `session_id` is a
+  plausible key for any tool to return, and a lineage line that is merely
+  probably true is worse than none. `handoff` is at-most-once, so a crash
+  between `Session.create!` and the result leaves a colleague started with
+  nothing in the trace naming it; those children are listed under the feed
+  rather than dropped.
+- **A render-side test for every live-update target.** Turbo addresses an
+  element that must already be on the page: broadcast to an id no view renders
+  and nothing raises, nothing logs, nothing updates — the trace stops moving
+  while every spec stays green. That is exactly how 0.6.1's held-pill bug
+  shipped, and seven of the ten targets had never been checked against a real
+  render. Each is now pinned to the partial that must render it, the five
+  `replace` targets additionally to that partial's root element (the only shape
+  that survives a swap), and the contract runs backwards too — every
+  broadcasting transition is driven with the seam captured and the emitted set
+  held to the nine covered — so a target added with no view to receive it fails
+  as well.
 
-### Upgrading
+### Changed
 
-- **Settle parked turns for your named agents before deploying this.** Adding
-  tools to a scope changes that scope's definitions digest, and the
-  nondeterminism guard refuses to resume a turn against a different agent than
-  the one that started it. A turn parked under a named agent — waiting on an
-  approval, a question, or an in-doubt call — is failed with
-  `definitions_changed` when it wakes after the upgrade, not resumed. Clear
-  the inbox for each named agent and let those turns finish first. Root-agent
-  and subagent digests are unchanged, so their parked turns are unaffected.
-
-### Fixed
-
-- **A named agent asking for a tool it doesn't have raised a bare `KeyError`.**
-  It now raises `Silas::Error` naming both the tool and the agent, which is
-  what the operator needs to see in the log.
+- **The session page shows what the agent did, not the trace.** Every tool call
+  rendered identically — name, status pill, a key/value table of arguments, a
+  disclosure around the result — so a read that returned a row and a
+  transactional write that moved money carried the same weight, and the
+  sentence an operator came for had to be reassembled from the parts on every
+  row. Each invocation is now one line: `issue_refund · order #4821 · GBP 64.00
+  → approved by Dana · refunded`, with arguments and result behind the
+  disclosure. Salience comes from effect mode, the property that says whether a
+  row mattered: an idempotent call that worked is furniture, `at_most_once` is
+  loud, and `transactional` earns the heaviest rule on the page, because its
+  write and its ledger row commit together. A failure is loud whatever it
+  touched, and so is anything still owing a person a verdict. Both readings
+  ship in the DOM with a checkbox choosing between them in CSS — a broadcast
+  render has no params and no reader to ask, so a choice baked into the render
+  would snap back on the first replace. A settled turn also states its own
+  audit: when it was asked, where it stands, how many tools ran and how many of
+  them wrote. Three absences now say so out loud instead of showing as gaps — a
+  turn that called no tools, a completed step that produced neither text nor a
+  call, and a tool that returned nothing — because an unexplained hole in a
+  feed reads as a rendering bug. `running` reads **WORKING** in the pill, the
+  same word the index rail's Working group uses for the same turn; the database
+  strings and the JSON API are untouched.
 
 ## 0.6.2 (2026-07-26)
 
