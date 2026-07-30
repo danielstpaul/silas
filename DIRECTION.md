@@ -11,7 +11,7 @@ honestly.*
 | Question | Decision |
 |---|---|
 | What is Silas *for*? | The agent framework where the production run is the dataset — durability is the foundation, not the pitch |
-| Gem, or product? | Both, in three layers: `silas` (the contract), `silas-lab` (the improvement loop), a builder harness (the product) |
+| Gem, or product? | Both, in three layers: `silas` (the contract), `silas-lab` (the improvement loop), the transactional tool plane (the product) |
 | Keep the gem minimal? | Yes — but "minimal" means *one contract*, not *few features* |
 | Build a Ruby LiteLLM? | **No.** Take the inference seam (a provider protocol + two native adapters); leave the 102-provider fan-out to LiteLLM and consume it |
 | Keep up with eve? | Hold a **defined, finite parity floor**; refuse the open-ended breadth race |
@@ -535,9 +535,11 @@ existing.
 
 ### Then — the product
 
-The builder harness, as a Silas app, dogfooding all of the above. It needs A1–A4
-to have something to be about and Track B to be buildable at all, which is why
-it is last rather than numbered.
+The tool-plane app (Layer 3): B0's endpoint grown into a deployable Rails app
+where any harness's consequential effects land, with the reference app showing a
+CMA or eve agent exploring while a Silas agent owns the ledger. It needs B0 to
+exist at all and A1–A4 to have its second act (the improvement loop as a product
+surface), which is why it is last rather than numbered.
 
 The 1.0 story writes itself: *the durability contract, plus the loop that makes
 the agent better.*
@@ -680,8 +682,9 @@ safe enough to move money."**
   which is the one outcome with no path to winning.
 - **6,814 downloads.** The moat is real but nobody is standing on it yet. Layer
   1 needs a handful of real users hitting real crashes before the durability
-  claim moves from "chaos-verified" to "battle-tested." Weigh the product phase
-  against that — the builder harness is also a distribution strategy.
+  claim moves from "chaos-verified" to "battle-tested." The tool plane helps
+  here twice over: it is also a distribution strategy, because it puts the
+  ledger in front of teams without asking them to switch frameworks.
 - **The `ruby_llm` relationship is a genuine fork in the road.** Handled as
   above (protocol + two native adapters, ruby_llm still supported) it stays
   friendly and you keep the ecosystem. Framed as "taking over ruby_llm" it
