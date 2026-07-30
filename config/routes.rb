@@ -31,6 +31,8 @@ Silas::Engine.routes.draw do
 
   namespace :inbox do
     root to: "sessions#index"
+    get "held", to: "held#index"
+    resources :staff, only: %i[index show], param: :name, constraints: { name: %r{[^/]+} }
     resources :sessions, only: %i[index show create] do
       resources :turns, only: :create
     end

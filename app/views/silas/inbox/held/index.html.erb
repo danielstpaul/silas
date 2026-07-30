@@ -1,0 +1,27 @@
+<%# The cross-agent held queue — every decision waiting on a person, in one
+    place, soonest-expiring first. Each card is the SAME broadcast-replaced
+    approval card the session page renders, so a verdict taken here clears it
+    everywhere. %>
+<% if @invocations.empty? %>
+  <div class="empty">Nothing needs you. An empty queue is your evening back.</div>
+<% else %>
+  <% @by_agent.each do |agent_name, invocations| %>
+    <div class="rail-title">
+      <%= link_to agent_name, inbox_staff_path(agent_name), class: "rail-agent" %>
+      <span class="muted">· <%= pluralize(invocations.size, "decision") %></span>
+    </div>
+    <% invocations.each do |invocation| %>
+      <div class="card held-card">
+        <div class="muted held-context">
+          <%= link_to "session ##{invocation.turn.session_id}",
+                inbox_session_path(invocation.turn.session), class: "held-session-link" %>
+          · <%= invocation.turn.input.to_s.truncate(90) %>
+          <% if invocation.approval_expires_at %>
+            · expires <%= silas_relative_time(invocation.approval_expires_at) %>
+          <% end %>
+        </div>
+        <%= render "silas/inbox/invocations/approval_card", invocation: invocation %>
+      </div>
+    <% end %>
+  <% end %>
+<% end %>

@@ -1,0 +1,21 @@
+<%# The roster: one card per agent this deployment runs. The staff is what
+    the framework scales to, not what it requires — a single-agent app shows
+    one card, and that is fine. %>
+<div class="rail-title">Staff</div>
+<% @roster.each do |name, on_disk| %>
+  <%= link_to inbox_staff_path(name), class: "card session-row staff-card" do %>
+    <div class="row-top">
+      <span class="name"><%= name %></span>
+      <% if name == "agent" %><span class="chip">root</span><% end %>
+      <% unless on_disk %><span class="chip chip-orphan" title="history only — the agent directory no longer exists">gone</span><% end %>
+      <% held = @held_counts.fetch(name, 0) %>
+      <% if held.positive? %><span class="badge"><%= held %> held</span><% end %>
+    </div>
+    <div class="muted">
+      <%= pluralize(@session_counts.fetch(name, 0), "session") %>
+      <% active = @active_counts.fetch(name, 0) %>
+      <% if active.positive? %>· <%= active %> active<% end %>
+      <% if (seen = @last_activity[name]) %>· last activity <%= silas_relative_time(seen) %><% end %>
+    </div>
+  <% end %>
+<% end %>

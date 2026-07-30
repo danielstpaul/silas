@@ -21,6 +21,11 @@ Order.create!(id: 4, customer: raj, item: "Cast iron bookends", amount_pence: 32
 Order.create!(id: 5, customer: raj, item: "Fountain pen ink", amount_pence: 900,
               status: "delivered", placed_at: 3.days.ago)
 
+# Outside the 30-day window — the handoff story: support escalates this one
+# to the refunds specialist rather than deciding a policy exception itself.
+Order.create!(id: 6, customer: ada, item: "Oak wall mirror", amount_pence: 3600,
+              status: "delivered", placed_at: 45.days.ago)
+
 puts "Seeded #{Customer.count} customers, #{Order.count} orders."
 puts %(Try: "Hi, I'm ada@example.com — the brass desk lamp arrived cracked.")
 puts "  (£48 is over the £20 gate, so that one parks for approval in /silas/inbox)"

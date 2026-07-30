@@ -4,6 +4,26 @@
 
 ### Added
 
+- **The staff console.** The inbox grew from an approval queue into the place
+  you manage a staff of agents, behind the same auth: `/silas/inbox/staff` —
+  the roster, one card per agent (the root, every `app/agents/` directory,
+  and history-only agents marked *gone* instead of vanishing from their own
+  audit trail); `/silas/inbox/staff/:name` — the agent's record: its
+  instructions, every tool with its effect mode and approval policy in plain
+  sight, what it has learned, its spend, its recent sessions;
+  `/silas/inbox/held` — every decision awaiting a person across all agents,
+  soonest-expiring first, with the same live approval cards the session page
+  renders. A small header nav ties the three to the sessions feed.
+
+### Fixed
+
+- **The Held group is a query, not a partition of the page.** A held session
+  older than the newest fifty never appeared under Held while the global
+  badge counted it — the badge was right and the group was wrong. Held now
+  loads complete on the first page. The agent filter chips also now show
+  every agent that exists on disk (not just those with sessions), and mark
+  deleted-directory agents as history rather than hiding them.
+
 - **Counterfactual replay: `bin/rails silas:replay TURN=… [MODEL=…]`.** Any
   completed turn can be re-asked step by step — given exactly the history the
   agent had, what would a different model or an edited prompt have done here?

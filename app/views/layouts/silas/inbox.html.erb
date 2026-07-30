@@ -216,6 +216,18 @@
     .topup-form { display: flex; gap: 8px; margin-top: 8px; }
     .topup-input { flex: 1; border: 1px solid var(--line); border-radius: var(--radius); padding: 8px 10px;
       font: inherit; background: var(--panel); color: var(--ink); }
+    .top-nav { display: flex; gap: 4px; margin-left: 14px; }
+    .top-nav-link { font-size: 13px; color: var(--muted); text-decoration: none;
+      padding: 3px 8px; border-radius: 999px; }
+    .top-nav-link:hover { color: var(--ink); background: var(--grey-bg); }
+    .chip-orphan { opacity: 0.55; text-decoration: line-through; }
+    .chip-gate { border-color: var(--amber, var(--line)); }
+    .rail-agent { color: inherit; text-decoration: none; }
+    .rail-agent:hover { text-decoration: underline; }
+    .held-context { margin-bottom: 6px; }
+    .held-session-link { color: inherit; }
+    .staff-instructions { white-space: pre-wrap; font-size: 12.5px; margin: 8px 0 0;
+      font-family: var(--mono); overflow-x: auto; }
   </style>
 </head>
 <body>
@@ -229,6 +241,11 @@
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" role="img" aria-hidden="true"><circle cx="12" cy="12" r="9.6" fill="none" style="stroke: var(--ink)" stroke-width="2.2"/><circle cx="8.61" cy="15.39" r="2.5" style="fill: var(--accent)"/><circle cx="15.39" cy="8.61" r="2.5" style="fill: var(--accent)"/></svg><span>silas</span>
         <% end %>
       </span>
+      <nav class="top-nav">
+        <%= link_to "sessions", inbox_sessions_path, class: "top-nav-link" %>
+        <%= link_to "staff", inbox_staff_index_path, class: "top-nav-link" %>
+        <%= link_to "held", inbox_held_path, class: "top-nav-link" %>
+      </nav>
       <span class="spacer"></span>
       <% if content_for?(:header_extra) %><%= yield :header_extra %><% end %>
     </header>
