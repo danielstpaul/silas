@@ -51,6 +51,8 @@ NAV = {
                        desc: "Deploying Silas apps with Kamal: the worker contract, the rescuer, worker liveness, and the operational lessons from the chaos harness." },
   "conventions"   => { title: "Conventions",   parent: "Reference", order: 4,
                        desc: "The contracts the UI and API keep, including the held/clear UI labels over unchanged database states." },
+  "traces"        => { title: "The trace schema", parent: "Reference", order: 5,
+                       desc: "Every agent step as documented, versioned rows in your own database — sessions, turns, steps, tool invocations, the exactly-once key, and the approval columns that double as a labeled dataset." },
 
   "why-silas"     => { title: "Why Silas",    parent: "About", order: 1,
                        desc: "Build agents the way you build Rails apps — and get exactly-once effects, holds at zero compute, and crash-safe turns no external runtime can offer." },
@@ -82,7 +84,7 @@ full = +"# silas — full documentation\n\n"
 full << "> Concatenation of every silas doc. Curated index: llms.txt\n\n"
 ordered = %w[tutorial guarantees tools agents memory channels inbox-and-api
              headless connections evals budgets cancellation sandbox
-             configuration providers deploy conventions why-silas vs-eve]
+             configuration providers deploy conventions traces why-silas vs-eve]
 ordered.each do |slug|
   full << "\n\n---\n\n" << File.read(sources.fetch(slug))
 end

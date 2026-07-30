@@ -44,7 +44,7 @@ here:
 
 | Not doing | Because |
 |---|---|
-| Provider abstraction, model routing, token counting | [RubyLLM](https://rubyllm.com)'s job. One inference seam, no wrapping. |
+| Provider abstraction | [RubyLLM](https://rubyllm.com) and OpenAI-compatible gateways own the dialect fan-out. One inference seam, no wrapping. (Model *routing* and per-step cost *accounting* are **in** scope — they read the ledger Silas already writes, and they're part of the product, not plumbing.) |
 | Hosted state / a managed Silas cloud | The whole point is that agent state lives in **your** database, inside your transaction boundary. |
 | RAG, vector stores, embeddings | Retrieval is its own category with good Ruby options; compose them as tools. |
 | More first-party channels | Each is a vendor API drifting forever. `rails g silas:channel` is the answer. |
