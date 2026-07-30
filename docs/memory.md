@@ -31,5 +31,7 @@ read. If it has a schema, it's a model; if it's a remark, it's a memory.
 ## The fine print
 
 Memory tools are model-visible state, so toggling `config.memory` (like any
-builtin) changes the definitions digest — settle parked turns before flipping
-it, or they fail loudly on resume ([guarantees](guarantees.md)).
+builtin) changes the definitions digest. Parked turns resume against their
+own definitions snapshot, so the flip doesn't fail them — but a turn that
+already advertises the memory tools will keep them until it settles
+([guarantees](guarantees.md)).

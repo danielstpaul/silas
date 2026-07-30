@@ -66,11 +66,16 @@ work; it cannot conjure a consumer).
 
 ## Deploys can't corrupt a run
 
-Instructions are snapshotted per turn. Tools, skills, connections, and the
-final-answer schema are model-visible state, captured in a definitions digest —
-a deploy that changes them while a turn is parked fails that turn loudly on
-resume (`NondeterminismError`) instead of quietly resuming into a different
-agent. Settle parked turns before shipping agent changes.
+Instructions are snapshotted per turn — and so is everything else the model
+can see: each turn captures the tool schemas and final-answer schema it
+started with, and **resumes against that snapshot**. A deploy that changes
+tools while a turn is parked is invisible to the model; the drift is
+instrumented (`definitions_drift.silas`) so operators can see that a turn is
+finishing on its original definitions. If the model calls a tool the deploy
+removed, the resolver fails the step loudly with nothing committed. Turns
+from before the snapshot column keep the original contract: a changed
+definitions digest fails them on resume (`NondeterminismError`) rather than
+resuming into a different agent.
 
 ## Compaction can't corrupt a replay
 

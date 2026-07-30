@@ -41,10 +41,10 @@ Each connection's tool list is fetched **once at boot** and cached
 (`tools/list`). A misconfigured or unreachable connection raises **at boot**,
 never inside a turn — the same posture as the Registry's tool validation. The
 remote tool names and schemas are model-visible state, so they're part of the
-definitions digest: if the remote server changes its toolset, parked turns
-from before the change fail loudly on resume (`NondeterminismError`) instead
-of resuming against a different toolset. Settle parked turns before pointing a
-connection at a changed server.
+definitions digest. A parked turn resumes against its own definitions
+snapshot, so a changed remote toolset doesn't fail it — but if the model then
+calls a remote tool the server no longer serves, that call fails loudly. A
+connection whose toolset moves under parked work is worth settling promptly.
 
 ## Testing
 

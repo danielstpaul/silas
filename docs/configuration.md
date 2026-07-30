@@ -35,7 +35,7 @@ recipes in [providers](providers.md).
 | Option | Default | Meaning |
 |---|---|---|
 | `approval_ttl` | `7.days` | How long a parked approval (or in-doubt invocation) waits before expiring. Parked-forever ghosts are a bug, not a feature. |
-| `ask_question` | `true` | The built-in tool that parks the turn to ask the operator something. **Toggling it changes the definitions digest** — settle parked turns before flipping, or they fail loudly on resume (the nondeterminism guard working as designed). |
+| `ask_question` | `true` | The built-in tool that parks the turn to ask the operator something. Toggling it changes the definitions digest; parked turns resume against their own definitions snapshot, so the flip doesn't fail them — they just keep their original toolset until they settle. |
 
 ## Memory
 

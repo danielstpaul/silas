@@ -57,14 +57,19 @@ module Silas
       # its first attempt saw. MessageBuilder reads the row this ensures.
       Compactor.ensure!(turn)
       engine = Silas.resolved_adapter
+      # The turn's own snapshot beats the live registry: everything the model
+      # sees must come from the rows, or a deploy mid-park changes the agent
+      # under work a human may already have approved. Pre-snapshot rows (nil)
+      # fall through to live — they are guarded by the digest check above.
+      snapshot = turn.definitions_snapshot
       context = {
         turn: turn,
         index: index,
         system: turn.instructions_snapshot,
         messages: MessageBuilder.call(turn, upto_index: index),
-        tools: Silas.tool_definitions,
+        tools: snapshot ? snapshot["tools"] : Silas.tool_definitions,
         model: turn_model(turn),
-        final_answer: Silas.agent.final_answer,
+        final_answer: snapshot ? snapshot["final_answer"] : Silas.agent.final_answer,
         limits: { max_steps: Silas.agent.max_steps }
       }
 
@@ -89,13 +94,26 @@ module Silas
       end
     end
 
-    # A deploy that changes tools/skills mid-turn must fail loudly, never
-    # resume into a different agent than the one that started the turn.
+    # A deploy that changes tools/skills mid-turn must never let the model see
+    # a different agent than the one that started the turn. Turns carrying a
+    # definitions snapshot RESUME AGAINST IT — the deploy is invisible to the
+    # model and the drift is instrumented for the operator. Turns from before
+    # the snapshot column keep the original contract: fail loudly rather than
+    # resume against a different agent. (The snapshot can advertise a tool a
+    # deploy has since removed; if the model calls it, the resolver's
+    # "unknown tool" raise aborts the step with nothing committed.)
     def assert_definitions_unchanged!(turn)
       return if turn.definitions_digest.blank? || Silas.definitions_digest.nil?
 
       live = Silas.definitions_digest.to_s
       return if live == turn.definitions_digest
+
+      if turn.definitions_snapshot.present?
+        Silas.instrument(:definitions_drift, turn_id: turn.id,
+                                             was: turn.definitions_digest.to_s[0, 12],
+                                             now: live[0, 12])
+        return
+      end
 
       turn.finish!(:failed, reason: "definitions_changed")
       Silas.instrument(:nondeterminism, turn_id: turn.id,

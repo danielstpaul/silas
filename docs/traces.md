@@ -43,7 +43,8 @@ here are internal — query them if you like, but they can move without notice.
 | `status` | `queued` \| `running` \| `waiting` (parked for a human) \| `in_doubt` \| `completed` \| `failed` \| `canceled`. At most one non-final turn per session — enforced by `index_silas_turns_single_active`. |
 | `input` | What the user (or channel, or schedule) asked. |
 | `instructions_snapshot` | The system prompt as rendered **once** at turn start; immutable after. What the model actually saw, forever. |
-| `definitions_digest` | Hash of tool schemas + skill descriptions at turn start — the nondeterminism guard that refuses to resume a turn against a changed agent. |
+| `definitions_snapshot` | `{"tools" => [schemas], "final_answer" => schema-or-nil}` — everything else the model saw, stamped once beside the instructions. Resume reads this, not the live registry, so a park survives a deploy. `NULL` on pre-snapshot rows. |
+| `definitions_digest` | Hash of tool schemas + skill descriptions at turn start. With a snapshot present, a mismatch is instrumented as drift; on pre-snapshot rows it refuses resume against a changed agent. |
 | `failure_reason` | Why a `failed` turn failed (`max_steps`, `definitions_changed`, `job_failed`, budget reasons, …). |
 | `input_tokens` / `output_tokens` / `cost_microcents` | Accumulated across the turn's steps. 1,000,000 microcents = $1. |
 | `budget_overrides` | JSON. A human's top-up on a budget-parked turn, beating `agent.yml` limits. |
