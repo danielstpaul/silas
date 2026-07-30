@@ -332,7 +332,7 @@ RSpec.describe "the inbox", type: :request do
   describe "keyset pagination" do
     before { allow_all! }
 
-    it "pages older sessions via ?before=<id> and hides the pager on the last page" do
+    it "pages older sessions via ?before=<id>, keeping Held complete on page one" do
       stub_const("Silas::Inbox::SessionsController::PER_PAGE", 2)
       s2 = Silas::Session.create!(agent_name: "refunds")
       s3 = Silas::Session.create!(agent_name: "refunds")
@@ -340,7 +340,11 @@ RSpec.describe "the inbox", type: :request do
       get "/silas/inbox"
       expect(response.body).to include("/silas/inbox/sessions/#{s3.id}")
       expect(response.body).to include("/silas/inbox/sessions/#{s2.id}")
-      expect(response.body).not_to include("\"/silas/inbox/sessions/#{session.id}\"")
+      # The outer `session` is HELD (a pending approval) — it renders in the
+      # Held group on page one even though it is older than a full page of
+      # newer sessions. The page-scoped partition that hid it was the bug.
+      expect(response.body).to include("/silas/inbox/sessions/#{session.id}")
+      expect(response.body).to include(">Held<")
       expect(response.body).to include("before=#{s2.id}")
 
       get "/silas/inbox/sessions", params: { before: s2.id }

@@ -1,0 +1,62 @@
+<%# The agent's record: what it is, what it may do, what it has learned, what
+    it has done — the page that answers "what is this agent, exactly?" without
+    a rails console. %>
+<div class="card">
+  <div class="row-top">
+    <span class="name"><%= @name %></span>
+    <% if @name == "agent" %><span class="chip">root</span><% end %>
+    <% unless @on_disk %><span class="chip chip-orphan">gone — history only</span><% end %>
+  </div>
+  <div class="muted">
+    <%= pluralize(@sessions.size, "recent session") %>
+    <% if @cost %> · <%= @cost[:input_tokens].to_i %> in / <%= @cost[:output_tokens].to_i %> out
+      <% if (money = Silas::Inbox::Cost.format(@cost[:microcents])) %> · <%= money %><% end %>
+    <% end %>
+  </div>
+</div>
+
+<% if @instructions %>
+  <div class="rail-title">Instructions</div>
+  <div class="card">
+    <details>
+      <summary class="muted">instructions.md — what this agent is told, every turn</summary>
+      <pre class="staff-instructions"><%= @instructions %></pre>
+    </details>
+  </div>
+<% end %>
+
+<div class="rail-title">Tools</div>
+<% if @tools.empty? %>
+  <div class="empty">No tools — this agent can only converse.</div>
+<% else %>
+  <% @tools.each do |definition, facts| %>
+    <div class="card tool-card">
+      <div class="row-top">
+        <code class="deed-tool"><%= definition["name"] %></code>
+        <span class="chip"><%= facts[:effect_mode] %></span>
+        <% unless facts[:approval] == "never" %>
+          <span class="chip chip-gate">approval: <%= facts[:approval] %></span>
+        <% end %>
+      </div>
+      <div class="muted"><%= definition["description"] %></div>
+    </div>
+  <% end %>
+<% end %>
+
+<% if @memories.any? %>
+  <div class="rail-title">What it has learned</div>
+  <% @memories.each do |memory| %>
+    <div class="card">
+      <div class="muted"><code><%= memory.subject %></code><% if memory.attribute_name %> · <%= memory.attribute_name %><% end %></div>
+      <div><%= memory.content %></div>
+    </div>
+  <% end %>
+<% end %>
+
+<div class="rail-title">Recent sessions</div>
+<% if @sessions.empty? %>
+  <div class="empty">No sessions yet.</div>
+<% else %>
+  <%= render partial: "silas/inbox/sessions/row", collection: @sessions, as: :session,
+             locals: { pending_counts: @pending_counts } %>
+<% end %>

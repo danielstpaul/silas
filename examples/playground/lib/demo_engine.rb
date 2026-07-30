@@ -14,14 +14,21 @@ class DemoEngine < Silas::Adapters::Base
     input = context[:turn].input.to_s.downcase
     index = context[:index]
 
+    # Scripts route by AGENT — the session knows whose turn this is, so the
+    # refunds specialist answers as itself when support hands work over.
+    return refunds_specialist(input, index, &on_event) if context[:turn].session.agent_name == "refunds"
+
     if input.include?("pen tray")
       pen_tray(index, &on_event)
     elsif input.include?("lamp")
       lamp(index, &on_event)
+    elsif input.include?("mirror")
+      mirror_escalation(index, &on_event)
     else
-      say("(Keyless demo mode — I'm a scripted stand-in, not a model. I know two stories: " \
-          "the scratched walnut pen tray and the cracked brass desk lamp, both for " \
-          "ada@example.com. Set ANTHROPIC_API_KEY and restart to talk to the real thing.)", &on_event)
+      say("(Keyless demo mode — I'm a scripted stand-in, not a model. I know three stories: " \
+          "the scratched walnut pen tray, the cracked brass desk lamp, and the warped oak " \
+          "mirror that's outside the return window — all for ada@example.com. " \
+          "Set ANTHROPIC_API_KEY and restart to talk to the real thing.)", &on_event)
     end
   end
 
@@ -50,6 +57,43 @@ class DemoEngine < Silas::Adapters::Base
     else say("That's no good at all — a cracked lamp isn't what you paid for. I've put " \
              "through a full £48.00 refund; it's just been approved on our side and is " \
              "on its way back to you.", &on_event)
+    end
+  end
+
+  # The mirror is outside the return window — support looks it up, then HANDS
+  # OFF to the refunds specialist with a self-contained brief. The child
+  # session runs as `refunds` with its own tools and its own £20 gate; the
+  # inbox renders the lineage on both sides.
+  def mirror_escalation(index, &on_event)
+    case index
+    when 0 then tool("find_customer", { "query" => "ada@example.com" })
+    when 1 then tool("recent_orders", { "customer_id" => 1 })
+    when 2 then tool("handoff", {
+      "agent" => "refunds",
+      "brief" => "Customer Ada Whitfield (ada@example.com) reports the oak wall mirror " \
+                 "(order 6, £36.00) arrived warped. Purchase is 45 days old — outside " \
+                 "the 30-day window. Recommend a full goodwill refund of 3600p; " \
+                 "her order history supports it."
+    })
+    else say("The warp on that mirror shouldn't have passed packing, window or no window. " \
+             "I've handed this to our refunds specialist with a recommendation for the " \
+             "full £36.00 — they'll take it from here, and you'll hear back shortly.", &on_event)
+    end
+  end
+
+  # The specialist's own script: works strictly from the brief it was handed.
+  def refunds_specialist(input, index, &on_event)
+    if input.include?("mirror") || input.include?("order 6")
+      case index
+      when 0 then tool("issue_refund", { "order_id" => 6, "amount_pence" => 3600,
+                                         "reason" => "goodwill — arrived warped, just outside window" })
+      else say("Reviewed the brief from support: order 3, warped on arrival, 15 days past " \
+               "the window. Goodwill refund of £36.00 issued in full — approved on our " \
+               "side and on its way back to the customer.", &on_event)
+      end
+    else
+      say("(Refunds specialist, keyless demo — I act on handoff briefs about the oak mirror. " \
+          "This brief doesn't match a story I know.)", &on_event)
     end
   end
 

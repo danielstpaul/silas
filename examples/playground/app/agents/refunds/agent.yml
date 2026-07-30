@@ -1,0 +1,8 @@
+# The refunds specialist: takes handoffs from support for anything outside
+# the standard policy. Its whole toolset is the money path.
+model: claude-sonnet-4-5
+description: Refund specialist — handles policy exceptions handed off by support.
+limits:
+  max_steps: 6
+  max_cost: 0.10
+  timeout: 300

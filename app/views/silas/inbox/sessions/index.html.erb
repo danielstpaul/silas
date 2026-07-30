@@ -9,7 +9,8 @@
     <%= link_to "all", inbox_sessions_path, class: params[:agent].blank? ? "chip chip-on" : "chip" %>
     <% @agent_names.each do |name| %>
       <%= link_to name, inbox_sessions_path(agent: name),
-            class: params[:agent] == name ? "chip chip-on" : "chip" %>
+            class: [ "chip", ("chip-on" if params[:agent] == name), ("chip-orphan" if @orphaned_agents&.include?(name)) ].compact.join(" "),
+            title: (@orphaned_agents&.include?(name) ? "history only — app/agents/#{name} no longer exists" : nil) %>
     <% end %>
   </div>
 <% end %>
@@ -30,21 +31,17 @@
   <% end %>
 </div>
 
-<% if @sessions.empty? %>
+<% if @sessions.empty? && @held_sessions.empty? %>
   <div class="empty">No agent sessions yet — start one above.</div>
 <% else %>
-  <%# 06: the rail, grouped by who's blocked. Held = a person is needed
-      (pending approvals/questions, or a turn parked waiting/in_doubt);
-      Working = a worker holds it; Filed = nothing needs anyone. Grouping is
-      over the loaded page — same queries the flat list already ran. %>
+  <%# 06: the rail, grouped by who's blocked. Held = a person is needed —
+      loaded by its own query so it is COMPLETE, not a partition of this page
+      (a held session older than the newest fifty must still appear here).
+      Working = a worker holds it; Filed = nothing needs anyone. %>
   <%
-    held, rest = @sessions.partition do |s|
-      @pending_counts.fetch(s.id, 0).positive? ||
-        s.turns.any? { |t| %w[waiting in_doubt].include?(t.status) }
-    end
-    working, filed = rest.partition { |s| s.turns.any? { |t| %w[queued running].include?(t.status) } }
+    working, filed = @sessions.partition { |s| s.turns.any? { |t| %w[queued running].include?(t.status) } }
   %>
-  <% { "Held" => held, "Working" => working, "Filed" => filed }.each do |title, group| %>
+  <% { "Held" => @held_sessions, "Working" => working, "Filed" => filed }.each do |title, group| %>
     <% next if group.empty? %>
     <div class="rail-title"><%= title %></div>
     <%= render partial: "silas/inbox/sessions/row", collection: group, as: :session,
