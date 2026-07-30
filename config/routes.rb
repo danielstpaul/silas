@@ -1,4 +1,7 @@
 Silas::Engine.routes.draw do
+  # The mounted MCP endpoint (Streamable HTTP, stateless mode: POST only).
+  post "mcp", to: "mcp#handle"
+
   namespace :api do
     namespace :v1 do
       resources :sessions, only: %i[create show] do

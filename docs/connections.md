@@ -51,11 +51,45 @@ connection whose toolset moves under parked work is worth settling promptly.
 `config.mcp_client_factory = ->(connection) { fake_client }` injects a fake
 client per connection — the seam the gem's own specs use.
 
-## The other direction — not wired up yet
+## The other direction — your tools as an MCP server
 
-`Silas::Mcp::Server` is an in-process HTTP server that hosts your agent's tools
-for outside MCP clients, and `config.mcp_server_host` is its bind host. **You
-cannot turn it on.** Nothing in the gem starts it — the class is exercised by
-its own specs and nothing else — so serving your tools as MCP is not a feature
-you can use today. The code stays because a mounted endpoint is the planned
-shape; until that ships, treat this direction as absent.
+Mounting the engine also mounts an MCP endpoint at **`POST /silas/mcp`**
+(Streamable HTTP, stateless mode — plain JSON request/response). Any MCP
+client — goose, Claude Code, an eve agent, Claude Managed Agents over remote
+MCP — can call your agent's tools, and every call runs **through the
+Ledger**: the same exactly-once semantics, the same effect modes, and the
+same approval gates as the in-process loop.
+
+Auth is deny-by-default, same lambda contract as the JSON API:
+
+```ruby
+config.mcp_auth = lambda do |controller|
+  supplied = controller.request.headers["Authorization"].to_s
+  expected = "Bearer #{Rails.application.credentials.dig(:silas, :mcp_token)}"
+  controller.head :unauthorized unless
+    ActiveSupport::SecurityUtils.secure_compare(supplied, expected)
+end
+```
+
+**The part no other MCP server offers: a gated call parks.** When a tool's
+approval policy holds a call, the endpoint doesn't error and doesn't hold the
+connection — it returns
+
+```json
+{"status":"awaiting_approval","invocation_id":42,"expires_at":"…",
+ "await_with":{"tool":"silas_await_decision","arguments":{"invocation_id":42}}}
+```
+
+and the call waits as rows, at zero compute, for as long as `approval_ttl`
+allows. The card is in the inbox and on Slack like any other approval. The
+client — which may disconnect entirely, and reconnect after your next deploy —
+polls `silas_await_decision` (bounded long-poll, call it repeatedly) and gets
+the real result once a named human decides: executed exactly once on approve,
+`{"denied": reason}` on decline, expired if nobody answered. Every other MCP
+client in the field answers its own permission prompts with an in-memory
+button; this endpoint is the seam where a tool call can genuinely wait for a
+person.
+
+Each call is recorded as its own `channel: "mcp"` session, so the audit trail
+reads like everything else: what was called, with what, who approved it, what
+it returned.

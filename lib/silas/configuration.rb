@@ -64,9 +64,13 @@ module Silas
     # webhook.
     attr_accessor :channel_routes
     attr_writer :slack_signing_secret, :slack_bot_token
-    # Bind host for the in-process MCP server (Mcp::Server — the "mount your
-    # tools as MCP" seam). Inert: nothing outside Mcp::Server's own specs calls
-    # .start, so this setting has no effect until a mounted endpoint ships.
+    # Auth for the mounted MCP endpoint (POST /silas/mcp) — same deny-by-
+    # default lambda contract as api_auth: DENY by rendering/head-ing, PASS by
+    # not rendering. See Silas::McpController for the bearer-token example.
+    attr_accessor :mcp_auth
+    # Unused since the MCP endpoint became a mounted route (the old in-process
+    # TCP server is gone). Retained one release so initializers that set it
+    # don't break; remove it from yours.
     attr_accessor :mcp_server_host
 
     # Renamed in 0.4, removed in 2.0. "engine" meant two unrelated things —
@@ -151,7 +155,8 @@ module Silas
       @channel_routes = {}
       @slack_signing_secret = nil
       @slack_bot_token = nil
-      @mcp_server_host = "127.0.0.1"
+      @mcp_server_host = "127.0.0.1" # unused; see the accessor note
+      @mcp_auth = ->(controller) { controller.head :not_found } # deny by default
       @eval_dir = "test/agent_evals"
       @eval_grader = nil
       @sandbox = :none

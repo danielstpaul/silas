@@ -4,6 +4,21 @@
 
 ### Added
 
+- **Your tools as an MCP server — and a gated call parks.** Mounting the
+  engine now mounts `POST /silas/mcp` (Streamable HTTP, stateless mode),
+  guarded by a new deny-by-default `config.mcp_auth`. Every remote
+  `tools/call` runs through the Ledger — exactly-once, effect modes, and
+  approval gates included. A gated call returns
+  `{"status":"awaiting_approval", "invocation_id":…}` instead of erroring,
+  parks as rows at zero compute, and settles through the advertised
+  `silas_await_decision` tool: the client can disconnect, the server can
+  redeploy, and a named human's verdict — from the inbox, Slack, or email —
+  still reaches it, with the tool executed exactly once on approval. Each
+  call is its own `channel: "mcp"` session, so the audit trail reads like
+  everything else. The old in-process `Silas::Mcp::Server` (a TCP server
+  nothing could start) is deleted; `config.mcp_server_host` is retained as a
+  no-op for one release so initializers don't break.
+
 - **Parks survive `git push`.** Each turn now snapshots everything the model
   can see besides the messages — the tool schemas and the `final_answer`
   schema — beside its instructions snapshot, and **resumes against the
