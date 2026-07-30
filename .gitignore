@@ -4,3 +4,4 @@ spec/dummy/tmp/
 coverage/
 .bundle/
 vendor/bundle/
+pkg/
