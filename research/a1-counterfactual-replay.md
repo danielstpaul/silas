@@ -93,3 +93,20 @@ light for the optimizer.**
 ---
 
 *Addenda (dated, append-only):*
+
+**2026-07-30 — day 0 and day 1 both passed; engine shipped as the step-wise
+probe.** The demo transcript was written before any code
+(`a1-demo-transcript.md`) and passed its own gate — the line that earns the
+feature is the approval one (a cheaper model's refund sliding under the £25
+gate is a governance finding, not a wording difference). The null test passed
+twice: in spec (`spec/silas/replay_spec.rb`, byte-identical, zero rows
+created) and against a real production turn (playground turn 31, the £48
+refund: four steps, zero divergence, output matching the faked transcript).
+Scope decision recorded before results existed, in the transcript: v1 is the
+**step-wise probe** — every step re-conditioned on the recorded history,
+nothing executed, nothing written — which is the divergence-safe form; the
+trajectory-following, rolled-back-transaction form comes only after this one
+passes the usefulness thresholds. **The ten-known-bad-turns test WAITS**, per
+Known dependency: the playground's turns are author-driven, not the unplanned
+production failures the thresholds require. The five kill numbers above
+remain unrun and unedited.

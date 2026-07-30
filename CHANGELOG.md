@@ -4,6 +4,22 @@
 
 ### Added
 
+- **Counterfactual replay: `bin/rails silas:replay TURN=… [MODEL=…]`.** Any
+  completed turn can be re-asked step by step — given exactly the history the
+  agent had, what would a different model or an edited prompt have done here?
+  Every step is re-conditioned on the recorded rows (like-with-like at every
+  comparison, divergence reported as "agreed through step 1, split on the
+  refund amount" rather than a wall of drift), nothing executes and nothing
+  is written, and **approval gates are probed read-only** — the report flags
+  when a candidate's call would have cleared a gate the original parked on,
+  which is the finding that matters: a cheaper model changing *what gets
+  governed*, not just its wording. No `MODEL` runs the null replay (the turn
+  against its own recorded responses), which must always report zero
+  divergence — verified in spec and against a real recorded turn. The
+  evaluation protocol for this feature was pre-registered before the code
+  (`research/a1-counterfactual-replay.md`); its usefulness thresholds await
+  real production turns and remain unedited.
+
 - **Your tools as an MCP server — and a gated call parks.** Mounting the
   engine now mounts `POST /silas/mcp` (Streamable HTTP, stateless mode),
   guarded by a new deny-by-default `config.mcp_auth`. Every remote

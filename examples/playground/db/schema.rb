@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_29_011522) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_30_222752) do
   create_table "customers", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "email", null: false
@@ -129,6 +129,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_29_011522) do
     t.datetime "cancel_requested_at"
     t.datetime "created_at", null: false
     t.string "definitions_digest"
+    t.json "definitions_snapshot"
     t.string "failure_reason"
     t.datetime "finished_at"
     t.integer "index", null: false

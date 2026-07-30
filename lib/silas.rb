@@ -45,6 +45,7 @@ require "silas/adapters/ruby_llm"
 require "silas/message_builder"
 require "silas/instructions"
 require "silas/step_runner"
+require "silas/replay"
 require "silas/eval" # after adapters (ScriptedEngine < Adapters::Base)
 require "silas/chat"
 require "silas/doctor"
