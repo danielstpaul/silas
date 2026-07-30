@@ -15,6 +15,7 @@ honestly.*
 | Keep the gem minimal? | Yes — but "minimal" means *one contract*, not *few features* |
 | Build a Ruby LiteLLM? | **No.** Take the inference seam (a provider protocol + two native adapters); leave the 102-provider fan-out to LiteLLM and consume it |
 | Keep up with eve? | Hold a **defined, finite parity floor**; refuse the open-ended breadth race |
+| What about Claude Managed Agents? | **Integrate, don't compete.** Anthropic's own harness is not ZDR- or HIPAA-eligible by construction — be the transactional tool plane it calls into |
 | What's the bet? | Counterfactual replay → traces as datasets → trace-driven optimization |
 | How do we find out if the bet is wrong? | A pre-registered test at Phase 1, written before the code |
 
@@ -129,6 +130,46 @@ the harness, the dataset and the metric.
 **Nobody joins the three.** The runtime, the labeled data and the optimizer live
 in three different companies' products. Silas can hold all three in one process,
 inside the transaction, because it already lives there.
+
+### Anthropic ships the harness itself — and says out loud what it can't do
+
+Claude Managed Agents (beta, `managed-agents-2026-04-01`) is Anthropic's own
+agent harness plus managed infrastructure. Agent configs are persisted and
+versioned; sessions pin to a version; an environment provisions a sandbox
+(Anthropic's cloud, or **self-hosted on your infrastructure**); events stream
+over SSE. It ships bash, read/write/edit/glob/grep, web search and fetch, MCP,
+skills, multiagent threads, memory stores, credential vaults, permission
+policies, compaction, prompt caching, webhooks, cron deployments, and
+`user.define_outcome` — a rubric-graded iterate → grade → revise loop with a
+separate grader.
+
+That is the harness layer being commoditised by the company that sells the
+model. It's the strongest validation the category will ever get, and the most
+dangerous competitor in it.
+
+It also carries, in Anthropic's own documentation, the sentence that defines
+Silas's market:
+
+> "Claude Managed Agents is stateful by design: sessions are long-running,
+> resume cleanly after pauses, and store conversation history, sandbox state,
+> and outputs server-side. **Because of this, Managed Agents is not currently
+> eligible for Zero Data Retention or HIPAA Business Associate Agreement (BAA)
+> coverage.**"
+
+Read that carefully. It is not a gap they forgot to close — it is the direct
+consequence of where the state lives, exactly the trade Silas's whole thesis is
+built on. Healthcare, finance, government, and EU-data-residency workloads want
+agents and cannot use CMA. The shape that serves them is the one Silas already
+is: state in your database, inference to your configured provider.
+
+And the durability story is unchanged in Silas's favour. `session.error` carries
+a `retry_status`, `session.status_rescheduled` means "a transient error occurred
+and the session is retrying automatically," and tool effects land in Anthropic's
+sandbox — never in your transaction. Even the self-hosted sandbox only moves
+*tool execution* to your infrastructure; **the agent loop and the durable state
+stay on Anthropic's orchestration layer.** Two stores still can't commit
+atomically. Exactly-once survives contact with Anthropic's own harness, for the
+same structural reason it survives eve.
 
 ### The gateway layer is finished, and you didn't win it
 
@@ -262,24 +303,61 @@ fine-tuning JSONL filtered to *successful, human-approved* turns — then close
 the loop by evaluating the distilled model with the same harness that produced
 its training data.
 
-### Layer 3 — the product: the harness that builds agents
+### Layer 3 — the product: the transactional tool plane
 
-Now the product idea becomes coherent, because it has something to be *about*.
-Not "another agent builder" — the market has n8n, Dify, Flowise and Mastra EE
-for that. Instead:
+The original framing here was "a multi-agent builder/harness." **Claude Managed
+Agents killed that version of the idea**, and the replacement is better.
 
-> **A multi-agent harness where you describe an agent, it gets built, and then
-> it is measured, replayed, and improved against real runs — and the builder is
-> itself a Silas agent, running on the same exactly-once loop, in the same
-> inbox, with the same approval gates.**
+Building a builder means competing with n8n, Dify, Flowise, Mastra EE — and now
+with Anthropic's own harness, which has the model, the sandbox, versioned agent
+configs, cron deployments, multiagent threads, vaults, and a rubric-graded
+outcome loop. In Ruby, later, solo, that is not a plan.
 
-The dogfood is the pitch. The agent that writes your tools parks for approval
-before it writes a file. Its own runs show up in its own inbox. Its own eval
-scores gate its own changes. That's a demo that survives a skeptical engineer
-poking at it, which the drag-a-node-onto-a-canvas products do not.
+But notice what CMA and eve both *require you to supply* and neither can
+provide: a place for consequential effects to land safely. CMA's docs say the
+sandbox is where tools run and that non-idempotent work needs an approval gate;
+eve's say to make side effects idempotent yourself. Both are excellent
+exploratory harnesses — sandboxes, file tools, code execution, web access,
+long-horizon autonomy — and both stop at your transaction boundary.
 
-Build it as a real Rails app in this repo (the `examples/playground` and
-`chaos_host` precedent is right), open source, deployable with one Kamal push.
+So Silas should not compete with the harness. It should be the plane the harness
+calls into:
+
+> **Bring your own harness. Silas is where the consequential effects land —
+> exactly once, behind your approvals, in your database, with the audit trail
+> your regulator asks for.**
+
+The exploratory half runs wherever it's best (CMA's sandbox is already better
+than Silas's Docker seam will ever be); the consequential half runs in Rails.
+Two seams make this work, and CMA supports both:
+
+- **Custom tools.** CMA emits `agent.custom_tool_use`, *your* orchestrator
+  executes it, and you reply with `user.custom_tool_result` over the stream you
+  already hold. A Silas app is a natural orchestrator: the call lands in the
+  Ledger, hits the approval gate, commits in your transaction, and the result
+  goes back. That gives a CMA agent exactly-once effects, which CMA cannot give
+  itself.
+- **Remote MCP.** CMA connects to MCP servers over HTTPS, with credentials held
+  in a vault and injected after egress.
+
+**The semantics for both already exist; the transport does not.**
+`Mcp::Handler#call_tool` already creates a `ToolInvocation` and drives it through
+`Ledger.execute_invocation!`, so a remote `tools/call` gets the full
+exactly-once, effect-mode, and approval machinery today. But `Mcp::Server` is a
+raw `TCPServer` on an ephemeral port, scoped to a single turn and step, plain
+HTTP, token-in-URL — built to hand a spawned local `claude` CLI a socket, not to
+be addressed by anything outside the box. Turning it into a durable,
+engine-mounted, session-scoped HTTPS endpoint with real auth is a well-scoped
+piece of work, and it is the single highest-leverage thing on this list: it makes
+Silas useful to every harness in the market instead of asking anyone to switch.
+
+This is also a far better wedge than a builder. It doesn't ask a team to adopt a
+Ruby framework for their whole agent stack — only for the part where money
+moves, which is the part they're most nervous about anyway.
+
+Keep the dogfood, but as a reference app rather than the product: a real Rails
+app in this repo (the `examples/playground` and `chaos_host` precedent is right)
+where a CMA or eve agent does the exploring and a Silas agent owns the ledger.
 
 ---
 
@@ -349,7 +427,10 @@ is, for a large fraction of eve's surface. Where it isn't, don't play.
 | Typed durable session state (`defineState`) | Memory (triples, approval-gated) covers a different need | **Cheap parity** — a JSON column and an API |
 | OpenAPI connections | MCP client + server + connections | **Cheap parity**, high value per hour |
 | Evals: dataset fan-out, gate/soft severity, reporters, run comparison | Scenario DSL, assertions, rubric grader, deploy gate | **Converges with Phase 2** — this *is* the roadmap |
-| Credential brokering into the sandbox | No | Worth stealing; medium cost |
+| Credential brokering into the sandbox | No | Worth stealing; medium cost. CMA's version is sharper — secrets substituted at egress, so the sandbox only ever sees a placeholder |
+| Versioned agent configs, sessions pinned to a version | `definitions_digest` **fails** a turn whose definitions changed | **Worth borrowing outright.** Failing loudly is safe but hostile; CMA versions the agent and pins the session, so running work finishes on its old config while new sessions get the new one. Rails is good at versioned rows |
+| Declarative per-tool permission policy (`default_config` + overrides) | Per-tool `approval` lambdas | Silas's is more powerful; CMA's is friendlier for the common case. Add the declarative form over the lambda |
+| Rubric-graded outcome loop (`user.define_outcome`) | Eval DSL + `final_answer` schema | Now **table stakes**, not differentiation — cheap to add on the existing pieces (see Phase A2) |
 | Nine first-party channels | Slack, email, generator | **Deliberate no** — vendor-API drift forever, and Rails gives no discount |
 | Frontend SDKs for four frameworks | Mounted engine + Turbo + JSON API/SSE | **Already ahead** for a Rails audience; document the API-plus-SPA path and stop |
 | Deployment product, Workflow "worlds" | Kamal, Solid Queue, your database | **Already ahead** — inherently self-hosted |
@@ -431,12 +512,26 @@ traces, using A1 for rollouts and A2 for fitness. Output: a PR against
 
 ### Track B — the parity floor
 
-Session workspace → file tools (`read_file`, `write_file`, `glob`, `grep`) →
-`todo` → `web_fetch`/`web_search` → typed session state → OpenAPI connections.
+**B0 — the durable MCP endpoint.** Promote `Mcp::Server` from an ephemeral
+per-turn `TCPServer` to an engine-mounted, session-scoped HTTPS endpoint with
+real auth. The exactly-once semantics behind it already exist; this is transport
+work. It moves to the front of the track because it is what makes Silas useful
+to CMA and eve users without asking them to switch frameworks — the Layer 3
+wedge.
+
+Then: session workspace → file tools (`read_file`, `write_file`, `glob`, `grep`)
+→ `todo` → `web_fetch`/`web_search` → typed session state → OpenAPI connections.
 Then stop.
 
-The session workspace is first because everything else on the list depends on
-it, and because Layer 3 cannot exist without it.
+**One scope reduction, courtesy of CMA.** The session workspace was justified
+partly by Layer 3 needing a builder agent that writes files across turns. With
+Layer 3 re-scoped to the tool plane, that justification weakens: the exploratory,
+file-heavy, sandboxed work can be delegated to a harness whose sandbox is already
+better than anything Silas will build. Keep the file tools — they're table stakes
+for anyone using Silas standalone — but **do not chase sandbox parity**, and
+size the workspace to "good enough to author and inspect files," not "a rival to
+a per-session microVM." That is the most useful practical consequence of CMA
+existing.
 
 ### Then — the product
 
@@ -595,3 +690,17 @@ safe enough to move money."**
 - **Exactly-once still only covers effects in your database.** That limit is
   stated honestly in `docs/why-silas.md` and it must stay stated. It's also
   exactly why Layer 2 works: the effects are rows, so replay can roll them back.
+- **The CMA read could go the other way, and it's worth naming.** The bet is that
+  "harness elsewhere, effects in Rails" is a shape teams want. The alternative is
+  that they accept at-least-once plus idempotency keys, keep everything in one
+  vendor, and never reach for a second system — in which case the tool plane is a
+  product nobody asks for. The cheap test is the same shape as A1's: build B0, put
+  it in front of someone already running CMA in anger, and see whether the
+  exactly-once pitch survives them shrugging and saying "we just use an
+  idempotency key." The ZDR/HIPAA cohort is the hedge — those teams have no
+  shrug available.
+- **Anthropic's non-eligibility is a snapshot, not a moat.** "Not *currently*
+  eligible" is the actual wording. If CMA ships a ZDR-compatible mode, the
+  regulated-market argument narrows to the transaction boundary alone — which is
+  still real and still structural, but it's one argument instead of two. Don't
+  build the positioning solely on their compliance gap.
