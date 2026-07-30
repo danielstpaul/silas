@@ -93,3 +93,42 @@ Silas.configure do |c|
   # c.eval_grader = ->(prompt) { … } # custom LLM grader for assert_rubric
 end
 ```
+
+## Replay a real turn against a different model
+
+Evals script the future; replay interrogates the past. Any completed turn can
+be re-asked, step by step: *given exactly the history the agent had at this
+point, what would a different model (or an edited prompt) have done here?*
+
+```bash
+bin/rails silas:replay TURN=31 MODEL=claude-haiku-4-5
+```
+
+```
+step 0  ✓ same call  find_customer {"query":"ada@example.com"}
+step 1  ✓ same call  recent_orders {"customer_id":1}
+step 2  ✗ DIVERGED
+        recorded  issue_refund {"order_id":1,"amount_pence":4800,…}
+        candidate issue_refund {"order_id":1,"amount_pence":2400,…}
+        ⚠ approval outcome would change: recorded would_park → candidate auto_approved
+```
+
+Three properties make the report trustworthy:
+
+- **Every step is re-conditioned on the recorded rows**, so each comparison
+  is like-with-like — the report says *where* the runs part company
+  ("agreed through the lookups, split on the refund amount") instead of
+  drifting into an unreadable wall of diff.
+- **Nothing executes and nothing writes.** Recorded calls are read from the
+  ledger; candidate calls are the model's answer to the rebuilt prompt; no
+  tool runs, no row is created. The only cost is the candidate's tokens.
+- **Approval gates are probed, read-only.** The report tells you when a
+  candidate's call would have cleared a gate the original parked on — a
+  cheaper model that changes *what gets governed* is a different finding
+  from one that words things differently, and it's the one that matters.
+
+`INSTRUCTIONS=path/to/file.md` replays against edited instructions;
+`FROM=n` starts partway; no `MODEL` means the null replay — the turn against
+its own recorded responses, which must always report zero divergence
+(`Silas::Replay` in Ruby, `Silas::Replay.call(turn, model: …)`, returns the
+structured result the rake task prints).
