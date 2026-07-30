@@ -89,7 +89,8 @@ recipes in [providers](providers.md).
 
 | Option | Default | Meaning |
 |---|---|---|
-| `mcp_server_host` | `"127.0.0.1"` | Bind host for the in-process MCP server (`Silas::Mcp::Server`, serving *your* tools to MCP clients). Inert — nothing starts that server yet; see [connections](connections.md). |
+| `mcp_auth` | deny (404) | Auth for the mounted MCP endpoint (`POST /silas/mcp` — your tools served to MCP clients, approval gates included). Same contract as `api_auth`; bearer-token example in [connections](connections.md). |
+| `mcp_server_host` | `"127.0.0.1"` | **Unused.** The old in-process TCP server is gone; the endpoint is a mounted route. Retained one release so initializers don't break — delete it from yours. |
 | `mcp_client_factory` | `nil` | `->(connection) { client }` — inject a fake MCP client per connection in tests. |
 
 The remaining accessors (`tool_resolver`, `tool_definitions`,
