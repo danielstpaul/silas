@@ -11,7 +11,8 @@ class FakeEngine < Silas::Adapters::Base
   def execute_step(context, &_on_event)
     @calls << { turn_index: context[:turn].index, step_index: context[:index],
                 message_count: context[:messages].size,
-                roles: context[:messages].map { |m| m[:role] } }
+                roles: context[:messages].map { |m| m[:role] },
+                tools: context[:tools], final_answer: context[:final_answer] }
     @script.call(context)
   end
 end

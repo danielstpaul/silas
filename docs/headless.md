@@ -106,11 +106,11 @@ Constraints worth knowing before you build on this:
   tokens. Per-user credentials need a tool of your own that reads them;
   `Tool#session` is the context the Ledger injects, so the session is where
   you hang "whose account is this".
-- **Changing capabilities fails parked turns, by design.** The definitions
-  digest is a nondeterminism guard: a turn parked before its tools changed is
-  *failed* on resume rather than resumed against a different agent. The
-  digest is per-scope, so scoped agents don't invalidate each other — but
-  within a scope, settle parked work before rolling a capability change out.
+- **Parked turns resume against their own definitions snapshot.** A
+  capability change while work is parked doesn't fail it — the turn keeps
+  the toolset it started with until it settles, and the drift is
+  instrumented. Pre-snapshot rows keep the older loud-failure contract
+  (`NondeterminismError` on resume).
 - **Memory is not in the digest.** It covers tool schemas, skill names and
   descriptions, and `final_answer` — so teaching an agent new *facts* is safe
   for parked turns, while changing its *tools* is not. If you build an

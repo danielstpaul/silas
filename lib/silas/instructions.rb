@@ -10,9 +10,17 @@ module Silas
     def snapshot!(turn)
       return if turn.instructions_snapshot.present? # idempotent: replay-safe
 
+      # definitions_snapshot carries EVERYTHING the model sees besides the
+      # messages: tool schemas and the final_answer schema. Resume reads it
+      # instead of the live registry, so a deploy mid-park changes nothing the
+      # model can observe — which is what lets a park survive `git push`.
       turn.update!(
         instructions_snapshot: render(turn),
-        definitions_digest: Silas.definitions_digest.to_s
+        definitions_digest: Silas.definitions_digest.to_s,
+        definitions_snapshot: {
+          "tools" => Silas.tool_definitions,
+          "final_answer" => Silas.agent.final_answer
+        }
       )
     end
 

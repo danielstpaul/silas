@@ -1,5 +1,23 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Parks survive `git push`.** Each turn now snapshots everything the model
+  can see besides the messages — the tool schemas and the `final_answer`
+  schema — beside its instructions snapshot, and **resumes against the
+  snapshot**. A deploy that changes tools while a turn is parked no longer
+  fails it with `definitions_changed`: the deploy is invisible to the model,
+  replay stays byte-identical, and the mismatch is instrumented as
+  `definitions_drift.silas` so operators can see a turn finishing on its
+  original definitions. If the model calls a tool the deploy removed, the
+  resolver's unknown-tool error aborts the step loudly with nothing
+  committed. Turns from before the new `definitions_snapshot` column keep
+  the original contract — a changed digest fails them loudly on resume —
+  so nothing already parked changes behavior on upgrade. Run
+  `bin/rails silas:install:migrations db:migrate` to add the column.
+
 ## 0.6.3 (2026-07-29)
 
 Two safety declarations were failing open, and one approval card could be
