@@ -81,7 +81,7 @@ RSpec.describe "the Slack channel", type: :request do
 
       session = Silas::Session.last
       expect(session.channel).to eq("recorder") # the resolved channel's own name
-      expect(session.continuation_token).to eq("recorder:T1:C1:1700000000.1")
+      expect(session.continuation_token).to eq("recorder:agent:T1:C1:1700000000.1")
       expect(session.turns.sole.input).to eq("refund my order")
       expect(session.metadata.dig("slack", "user")).to eq("U1")
     end

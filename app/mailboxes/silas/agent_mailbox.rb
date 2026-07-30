@@ -9,6 +9,10 @@ module Silas
       channel_class.dispatch(
         thread_key: self.class.thread_key(mail),
         input: body_text,
+        # Which staff member was written to (nil -> the root agent). Every
+        # recipient is a candidate — To, Cc, and the forwarding headers Action
+        # Mailbox's own routing matches on — first route wins.
+        agent: Silas::Channel.route_for("email", mail.recipients),
         metadata: { "email" => { "from" => mail.from&.first, "subject" => mail.subject } }
       )
     rescue Silas::TurnInProgressError

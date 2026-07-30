@@ -51,8 +51,11 @@ connection at a changed server.
 `config.mcp_client_factory = ->(connection) { fake_client }` injects a fake
 client per connection — the seam the gem's own specs use.
 
-## The other direction
+## The other direction — not wired up yet
 
-Silas can also *serve* your agent's tools as an MCP server (`Silas::Mcp::Server`,
-bound to `config.mcp_server_host`) — the "mount your tools as MCP" seam, so
-other MCP clients can call the tools you wrote for your agent.
+`Silas::Mcp::Server` is an in-process HTTP server that hosts your agent's tools
+for outside MCP clients, and `config.mcp_server_host` is its bind host. **You
+cannot turn it on.** Nothing in the gem starts it — the class is exercised by
+its own specs and nothing else — so serving your tools as MCP is not a feature
+you can use today. The code stays because a mounted endpoint is the planned
+shape; until that ships, treat this direction as absent.

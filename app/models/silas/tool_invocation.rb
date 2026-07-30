@@ -44,7 +44,7 @@ module Silas
       end
       assert_parked!
       assert_turn_resumable!
-      update!(status: "pending", approval_state: "approved", approved_by: by)
+      claim_verdict!(status: "pending", approval_state: "approved", approved_by: by)
       Silas.instrument(:approval, action: "approved", tool: tool_name, by: by,
                                   invocation_id: id, turn_id: turn_id)
       resume_turn!
@@ -60,8 +60,8 @@ module Silas
 
       assert_parked!
       assert_turn_resumable!
-      update!(status: "completed", approval_state: "answered", approved_by: by,
-              result: { "answer" => text })
+      claim_verdict!(status: "completed", approval_state: "answered", approved_by: by,
+                     result: { "answer" => text })
       Silas.instrument(:approval, action: "answered", tool: tool_name, by: by,
                                   invocation_id: id, turn_id: turn_id)
       resume_turn!
@@ -74,8 +74,8 @@ module Silas
     def decline!(reason:, by: nil)
       assert_parked!
       assert_turn_resumable!
-      update!(status: "failed", approval_state: "declined", approved_by: by,
-              decline_reason: reason, result: { "denied" => reason })
+      claim_verdict!(status: "failed", approval_state: "declined", approved_by: by,
+                     decline_reason: reason, result: { "denied" => reason })
       Silas.instrument(:approval, action: "declined", tool: tool_name, by: by,
                                   invocation_id: id, turn_id: turn_id)
       resume_turn!
@@ -102,6 +102,27 @@ module Silas
       raise Error, "invocation #{id} is not awaiting approval (state: #{approval_state.inspect})"
     end
 
+    # A verdict is a state TRANSITION, not a write. `assert_parked!` reads
+    # in-memory state, so without a compare-and-swap two holders of the same
+    # rendered approval card — two people, a double-click, a retried POST —
+    # both pass it, both write, and both reach `resume_turn!`. Two fresh
+    # AgentLoopJobs then run one turn concurrently: two paid model calls, and
+    # the second mints tool_call ids the ledger has never seen and therefore
+    # cannot dedup. That is precisely the double-execution `warn_unsafe_queue_
+    # adapter!` refuses to allow the Async adapter to cause, arriving instead
+    # through the approval path — the one path whose entire purpose is to be
+    # the safe place a human intervenes. Claim the row, or lose loudly.
+    def claim_verdict!(attrs)
+      claimed = self.class.where(id: id, approval_state: "required")
+                    .update_all(attrs.merge(updated_at: Time.current))
+      if claimed.zero?
+        reload
+        raise Error, "invocation #{id} was already settled (state: #{approval_state.inspect}, " \
+                     "by: #{approved_by.inspect}) — another verdict won the race"
+      end
+      reload
+    end
+
     # A failed turn must never be zombie-resumed by a stale approval card:
     # force-fail paths expire approvals first, but a card already rendered in
     # someone's browser can still POST — the verdict must land on a live turn.
@@ -123,7 +144,17 @@ module Silas
       # point is waiting for a person. Cost/token budgets stay cumulative;
       # they measure real spend.
       parked_for = turn.updated_at ? (Time.current - turn.updated_at).to_f : nil
-      turn.update!(status: "queued", started_at: Time.current)
+      # Second CAS, for the case a per-invocation claim cannot cover: two gated
+      # invocations on one step, settled concurrently. Both verdicts legitimately
+      # win their own row, both then see no remaining gate above, and both would
+      # enqueue. Only the verdict that actually moves the turn out of a parked
+      # status resumes it.
+      claimed = Silas::Turn.where(id: turn.id, status: %w[waiting in_doubt])
+                           .update_all(status: "queued", started_at: Time.current,
+                                       updated_at: Time.current)
+      return if claimed.zero?
+
+      turn.reload
       Silas.instrument(:resume, turn_id: turn.id, parked_for: parked_for)
       AgentLoopJob.perform_later(turn.id)
     end

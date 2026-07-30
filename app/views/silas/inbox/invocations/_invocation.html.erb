@@ -1,14 +1,32 @@
-<div class="tool" id="<%= dom_id(invocation) %>">
-  <div>
+<%# One invocation, one sentence — what ran, on what, how it ended — with the
+    call itself behind a disclosure.
+
+    The technical row is rendered TOO, hidden, and the page's raw switch picks
+    between them in CSS. It has to work that way: this partial is
+    broadcast-replaced on every transition, and a broadcast render has no
+    params and no reader to ask. CSS survives every replace; a choice baked
+    into the render would snap back on the first one.
+
+    `hidden` on the raw blocks, not just a class: a host that renders these
+    partials outside the inbox layout (examples/playground does) has none of
+    our stylesheet, and must see the sentence alone rather than both. %>
+<div class="tool deed <%= invocation_weight(invocation) %> <%= invocation_state_class(invocation) %>" id="<%= dom_id(invocation) %>">
+  <p class="deed-line feed-only">
+    <code class="deed-tool"><%= invocation.tool_name %></code>
+    <% invocation_arg_phrases(invocation).each do |phrase| %>
+      <span class="deed-sep">·</span><span class="deed-arg"><%= phrase %></span>
+    <% end %>
+    <span class="deed-arrow">→</span>
+    <span class="deed-outcome"><%= invocation_outcome(invocation) %></span>
+  </p>
+  <div class="deed-head raw-only" hidden>
     <code><%= invocation.tool_name %></code>
     <%= status_pill(invocation.awaiting_approval? ? "required" : invocation.status) %>
     <%# The audit line — who held the lever, and why it moved. %>
-    <% if invocation.approval_state == "approved" %>
-      <span class="muted"><%= invocation.approved_by.present? ? "approved by #{invocation.approved_by}" : "auto-approved by policy" %></span>
-    <% elsif invocation.approval_state == "answered" %>
-      <span class="muted">answered<%= " by #{invocation.approved_by}" if invocation.approved_by.present? %></span>
+    <% if (verdict = verdict_phrase(invocation)) %>
+      <span class="muted"><%= verdict %></span>
     <% elsif invocation.approval_state == "declined" %>
-      <span class="muted">declined<%= " by #{invocation.approved_by}" if invocation.approved_by.present? %><%= " — “#{invocation.decline_reason}”" if invocation.decline_reason.present? %></span>
+      <span class="muted"><%= declined_phrase(invocation) %></span>
     <% elsif invocation.approval_state == "expired" %>
       <span class="muted"><%= invocation.question? ? "question expired unanswered" : "approval expired unanswered" %></span>
     <% end %>
@@ -18,22 +36,19 @@
         its place in the movement with a one-line stub. %>
     <div class="held-stub">↑ held at the signal — <%= invocation.question? ? "answer" : "clear" %> it above</div>
   <% else %>
-    <%# What the agent passed — the question an audit surface must answer.
-        Key/value rows (05): scannable at a glance, JSON only per value. %>
-    <% if invocation.arguments.present? %>
-      <div class="tool-args">
-        <% invocation.arguments.each do |key, value| %>
-          <div class="kv"><span class="k"><%= key %></span><span class="v"><%= value.is_a?(String) ? value : JSON.generate(value) %></span></div>
-        <% end %>
-      </div>
-    <% end %>
-    <% if invocation.error.present? %>
-      <pre class="error"><%= invocation.error %></pre>
-    <% elsif invocation.result.present? %>
-      <details class="tool-result">
-        <summary>result</summary>
-        <pre><%= pretty_args(invocation.result) %></pre>
-      </details>
-    <% end %>
+    <details class="deed-detail feed-only">
+      <summary>arguments and result</summary>
+      <%= render "silas/inbox/invocations/detail", invocation: invocation %>
+    </details>
+    <div class="raw-only" hidden>
+      <%= render "silas/inbox/invocations/detail", invocation: invocation %>
+    </div>
+  <% end %>
+  <%# A handoff or a delegation is the one call whose outcome is another
+      session. It belongs here, at the call that made it — that is the only
+      place in the product where "A handed to B" is a fact you can read.
+      Outside the raw/feed split: lineage is not a reading, it happened. %>
+  <% if (child = invocation_child_session(invocation)) %>
+    <%= render "silas/inbox/sessions/child", child: child %>
   <% end %>
 </div>

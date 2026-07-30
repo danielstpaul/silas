@@ -44,7 +44,7 @@ here:
 
 | Not doing | Because |
 |---|---|
-| Provider abstraction, model routing, token counting | [RubyLLM](https://rubyllm.com)'s job. One inference seam, no wrapping. |
+| Provider abstraction | [RubyLLM](https://rubyllm.com) and OpenAI-compatible gateways own the dialect fan-out. One inference seam, no wrapping. (Model *routing* and per-step cost *accounting* are **in** scope — they read the ledger Silas already writes, and they're part of the product, not plumbing.) |
 | Hosted state / a managed Silas cloud | The whole point is that agent state lives in **your** database, inside your transaction boundary. |
 | RAG, vector stores, embeddings | Retrieval is its own category with good Ruby options; compose them as tools. |
 | More first-party channels | Each is a vendor API drifting forever. `rails g silas:channel` is the answer. |
@@ -54,5 +54,7 @@ here:
 ## Releases
 
 Maintainer-driven: squash-merge, then a GitHub release triggers Trusted
-Publishing to RubyGems. Every release runs the full suite, RuboCop, Brakeman,
-and the chaos gate where the loop changed.
+Publishing to RubyGems. CI runs the full suite, RuboCop and Brakeman on every
+push. The chaos gate is local and manual: the maintainer runs
+`chaos_host/bin/full_gate` before a release and commits the results, which is
+what `docs/guarantees.md` points readers at.

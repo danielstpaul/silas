@@ -17,6 +17,8 @@ module Silas
           thread_key = "#{params[:team_id]}:#{event[:channel]}:#{event[:thread_ts] || event[:ts]}"
           channel_class.dispatch(
             thread_key: thread_key, input: event[:text].to_s,
+            # Which staff member owns this Slack channel (nil -> the root agent).
+            agent: Silas::Channel.route_for("slack", event[:channel]),
             metadata: { "slack" => { "channel" => event[:channel],
                                      "thread_ts" => event[:thread_ts] || event[:ts],
                                      "user" => event[:user] } }

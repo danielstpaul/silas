@@ -220,10 +220,12 @@ app/agents/escalations/
 ```
 
 Restart, and the desk can delegate durably: the built-in `handoff` tool files
-a **self-contained brief** that starts a linked session for the named agent —
-exactly-once-guarded and cycle-checked — instead of two models chatting
-freely (a cost and audit hazard, deliberately unblessed). Talk to a
-specialist directly with `Silas.agent("escalations").start(input: "…")` or
+a **self-contained brief** that starts a linked session for the named agent,
+rather than letting two models chat freely (a cost and audit hazard,
+deliberately unblessed). A handoff is cycle-checked and at-most-once: a crash
+mid-handoff parks it in doubt for a person instead of starting the colleague
+twice. Talk to a specialist directly with
+`Silas.agent("escalations").start(input: "…")` or
 `bin/rails silas:chat AGENT=escalations`; the inbox filters by agent.
 
 ## 10 · Fit the governors: budgets and compaction

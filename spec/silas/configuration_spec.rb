@@ -74,6 +74,18 @@ RSpec.describe Silas::Configuration do
         Silas.configure { |c| c.adapter = :ruby_llm }
       }.to raise_error(Silas::BootGuardError, /Async queue adapter/)
     end
+
+    # The guard is scoped to :async on purpose. Sidekiq/GoodJob/Resque lose the
+    # dead-job rescue path (doctor warns about it), but taking their production
+    # boot down over it in a patch release is not a trade Silas makes.
+    it "does not raise in production for an adapter that isn't async" do
+      adapter = double(class: double(name: "ActiveJob::QueueAdapters::SidekiqAdapter"))
+      allow(ActiveJob::Base).to receive(:queue_adapter).and_return(adapter)
+      allow(Rails).to receive(:env).and_return(ActiveSupport::StringInquirer.new("production"))
+      allow(RubyLLM.config).to receive(:anthropic_api_key).and_return("sk-test")
+
+      expect { Silas.configure { |c| c.adapter = :ruby_llm } }.not_to raise_error
+    end
   end
 
   describe "re-resolution on reconfigure" do

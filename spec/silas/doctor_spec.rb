@@ -49,11 +49,25 @@ RSpec.describe Silas::Doctor do
     expect(c.status).to eq(:warn)
   end
 
-  it "flags the async queue adapter as a failure" do
+  it "flags the async queue adapter as a failure and prints the config to paste" do
     adapter = double(class: double(name: "ActiveJob::QueueAdapters::AsyncAdapter"))
     allow(ActiveJob::Base).to receive(:queue_adapter).and_return(adapter)
     c = check("queue adapter")
     expect(c.status).to eq(:fail)
     expect(c.detail).to match(/solid_queue/)
+    expect(c.detail).to include("config.active_job.queue_adapter = :solid_queue")
+    expect(c.detail).to include("bin/jobs")
+  end
+
+  # Sidekiq/GoodJob/Resque: a warning, not a failure (making it fatal would
+  # break their production boot). It has to say what they actually lose.
+  it "names the missing rescue path for an adapter it doesn't recognise" do
+    adapter = double(class: double(name: "ActiveJob::QueueAdapters::SidekiqAdapter"))
+    allow(ActiveJob::Base).to receive(:queue_adapter).and_return(adapter)
+    c = check("queue adapter")
+    expect(c.status).to eq(:warn)
+    expect(c.detail).to include("Sidekiq")
+    expect(c.detail).to include("no dead-job rescue path")
+    expect(c.detail).to include("in-doubt")
   end
 end

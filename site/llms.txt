@@ -22,6 +22,7 @@ All docs below are plain markdown and also ship inside the gem package.
 - [Memory](https://raw.githubusercontent.com/danielstpaul/silas/main/docs/memory.md): approval-gated triples with provenance
 - [Channels](https://raw.githubusercontent.com/danielstpaul/silas/main/docs/channels.md): Slack, email, and generating transports
 - [Inbox & API](https://raw.githubusercontent.com/danielstpaul/silas/main/docs/inbox-and-api.md): operator surface, JSON + SSE, streaming, structured answers
+- [Headless](https://raw.githubusercontent.com/danielstpaul/silas/main/docs/headless.md): your own UI over the model API; approve/decline/answer without mounting the engine
 - [Connections](https://raw.githubusercontent.com/danielstpaul/silas/main/docs/connections.md): remote MCP servers as YAML files
 - [Evals](https://raw.githubusercontent.com/danielstpaul/silas/main/docs/evals.md): scripted model decisions, real ledger, deploy gates
 - [Budgets](https://raw.githubusercontent.com/danielstpaul/silas/main/docs/budgets.md): per-turn caps, parking, human top-ups
@@ -30,6 +31,7 @@ All docs below are plain markdown and also ship inside the gem package.
 - [Configuration](https://raw.githubusercontent.com/danielstpaul/silas/main/docs/configuration.md): every Silas.configure option with defaults
 - [Providers & gateways](https://raw.githubusercontent.com/danielstpaul/silas/main/docs/providers.md): any RubyLLM provider, OpenRouter, OpenAI-compatible gateways, local runtimes
 - [Conventions](https://raw.githubusercontent.com/danielstpaul/silas/main/docs/conventions.md): contracts the UI and API keep
+- [The trace schema](https://raw.githubusercontent.com/danielstpaul/silas/main/docs/traces.md): the execution ledger as a documented, versioned interface in your own database
 - [Deploy](https://raw.githubusercontent.com/danielstpaul/silas/main/DEPLOY.md): production notes from the chaos harness
 
 ## Optional

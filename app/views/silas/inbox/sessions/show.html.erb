@@ -12,6 +12,16 @@
     <span class="muted">#<%= @session.id %></span>
   </div>
   <div class="muted"><%= @session.channel.presence || "direct" %> · started <%= silas_relative_time(@session.created_at) %></div>
+  <%# Lineage up. This session's first turn is another agent's brief; without
+      the line it reads as a session that started itself. %>
+  <% if (parent = @session.parent_session) %>
+    <div class="lineage">
+      <span class="lineage-mark">↖</span>
+      <%= lineage_from_phrase(@session) %>
+      <span class="lineage-agent"><%= parent.agent_name %></span>
+      <%= link_to "session ##{parent.id}", inbox_session_path(parent) %>
+    </div>
+  <% end %>
   <%= render "silas/inbox/sessions/cost", session: @session %>
 </div>
 
@@ -24,9 +34,32 @@
              collection: @session.pending_approvals.order(:id), as: :invocation %>
 </div>
 
+<%# The switch is a bare checkbox and #silas-turns is its SIBLING, because the
+    swap has to be pure CSS: every row in the feed can be replaced by a
+    broadcast at any moment, and a broadcast render has no params to consult.
+    Both readings are in the DOM; :checked decides which one is on. %>
+<input type="checkbox" id="silas-raw" class="raw-switch">
+<div class="feed-bar">
+  <label class="chip" for="silas-raw">raw trace</label>
+</div>
+
 <div id="silas-turns">
   <%= render partial: "silas/inbox/turns/turn", collection: @turns, as: :turn %>
 </div>
+<%# :has, not a Ruby conditional — a turn appended live has to retire this
+    line, and the append never re-renders the page. %>
+<div class="empty feed-empty">Nothing has happened here yet.</div>
+
+<%# Lineage down, for the children the feed cannot place: an at_most_once
+    handoff that crashed after starting the colleague leaves the session
+    created and the result unrecorded, so no row in the trace names it. %>
+<% stranded = stranded_child_sessions(@session, @turns) %>
+<% if stranded.any? %>
+  <div class="card">
+    <div class="muted">Started from this session, at a point the trace never recorded:</div>
+    <%= render partial: "silas/inbox/sessions/child", collection: stranded, as: :child %>
+  </div>
+<% end %>
 
 <div class="card composer">
   <%= form_with url: inbox_session_turns_path(@session) do |f| %>

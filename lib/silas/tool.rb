@@ -23,16 +23,16 @@ module Silas
     class << self
       def description(text = nil)
         @description = text if text
-        @description || ""
+        inherited_setting(:@description) || ""
       end
 
       def param(name, type = :string, desc: nil)
-        param_refinements[name.to_sym] = { type: type.to_s, desc: desc }
+        own_param_refinements[name.to_sym] = { type: type.to_s, desc: desc }
       end
 
       def approval(policy = nil, &block)
         @approval_policy = block || policy unless policy.nil? && block.nil?
-        @approval_policy || :never
+        inherited_setting(:@approval_policy) || :never
       end
       alias approval_policy approval
 
@@ -40,7 +40,7 @@ module Silas
       def idempotent!    = @effect_mode = :idempotent
       def at_most_once!  = @effect_mode = :at_most_once
 
-      def effect_mode = @effect_mode || :at_most_once
+      def effect_mode = inherited_setting(:@effect_mode) || :at_most_once
 
       def tool_name
         name.demodulize.underscore
@@ -79,8 +79,41 @@ module Silas
 
       private
 
-      def param_refinements
+      # Ruby does NOT inherit class-level instance variables. Without this walk,
+      # factoring shared declarations into a base class —
+      #
+      #   class MoneyTool < Silas::Tool
+      #     transactional!
+      #     approval :always
+      #   end
+      #   class IssueRefund < MoneyTool; end
+      #
+      # — silently drops both in the subclass, and drops them into the LEAST
+      # safe defaults: no database transaction (:at_most_once) and no human
+      # gate (:never). Silently disarming the two declarations the ledger acts
+      # on is the worst failure this DSL could have, so settings resolve up the
+      # ancestry: nearest explicit declaration wins.
+      def inherited_setting(ivar)
+        klass = self
+        while klass.respond_to?(:inherited_setting, true)
+          value = klass.instance_variable_get(ivar)
+          return value unless value.nil?
+
+          klass = klass.superclass
+        end
+        nil
+      end
+
+      def own_param_refinements
         @param_refinements ||= {}
+      end
+
+      # Merged down the ancestry so a base class's `param` refinements survive;
+      # a subclass redeclaring the same param wins.
+      def param_refinements
+        return own_param_refinements unless superclass.respond_to?(:param_refinements, true)
+
+        superclass.send(:param_refinements).merge(own_param_refinements)
       end
     end
 

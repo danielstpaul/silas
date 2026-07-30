@@ -1,8 +1,9 @@
-<%= link_to inbox_session_path(session), class: "card session-row" do %>
+<%= link_to inbox_session_path(session),
+      class: [ "card", "session-row", ("session-child" if session.parent_session) ] do %>
   <div class="row-top">
     <span class="name"><%= session.agent_name %></span>
     <%# Loaded association — no per-row queries. %>
-    <% if (turn = session.turns.detect(&:active?) || session.turns.last) %><%= status_pill(turn.status) %><% end %>
+    <% if (turn = session_state_turn(session)) %><%= status_pill(turn.status) %><% end %>
     <% pending = pending_counts.fetch(session.id, 0) %>
     <% if pending.positive? %><span class="badge"><%= pending %> held</span><% end %>
   </div>
@@ -11,4 +12,14 @@
     <%= session.channel.presence || "direct" %> ·
     <%= silas_relative_time(session.updated_at) %>
   </div>
+  <%# A child session is nobody's stray: its first turn is another agent's
+      brief. Named here, or the index shows a row no one can account for.
+      Text, not a link — the whole card already is one. %>
+  <% if (parent = session.parent_session) %>
+    <div class="lineage">
+      <span class="lineage-mark">↖</span>
+      <%= lineage_from_phrase(session) %>
+      <span class="lineage-agent"><%= parent.agent_name %></span>
+    </div>
+  <% end %>
 <% end %>

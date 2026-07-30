@@ -69,6 +69,7 @@ recipes in [providers](providers.md).
 | Option | Default | Meaning |
 |---|---|---|
 | `slack_signing_secret` / `slack_bot_token` | `credentials.silas.slack.*` | Explicit setters override the credentials path; `nil` disables Slack. |
+| `channel_routes` | `{}` | Which agent an inbound thread wakes: `{ "slack" => { "C0BILLING" => "bookkeeper" }, "email" => { "billing@shop.test" => "bookkeeper" } }`. Unmatched threads wake the root agent. Names are checked at boot against `app/agents/` — a typo fails the deploy, never a webhook. See [channels](channels.md#routing-which-agent-wakes). |
 
 ## Evals
 
@@ -88,7 +89,7 @@ recipes in [providers](providers.md).
 
 | Option | Default | Meaning |
 |---|---|---|
-| `mcp_server_host` | `"127.0.0.1"` | Bind host for the in-process MCP server (serving *your* tools to MCP clients). |
+| `mcp_server_host` | `"127.0.0.1"` | Bind host for the in-process MCP server (`Silas::Mcp::Server`, serving *your* tools to MCP clients). Inert — nothing starts that server yet; see [connections](connections.md). |
 | `mcp_client_factory` | `nil` | `->(connection) { client }` — inject a fake MCP client per connection in tests. |
 
 The remaining accessors (`tool_resolver`, `tool_definitions`,

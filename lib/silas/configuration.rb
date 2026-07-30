@@ -50,9 +50,23 @@ module Silas
     # Channels: name -> Channel subclass (wired by the Registry). Slack creds
     # default to credentials.dig(:silas, :slack, ...); nil disables Slack.
     attr_accessor :channel_resolver
+    # Inbound routing: which named agent an external thread wakes. Data only —
+    # { transport => { key => agent_name } }, where transport is the channel's
+    # filename identity and key is whatever that transport calls a destination:
+    #
+    #   config.channel_routes = {
+    #     "slack" => { "C0BILLING" => "bookkeeper" },
+    #     "email" => { "billing@shop.test" => "bookkeeper" }
+    #   }
+    #
+    # Unmatched threads wake the root agent. Names are checked at boot against
+    # app/agents/ (Registry.install!) — a typo fails the deploy, never a
+    # webhook.
+    attr_accessor :channel_routes
     attr_writer :slack_signing_secret, :slack_bot_token
     # Bind host for the in-process MCP server (Mcp::Server — the "mount your
-    # tools as MCP" seam).
+    # tools as MCP" seam). Inert: nothing outside Mcp::Server's own specs calls
+    # .start, so this setting has no effect until a mounted endpoint ships.
     attr_accessor :mcp_server_host
 
     # Renamed in 0.4, removed in 2.0. "engine" meant two unrelated things —
@@ -134,6 +148,7 @@ module Silas
       @agent_override = nil
       @instructions_dir = nil
       @channel_resolver = nil
+      @channel_routes = {}
       @slack_signing_secret = nil
       @slack_bot_token = nil
       @mcp_server_host = "127.0.0.1"

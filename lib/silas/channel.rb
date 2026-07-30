@@ -4,34 +4,108 @@ module Silas
   #
   # Inbound is pure trigger reuse: dispatch maps an external thread to a Session
   # via silas_sessions.channel + continuation_token, then calls the UNCHANGED
-  # public API (new thread -> Silas.agent.start; reply -> session.continue).
+  # public API (new thread -> the routed agent's .start; reply -> continue).
   # Outbound (deliver the agent's answer / an approval request) is a subclass
   # responsibility, invoked off the loop by ChannelDeliveryJob — so the loop's
   # determinism and the ledger's exactly-once are never touched.
   class Channel
     TOKEN_PURPOSE = "silas/channel".freeze
+    # silas_sessions.agent_name for the root app/agent — the column's default,
+    # and the name the loop reads as "no named scope".
+    ROOT_AGENT = "agent".freeze
 
     def self.channel_name = name.demodulize.underscore
 
-    # Stable external-thread key, namespaced by channel so two channels can't collide.
-    def self.namespaced(thread_key) = "#{channel_name}:#{thread_key}"
+    # Stable external-thread key, namespaced by channel AND agent: two channels
+    # can't collide, and two staff members sharing one transport can't either.
+    def self.namespaced(thread_key, agent_name = nil)
+      "#{channel_name}:#{agent_name.presence || ROOT_AGENT}:#{thread_key}"
+    end
 
-    # The single inbound entry point for every transport.
-    def self.dispatch(thread_key:, input:, metadata: {})
-      token = namespaced(thread_key)
-      if (session = Silas::Session.find_by(continuation_token: token))
+    # Tokens minted before routing existed have no agent segment. Every one of
+    # them belongs to the root agent — dispatch could start nothing else — so a
+    # miss on the new form falls back to this one and a live thread upgrades
+    # without losing its session.
+    def self.legacy_namespaced(thread_key) = "#{channel_name}:#{thread_key}"
+
+    def self.find_session(thread_key, agent_name)
+      Silas::Session.find_by(continuation_token: namespaced(thread_key, agent_name)) ||
+        Silas::Session.find_by(continuation_token: legacy_namespaced(thread_key))
+    end
+
+    # The single inbound entry point for every transport. `agent` is the NAME of
+    # the staff member this thread belongs to (nil or "agent" = the root agent);
+    # callers read it off configuration with .route_for.
+    def self.dispatch(thread_key:, input:, metadata: {}, agent: nil)
+      name = resolve_agent(agent)
+      if (session = find_session(thread_key, name))
         session.continue(input: input)
         session
       else
-        Silas.agent.start(input: input, metadata: metadata,
-                          channel: channel_name, continuation_token: token)
+        owner = name ? Silas.agent(name) : Silas.agent
+        owner.start(input: input, metadata: metadata,
+                    channel: channel_name, continuation_token: namespaced(thread_key, name))
       end
     rescue ActiveRecord::RecordNotUnique
       # Concurrent first-inbound race: the other request created the session;
-      # treat this message as a continue.
-      session = Silas::Session.find_by!(continuation_token: namespaced(thread_key))
+      # treat this message as a continue. Nothing to continue means the conflict
+      # was something else, so let it out.
+      session = find_session(thread_key, name) or raise
       session.continue(input: input)
       session
+    end
+
+    # ---- routing: which agent an inbound thread wakes -----------------------
+
+    # config.channel_routes, normalised to { transport => { key => agent_name } }.
+    # Keys are matched downcased because email recipients are case-insensitive;
+    # Slack channel ids are unaffected by folding both sides the same way.
+    def self.routes
+      (Silas.config.channel_routes || {}).to_h do |transport, table|
+        [ transport.to_s, table.to_h { |key, agent| [ key.to_s.downcase, agent.to_s ] } ]
+      end
+    end
+
+    # The agent name a thread on `transport` belongs to, or nil for the root
+    # agent. Candidate keys are tried in order and the first match wins, so a
+    # caller holding several (an email's recipients) passes them all.
+    def self.route_for(transport, *keys)
+      table = routes[transport.to_s] or return nil
+
+      keys.flatten.filter_map { |key| table[key.to_s.downcase] }.first
+    end
+
+    # Checked at boot by Registry.install! against the app/agents/ roster. A
+    # route naming an agent that doesn't exist is a deploy failure, not a
+    # runtime one: Silas.agent raises on an unknown name, and discovering that
+    # at dispatch time would strand every future message on the thread.
+    def self.validate_routes!(staff)
+      staff = staff.map(&:to_s)
+      routes.each do |transport, table|
+        table.each do |key, agent|
+          next if agent == ROOT_AGENT || staff.include?(agent)
+
+          raise Error, "config.channel_routes[#{transport.inspect}][#{key.inspect}] routes to " \
+                       "agent #{agent.inspect}, which does not exist" \
+                       "#{staff.any? ? " (known: #{staff.sort.join(', ')})" : " — no app/agents/ directories found"}"
+        end
+      end
+    end
+
+    # nil means the root agent. An unknown name resolves to nil instead of
+    # raising: dispatch runs inside a webhook handler, and a 500 there is a
+    # message Slack retries into its own retry guard and then loses. Boot
+    # already refused a bad route, so this only fires when routes were assigned
+    # after boot — the thread lands on the root agent, exactly where it landed
+    # before routing existed, and the log says so.
+    def self.resolve_agent(name)
+      name = name.to_s
+      return nil if name.empty? || name == ROOT_AGENT
+      return name if Silas.named_agent?(name)
+
+      Rails.logger&.error("[Silas] channel route names unknown agent #{name.inspect}; " \
+                          "starting the root agent instead. Fix config.channel_routes.")
+      nil
     end
 
     # Resolve the channel instance that owns a session (for outbound delivery).

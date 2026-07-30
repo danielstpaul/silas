@@ -15,8 +15,25 @@ RSpec.describe "named agents" do
     filer  = Silas.named_agent_scopes["filer"]
     expect(scribe.definitions.map { |d| d["name"] }).to include("sign_scroll", "load_skill")
     expect(scribe.definitions.map { |d| d["name"] }).not_to include("file_report")
-    expect(filer.definitions.map { |d| d["name"] }).to eq(%w[file_report remember recall handoff])
+    expect(filer.definitions.map { |d| d["name"] }).to eq(%w[file_report ask_question remember recall handoff])
     expect(scribe.digest).not_to eq(filer.digest)
+  end
+
+  it "gives a named agent ask_question — staff can park for a person too" do
+    scope = Silas.named_agent_scopes["filer"]
+    expect(scope.definitions.map { |d| d["name"] }).to include("ask_question")
+    expect(scope.resolver.call("ask_question")).to be_a(Silas::Tools::AskQuestion)
+
+    Silas.config.ask_question = false
+    off = Silas::Registry.new(root: DummyApp.root).named_agent_scopes["filer"]
+    expect(off.definitions.map { |d| d["name"] }).not_to include("ask_question")
+    expect(off.digest).not_to eq(scope.digest)
+  end
+
+  it "names the tool and the agent when a named agent asks for a tool it doesn't have" do
+    scope = Silas.named_agent_scopes["filer"]
+    expect { scope.resolver.call("sign_scroll") }
+      .to raise_error(Silas::Error, /unknown tool "sign_scroll" for agent "filer"/)
   end
 
   it "Silas.agent(:name) returns a handle with the agent.yml definition" do

@@ -1,0 +1,21 @@
+<%# The call itself, shared by the feed's disclosure and the raw trace.
+
+    Arguments and results are MODEL-authored. Every value below goes through
+    ERB's escape and nothing here is ever marked html_safe. %>
+<div class="raw-state">status <%= invocation.status %> · approval <%= invocation.approval_state || "none" %> · effect <%= invocation.effect_mode %></div>
+<%# What the agent passed — the question an audit surface must answer.
+    Key/value rows (05): scannable at a glance, JSON only per value. %>
+<% if invocation.arguments.present? %>
+  <div class="tool-args">
+    <% invocation.arguments.each do |key, value| %>
+      <div class="kv"><span class="k"><%= key %></span><span class="v"><%= value.is_a?(String) ? value : JSON.generate(value) %></span></div>
+    <% end %>
+  </div>
+<% else %>
+  <div class="muted">called with no arguments</div>
+<% end %>
+<% if invocation.error.present? %>
+  <pre class="error"><%= invocation.error %></pre>
+<% elsif invocation.result.present? %>
+  <pre><%= pretty_args(invocation.result) %></pre>
+<% end %>

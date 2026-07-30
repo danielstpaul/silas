@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_25_010145) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_29_011522) do
   create_table "customers", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "email", null: false
@@ -36,6 +36,21 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_25_010145) do
     t.string "reason"
     t.datetime "updated_at", null: false
     t.index ["order_id"], name: "index_refunds_on_order_id"
+  end
+
+  create_table "silas_compactions", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.integer "input_tokens"
+    t.string "model"
+    t.integer "output_tokens"
+    t.integer "session_id", null: false
+    t.string "status", default: "pending", null: false
+    t.text "summary"
+    t.integer "tokens_before"
+    t.integer "up_to_turn_id", null: false
+    t.integer "up_to_turn_index", null: false
+    t.datetime "updated_at", null: false
+    t.index ["session_id", "up_to_turn_index"], name: "index_silas_compactions_on_session_id_and_up_to_turn_index", unique: true
   end
 
   create_table "silas_memories", force: :cascade do |t|

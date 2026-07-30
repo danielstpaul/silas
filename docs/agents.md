@@ -46,6 +46,12 @@ resumes — runs under that agent's own tools, skills, instructions, and
 definitions digest. Scope switching is execution-isolated, so concurrent jobs
 running different agents never cross wires.
 
+A named agent is staff, not a lesser agent: it gets `ask_question` (subject to
+`config.ask_question`), `load_skill` when it has skills, `run_code` when the
+sandbox is on, `remember`/`recall`, `handoff`, and the remote tools from
+`app/agent/connections/` — one set of credentials for the whole app. It does
+not get `delegate`; subagents belong to the root agent's turn.
+
 ```ruby
 Silas.agent("escalations").start(input: "…")
 ```
@@ -55,6 +61,10 @@ bin/rails silas:chat AGENT=escalations   # talk to one staff member
 ```
 
 The inbox filters by agent; the root `app/agent/` stays the default.
+
+Staff answer their own mail: `config.channel_routes` sends a Slack channel or an
+email address to a named agent, and every turn on that thread runs under their
+scope. See [channels](channels.md#routing-which-agent-wakes).
 
 ## Subagents — delegation within a turn
 
@@ -67,9 +77,11 @@ to keep a specialist's tools out of the main agent's prompt until needed.
 Staff compose through **handoffs, not conversations**: the built-in `handoff`
 tool files a self-contained brief that starts a **linked session** for another
 named agent — asynchronously by default, or `await: true` for an answer.
-Handoffs are exactly-once-guarded and cycle-checked. Two models chatting
-freely is a cost and audit hazard, so it's deliberately unblessed; a handoff
-is a work order, with the paper trail that implies.
+Handoffs are cycle-checked, and at-most-once: filing one is a single external
+effect, so a crash mid-handoff parks the call **in doubt** for a person rather
+than starting the colleague twice. Two models chatting freely is a cost and
+audit hazard, so it's deliberately unblessed; a handoff is a work order, with
+the paper trail that implies.
 
 ## Schedules give any agent a clock
 

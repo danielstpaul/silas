@@ -75,6 +75,7 @@ Create a tool at `app/agent/tools/issue_refund.rb` — the keyword signature
 ```ruby
 class Agent::Tools::IssueRefund < Silas::Tool
   description "Refund part or all of an order."
+  param :amount_pence, :integer, desc: "Amount in pence (1800 = £18.00)"
   approval ->(session:, input:) { input[:amount_pence] > 2_500 ? :user_approval : :approved }
   transactional!   # DB effect + ledger commit atomically -> exactly-once
 
@@ -95,8 +96,9 @@ bin/rails silas:chat
 Refunds over £25 hold for a person — in the operator inbox the gem mounts at
 `/silas/inbox`, in Slack, or over the JSON API — and approving resumes the
 turn exactly where it stopped, with exactly one refund row in your database.
-How that's guaranteed (and verified with a `kill -9` chaos harness on every
-release): [guarantees](https://danielstpaul.github.io/silas/guarantees).
+How that's guaranteed — and verified by a `kill -9` chaos harness run before
+each release, results committed under `chaos_host/results/`:
+[guarantees](https://danielstpaul.github.io/silas/guarantees).
 
 ## Status
 
