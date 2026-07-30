@@ -23,7 +23,4 @@ jobs:
           ruby-version: "3.4"
           bundler-cache: true
       - run: bundle exec rspec
-      - name: DEBUG what is dirty
-        run: |
-          echo "=== porcelain ==="; git status --porcelain
-          echo "=== diff ==="; git diff | head -100
+      - uses: rubygems/release-gem@v1

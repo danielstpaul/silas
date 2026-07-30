@@ -2,3 +2,5 @@ Gemfile.lock
 spec/dummy/log/
 spec/dummy/tmp/
 coverage/
+.bundle/
+vendor/bundle/
